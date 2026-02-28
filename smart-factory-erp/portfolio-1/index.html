@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>팩토리온 (FactoryOn) — 통합 ERP/MES 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.skeleton{background:linear-gradient(90deg,#E0F2FE 25%,#BAE6FD 50%,#E0F2FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── 디자인 토큰 ──────────────────────────────────────────
+const C = {
+  primary: '#0066CC',
+  primaryDark: '#004FA3',
+  primaryLight: '#E0F2FE',
+  secondary: '#1A365D',
+  accent: '#38BDF8',
+  bg: '#F0F9FF',
+  surface: '#FFFFFF',
+  sidebar: '#0F172A',
+  sidebarActive: '#0066CC',
+  border: '#E2E8F0',
+  text: '#0F172A',
+  textSub: '#475569',
+  textLight: '#94A3B8',
+  success: '#059669',
+  warning: '#D97706',
+  danger: '#DC2626',
+  info: '#0284C7',
+  card: { borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: 24 },
+};
+
+// ── 더미 데이터 ──────────────────────────────────────────
+const INVENTORY = [
+  { id: 'P001', name: '스테인리스 볼트 M8×30', category: '체결류', stock: 2340, min: 500, unit: '개', status: 'normal', lastIn: '2026-02-20', location: 'A-12-3' },
+  { id: 'P002', name: '베어링 6205-2RS', category: '회전체', stock: 87, min: 100, unit: '개', status: 'low', lastIn: '2026-02-15', location: 'B-03-1' },
+  { id: 'P003', name: '오링 φ50×3.5', category: '실링', stock: 1560, min: 300, unit: '개', status: 'normal', lastIn: '2026-02-22', location: 'A-05-2' },
+  { id: 'P004', name: '유압호스 DN12 1M', category: '배관', stock: 34, min: 50, unit: 'EA', status: 'low', lastIn: '2026-01-30', location: 'C-08-4' },
+  { id: 'P005', name: '필터 엘리먼트 HF-220', category: '필터', stock: 220, min: 60, unit: '개', status: 'normal', lastIn: '2026-02-18', location: 'B-11-2' },
+  { id: 'P006', name: '커플링 어댑터 3/4"', category: '연결', stock: 12, min: 30, unit: 'EA', status: 'critical', lastIn: '2026-01-10', location: 'A-02-1' },
+  { id: 'P007', name: '구동 모터 0.75kW', category: '전기', stock: 8, min: 5, unit: '대', status: 'normal', lastIn: '2026-02-05', location: 'D-01-1' },
+  { id: 'P008', name: '에어 컴프레서 필터', category: '필터', stock: 45, min: 20, unit: '개', status: 'normal', lastIn: '2026-02-10', location: 'C-04-3' },
+];
+
+const ORDERS = [
+  { id: 'PO-2026-0142', vendor: '(주)한국볼트', items: '스테인리스 볼트 M8×30 × 5,000개', amount: '₩1,250,000', status: '납품완료', date: '2026-02-18', due: '2026-02-20' },
+  { id: 'PO-2026-0141', vendor: '베어링코리아(주)', items: '베어링 6205-2RS × 200개', amount: '₩890,000', status: '배송중', date: '2026-02-20', due: '2026-02-27' },
+  { id: 'PO-2026-0140', vendor: '(주)유신실링', items: '오링 φ50×3.5 × 3,000개', amount: '₩420,000', status: '발주확인', date: '2026-02-22', due: '2026-03-01' },
+  { id: 'PO-2026-0139', vendor: '한국유압(주)', items: '유압호스 DN12 × 100M', amount: '₩2,100,000', status: '승인대기', date: '2026-02-23', due: '2026-03-05' },
+  { id: 'PO-2026-0138', vendor: '필터테크(주)', items: '필터 엘리먼트 HF-220 × 500개', amount: '₩3,750,000', status: '납품완료', date: '2026-02-10', due: '2026-02-15' },
+];
+
+const AS_LIST = [
+  { id: 'AS-0842', client: '현대기업 부천공장', type: '정기점검', priority: '일반', status: '처리중', assignee: '김민수', received: '2026-02-24', phone: '032-xxx-xxxx' },
+  { id: 'AS-0841', client: '삼성전자 화성사업장', type: '긴급수리', priority: '긴급', status: '대기', assignee: '미배정', received: '2026-02-25', phone: '031-xxx-xxxx' },
+  { id: 'AS-0840', client: '(주)코오롱', type: '부품교체', priority: '보통', status: '완료', assignee: '이준호', received: '2026-02-20', phone: '02-xxx-xxxx' },
+  { id: 'AS-0839', client: '롯데케미칼 여수공장', type: '긴급수리', priority: '긴급', status: '처리중', assignee: '박서진', received: '2026-02-24', phone: '061-xxx-xxxx' },
+  { id: 'AS-0838', client: '(주)효성', type: '정기점검', priority: '일반', status: '대기', assignee: '미배정', received: '2026-02-25', phone: '055-xxx-xxxx' },
+  { id: 'AS-0837', client: 'LG전자 구미사업장', type: '소프트웨어', priority: '보통', status: '완료', assignee: '정하윤', received: '2026-02-18', phone: '054-xxx-xxxx' },
+];
+
+const APPROVALS = [
+  { id: 'DOC-0234', title: '2월 지출결의서', type: '지출결의', author: '최예린', dept: '생산팀', date: '2026-02-25', status: '결재대기', amount: '₩487,000' },
+  { id: 'DOC-0233', title: '김민수 연차휴가 신청', type: '휴가신청', author: '김민수', dept: '영업팀', date: '2026-02-24', status: '결재대기', amount: '-' },
+  { id: 'DOC-0232', title: '설비 구매 요청서 (유압펌프)', type: '구매요청', author: '이준호', dept: '생산팀', date: '2026-02-23', status: '승인완료', amount: '₩3,200,000' },
+  { id: 'DOC-0231', title: '1월 법인카드 정산', type: '법인카드', author: '강유진', dept: '경영지원', date: '2026-02-22', status: '반려', amount: '₩1,240,000' },
+  { id: 'DOC-0230', title: '박하나 출장비 정산', type: '지출결의', author: '박하나', dept: '영업팀', date: '2026-02-21', status: '승인완료', amount: '₩215,000' },
+];
+
+const PROJECTS = [
+  { id: 'PRJ-001', name: '현대기업 설비 교체 프로젝트', client: '현대기업', phase: '설치 진행', progress: 65, startDate: '2026-01-15', endDate: '2026-03-31', manager: '김민수', members: 4 },
+  { id: 'PRJ-002', name: '롯데케미칼 정기유지보수', client: '롯데케미칼', phase: '점검 완료', progress: 90, startDate: '2026-02-01', endDate: '2026-02-28', manager: '이준호', members: 3 },
+  { id: 'PRJ-003', name: 'LG전자 신라인 구축', client: 'LG전자', phase: '기획/설계', progress: 20, startDate: '2026-02-15', endDate: '2026-05-30', manager: '박서진', members: 6 },
+  { id: 'PRJ-004', name: '효성 압력용기 납품', client: '(주)효성', phase: '계약체결', progress: 10, startDate: '2026-03-01', endDate: '2026-04-15', manager: '정하윤', members: 2 },
+];
+
+// ── 유틸리티 컴포넌트 ──────────────────────────────────────
+function Badge({ children, color = C.primary, bg }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+      color: color, background: bg || color + '18',
+    }}>{children}</span>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    '처리중': { color: C.info, bg: '#E0F2FE' },
+    '대기': { color: C.warning, bg: '#FEF3C7' },
+    '완료': { color: C.success, bg: '#D1FAE5' },
+    '결재대기': { color: C.info, bg: '#E0F2FE' },
+    '승인완료': { color: C.success, bg: '#D1FAE5' },
+    '반려': { color: C.danger, bg: '#FEE2E2' },
+    '납품완료': { color: C.success, bg: '#D1FAE5' },
+    '배송중': { color: C.info, bg: '#E0F2FE' },
+    '발주확인': { color: '#7C3AED', bg: '#EDE9FE' },
+    '승인대기': { color: C.warning, bg: '#FEF3C7' },
+    'normal': { color: C.success, bg: '#D1FAE5' },
+    'low': { color: C.warning, bg: '#FEF3C7' },
+    'critical': { color: C.danger, bg: '#FEE2E2' },
+    '긴급': { color: C.danger, bg: '#FEE2E2' },
+    '일반': { color: C.textSub, bg: '#F1F5F9' },
+    '보통': { color: C.info, bg: '#E0F2FE' },
+  };
+  const s = map[status] || { color: C.textSub, bg: '#F1F5F9' };
+  return <Badge color={s.color} bg={s.bg}>{status}</Badge>;
+}
+
+function CountUp({ end, suffix = '', prefix = '' }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let s = 0; const step = end / 50;
+    const t = setInterval(() => {
+      s += step; if (s >= end) { setVal(end); clearInterval(t); } else setVal(Math.floor(s));
+    }, 24);
+    return () => clearInterval(t);
+  }, [end]);
+  return <span style={{ animation: 'countUp 400ms ease' }}>{prefix}{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({ message, type = 'success', onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  const colors = { success: '#059669', error: '#DC2626', info: '#0066CC' };
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: '#0F172A', color: '#fff', padding: '12px 20px',
+      borderRadius: 10, animation: 'slideUp 300ms ease',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+      display: 'flex', alignItems: 'center', gap: 10, minWidth: 240,
+      borderLeft: `4px solid ${colors[type]}`,
+    }}>
+      <span style={{ fontSize: 16 }}>{type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+      <span style={{ fontSize: 14 }}>{message}</span>
+    </div>
+  );
+}
+
+// ── 모달 ──────────────────────────────────────────────────
+function Modal({ title, onClose, children, width = 560 }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300 }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%,-50%)', zIndex: 301,
+        background: C.surface, borderRadius: 16, width: width, maxWidth: '95vw',
+        maxHeight: '90vh', overflow: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        animation: 'fadeInScale 200ms ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.textSub, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: 24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+function FormField({ label, children, required }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textSub, marginBottom: 6 }}>
+        {label}{required && <span style={{ color: C.danger, marginLeft: 2 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const inputStyle = {
+  width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 14,
+  border: `1.5px solid ${C.border}`, outline: 'none', fontFamily: 'inherit',
+  color: C.text, transition: 'border 150ms',
+};
+
+// ── 사이드바 ──────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id: 'dashboard', icon: '📊', label: '대시보드' },
+  { id: 'project', icon: '📋', label: '프로젝트 관리' },
+  { id: 'inventory', icon: '📦', label: '재고 관리' },
+  { id: 'orders', icon: '🛒', label: '수발주 관리' },
+  { id: 'as', icon: '🔧', label: 'A/S 관리' },
+  { id: 'approval', icon: '📝', label: '전자 결재' },
+  { id: 'asset', icon: '🏢', label: '자산 관리' },
+  { id: 'accounts', icon: '👥', label: '계정 관리' },
+];
+
+function Sidebar({ page, onNav }) {
+  return (
+    <aside style={{
+      width: 240, background: C.sidebar, flexShrink: 0,
+      display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
+    }}>
+      {/* 로고 */}
+      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: C.primary,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+          }}>⚙</div>
+          <div>
+            <div style={{ color: '#F1F5F9', fontWeight: 800, fontSize: 15, letterSpacing: '-0.02em' }}>FactoryOn</div>
+            <div style={{ color: '#64748B', fontSize: 11 }}>ERP/MES 시스템</div>
+          </div>
+        </div>
+      </div>
+      {/* 메뉴 */}
+      <nav style={{ flex: 1, padding: '12px 12px', overflowY: 'auto' }}>
+        {NAV_ITEMS.map(item => (
+          <button key={item.id} onClick={() => onNav(item.id)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            marginBottom: 2, textAlign: 'left', fontSize: 13.5, fontFamily: 'inherit',
+            background: page === item.id ? `${C.primary}25` : 'transparent',
+            color: page === item.id ? '#38BDF8' : '#94A3B8',
+            fontWeight: page === item.id ? 600 : 400,
+            borderLeft: page === item.id ? `3px solid ${C.primary}` : '3px solid transparent',
+            transition: 'all 150ms',
+          }}>
+            <span style={{ fontSize: 16 }}>{item.icon}</span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      {/* 유저 정보 */}
+      <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: '50%', background: C.primary,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 700, fontSize: 13,
+          }}>김</div>
+          <div>
+            <div style={{ color: '#F1F5F9', fontSize: 13, fontWeight: 600 }}>김민수</div>
+            <div style={{ color: '#64748B', fontSize: 11 }}>생산팀 팀장</div>
+          </div>
+          <div style={{ marginLeft: 'auto', color: '#64748B', cursor: 'pointer', fontSize: 16 }}>⚙</div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ── 탑바 ─────────────────────────────────────────────────
+function TopBar({ title, onAlertClick, alertCount }) {
+  return (
+    <header style={{
+      height: 60, background: C.surface, borderBottom: `1px solid ${C.border}`,
+      display: 'flex', alignItems: 'center', padding: '0 24px', gap: 16, flexShrink: 0,
+    }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em' }}>{title}</div>
+      </div>
+      {/* 검색 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: C.bg, borderRadius: 8, padding: '8px 14px',
+        border: `1px solid ${C.border}`, width: 220,
+      }}>
+        <span style={{ color: C.textLight, fontSize: 14 }}>🔍</span>
+        <span style={{ fontSize: 13, color: C.textLight }}>전체 검색...</span>
+      </div>
+      {/* 알림 */}
+      <button onClick={onAlertClick} style={{
+        position: 'relative', background: 'none', border: 'none', cursor: 'pointer',
+        width: 38, height: 38, borderRadius: 8, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: 18, color: C.textSub,
+        transition: 'background 150ms',
+      }}>
+        🔔
+        {alertCount > 0 && (
+          <span style={{
+            position: 'absolute', top: 4, right: 4, background: C.danger,
+            color: '#fff', fontSize: 10, fontWeight: 700, borderRadius: 10,
+            minWidth: 16, height: 16, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', padding: '0 4px',
+          }}>{alertCount}</span>
+        )}
+      </button>
+      <div style={{
+        width: 34, height: 34, borderRadius: '50%', background: C.primary,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+      }}>김</div>
+    </header>
+  );
+}
+
+// ── 대시보드 ──────────────────────────────────────────────
+function MiniBar({ value, max, color }) {
+  const pct = Math.min(100, (value / max) * 100);
+  return (
+    <div style={{ height: 6, borderRadius: 3, background: '#E2E8F0', overflow: 'hidden', marginTop: 8 }}>
+      <div style={{
+        height: '100%', borderRadius: 3, background: color,
+        width: `${pct}%`, animation: 'barGrow 800ms ease both',
+        '--target-width': `${pct}%`,
+      }} />
+    </div>
+  );
+}
+
+function KpiCard({ icon, label, value, sub, suffix, color, trend }) {
+  return (
+    <div style={{
+      background: C.surface, borderRadius: C.card.borderRadius,
+      boxShadow: C.card.boxShadow, padding: C.card.padding,
+      animation: 'slideUp 400ms ease both',
+      transition: 'transform 200ms, box-shadow 200ms',
+      cursor: 'default',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = C.card.boxShadow; }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 12, color: C.textSub, fontWeight: 500, marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: C.text, letterSpacing: '-0.03em' }}>
+            <CountUp end={value} suffix={suffix} />
+          </div>
+          <div style={{ fontSize: 12, color: C.textSub, marginTop: 4 }}>{sub}</div>
+        </div>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12, background: color + '18',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+        }}>{icon}</div>
+      </div>
+      {trend !== undefined && (
+        <div style={{ marginTop: 12, fontSize: 12, color: trend >= 0 ? C.success : C.danger }}>
+          {trend >= 0 ? '▲' : '▼'} 전월 대비 {Math.abs(trend)}%
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SimpleLineChart({ data, color }) {
+  const W = 400, H = 120;
+  const max = Math.max(...data.map(d => d.v));
+  const min = Math.min(...data.map(d => d.v));
+  const pad = 10;
+  const pts = data.map((d, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+    const y = pad + (1 - (d.v - min) / (max - min + 1)) * (H - pad * 2);
+    return `${x},${y}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%' }}>
+      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
+      {data.map((d, i) => {
+        const x = pad + (i / (data.length - 1)) * (W - pad * 2);
+        const y = pad + (1 - (d.v - min) / (max - min + 1)) * (H - pad * 2);
+        return <circle key={i} cx={x} cy={y} r={3} fill={color} />;
+      })}
+    </svg>
+  );
+}
+
+const CHART_DATA = [
+  { label: '02.19', v: 142 }, { label: '02.20', v: 158 }, { label: '02.21', v: 135 },
+  { label: '02.22', v: 167 }, { label: '02.23', v: 171 }, { label: '02.24', v: 163 },
+  { label: '02.25', v: 182 }, { label: '02.26', v: 178 },
+];
+
+function DashboardPage({ onNav }) {
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      {/* KPI 카드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 24 }}>
+        {[
+          { icon: '📦', label: '총 재고 부품 수', value: 3456, suffix: '종', sub: '부족 경고 3건', color: C.primary, trend: 2 },
+          { icon: '🛒', label: '이번 달 발주 건수', value: 28, suffix: '건', sub: '₩18,420,000', color: '#7C3AED', trend: 12 },
+          { icon: '🔧', label: '처리 대기 A/S', value: 7, suffix: '건', sub: '긴급 2건 포함', color: C.warning, trend: -15 },
+          { icon: '📝', label: '결재 대기 문서', value: 5, suffix: '건', sub: '금일 등록 2건', color: C.success, trend: 0 },
+        ].map((kpi, i) => (
+          <div key={i} style={{ animationDelay: `${i * 80}ms` }}>
+            <KpiCard {...kpi} />
+          </div>
+        ))}
+      </div>
+
+      {/* 차트 + 처리 대기 목록 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
+        {/* 생산량 차트 */}
+        <div style={{ background: C.surface, borderRadius: C.card.borderRadius, boxShadow: C.card.boxShadow, padding: C.card.padding }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>일별 생산량 추이</div>
+              <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>최근 8일 | 단위: 개</div>
+            </div>
+            <span style={{ fontSize: 12, color: C.primary, fontWeight: 600 }}>주간 평균 162개 ▲</span>
+          </div>
+          <div style={{ height: 120, padding: '0 4px' }}>
+            <SimpleLineChart data={CHART_DATA} color={C.primary} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+            {CHART_DATA.map((d, i) => (
+              <div key={i} style={{ textAlign: 'center', fontSize: 10, color: C.textLight }}>{d.label.slice(3)}</div>
+            ))}
+          </div>
+        </div>
+
+        {/* 긴급 알림 */}
+        <div style={{ background: C.surface, borderRadius: C.card.borderRadius, boxShadow: C.card.boxShadow, padding: C.card.padding }}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>⚠️ 즉시 처리 필요</div>
+          {[
+            { type: '재고부족', msg: '커플링 어댑터 3/4" 재고 임계', color: C.danger },
+            { type: 'AS긴급', msg: '삼성전자 화성 — 긴급수리 대기', color: C.danger },
+            { type: 'AS긴급', msg: '롯데케미칼 여수 — 처리 지연 위험', color: C.warning },
+            { type: '결재', msg: 'PO-2026-0139 승인 대기 (48h 경과)', color: C.warning },
+            { type: '재고부족', msg: '베어링 6205-2RS 최소 재고 미달', color: C.info },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0',
+              borderBottom: i < 4 ? `1px solid ${C.border}` : 'none',
+              animation: `slideUp 350ms ease ${i * 60}ms both`,
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: item.color }}>[{item.type}] </span>
+                <span style={{ fontSize: 12, color: C.textSub }}>{item.msg}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 재고 현황 요약 */}
+      <div style={{ background: C.surface, borderRadius: C.card.borderRadius, boxShadow: C.card.boxShadow, padding: C.card.padding }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>재고 현황 요약</div>
+          <button onClick={() => onNav('inventory')} style={{ background: 'none', border: 'none', fontSize: 13, color: C.primary, cursor: 'pointer', fontWeight: 600 }}>전체 보기 →</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {INVENTORY.slice(0, 6).map((item, i) => (
+            <div key={i} style={{
+              background: C.bg, borderRadius: 8, padding: '12px 14px',
+              animation: `slideUp 400ms ease ${i * 60}ms both`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, flex: 1, marginRight: 8 }}>{item.name}</div>
+                <StatusBadge status={item.status} />
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: item.status === 'critical' ? C.danger : item.status === 'low' ? C.warning : C.text, marginTop: 8 }}>
+                {item.stock.toLocaleString()}
+                <span style={{ fontSize: 12, fontWeight: 400, color: C.textSub }}> {item.unit}</span>
+              </div>
+              <MiniBar value={item.stock} max={item.min * 8} color={item.status === 'critical' ? C.danger : item.status === 'low' ? C.warning : C.primary} />
+              <div style={{ fontSize: 11, color: C.textLight, marginTop: 4 }}>최소 {item.min.toLocaleString()}{item.unit} | {item.location}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 재고 관리 ──────────────────────────────────────────────
+function InventoryPage({ showToast }) {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [modal, setModal] = useState(null);
+  const [items, setItems] = useState(INVENTORY);
+
+  const filtered = items.filter(item => {
+    const matchSearch = item.name.includes(search) || item.id.includes(search) || item.category.includes(search);
+    const matchFilter = filter === 'all' || item.status === filter;
+    return matchSearch && matchFilter;
+  });
+
+  function handleStockIn(item) {
+    setModal({ type: 'in', item });
+  }
+
+  function submitStockIn(e) {
+    e.preventDefault();
+    const qty = parseInt(e.target.qty.value) || 0;
+    setItems(prev => prev.map(it => it.id === modal.item.id
+      ? { ...it, stock: it.stock + qty, status: (it.stock + qty) >= it.min ? 'normal' : it.stock + qty >= it.min * 0.5 ? 'low' : 'critical' }
+      : it
+    ));
+    setModal(null);
+    showToast('입고 처리 완료되었습니다.', 'success');
+  }
+
+  function handleAddItem(e) {
+    e.preventDefault();
+    showToast('부품이 등록되었습니다.', 'success');
+    setModal(null);
+  }
+
+  const statusCount = { all: items.length, normal: items.filter(i => i.status === 'normal').length, low: items.filter(i => i.status === 'low').length, critical: items.filter(i => i.status === 'critical').length };
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      {/* 상단 통계 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+        {[
+          { label: '전체 부품', value: items.length, color: C.primary },
+          { label: '정상', value: statusCount.normal, color: C.success },
+          { label: '부족 주의', value: statusCount.low, color: C.warning },
+          { label: '긴급 부족', value: statusCount.critical, color: C.danger },
+        ].map((s, i) => (
+          <div key={i} onClick={() => setFilter(i === 0 ? 'all' : ['normal', 'low', 'critical'][i - 1])} style={{
+            background: C.surface, borderRadius: 10, padding: '14px 18px',
+            boxShadow: C.card.boxShadow, cursor: 'pointer',
+            border: `2px solid ${(filter === 'all' && i === 0) || filter === (['all', 'normal', 'low', 'critical'][i]) ? s.color : 'transparent'}`,
+            transition: 'all 150ms',
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 검색 + 액션 */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  부품명, 코드, 분류로 검색" style={{ ...inputStyle, width: 300, padding: '10px 14px' }} />
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'add' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 8,
+          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}>+ 신규 부품 등록</button>
+      </div>
+
+      {/* 테이블 */}
+      <div style={{ background: C.surface, borderRadius: 12, boxShadow: C.card.boxShadow, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: C.bg, borderBottom: `2px solid ${C.border}` }}>
+              {['부품코드', '부품명', '분류', '현재 재고', '최소 재고', '위치', '상태', '최근 입고', '액션'].map(h => (
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: C.textSub, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((item, i) => (
+              <tr key={item.id} style={{
+                borderBottom: `1px solid ${C.border}`,
+                animation: `slideUp 300ms ease ${i * 40}ms both`,
+                transition: 'background 150ms',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: 12, color: C.primary, fontWeight: 600 }}>{item.id}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 500 }}>{item.name}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub }}>{item.category}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 700, color: item.status === 'critical' ? C.danger : item.status === 'low' ? C.warning : C.text }}>
+                  {item.stock.toLocaleString()} <span style={{ fontWeight: 400, fontSize: 11, color: C.textSub }}>{item.unit}</span>
+                </td>
+                <td style={{ padding: '14px 16px', color: C.textSub }}>{item.min.toLocaleString()} {item.unit}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub, fontSize: 12 }}>{item.location}</td>
+                <td style={{ padding: '14px 16px' }}><StatusBadge status={item.status === 'normal' ? 'normal' : item.status === 'low' ? 'low' : 'critical'} /></td>
+                <td style={{ padding: '14px 16px', color: C.textSub, fontSize: 12 }}>{item.lastIn}</td>
+                <td style={{ padding: '14px 16px' }}>
+                  <button onClick={() => handleStockIn(item)} style={{
+                    background: C.primaryLight, color: C.primary, border: 'none', borderRadius: 6,
+                    padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginRight: 6,
+                  }}>입고</button>
+                  <button onClick={() => showToast('출고 처리되었습니다.')} style={{
+                    background: '#FEF3C7', color: C.warning, border: 'none', borderRadius: 6,
+                    padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}>출고</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 입고 모달 */}
+      {modal?.type === 'in' && (
+        <Modal title={`입고 처리 — ${modal.item.name}`} onClose={() => setModal(null)}>
+          <form onSubmit={submitStockIn}>
+            <FormField label="부품 코드"><input style={inputStyle} value={modal.item.id} readOnly /></FormField>
+            <FormField label="현재 재고"><input style={inputStyle} value={`${modal.item.stock.toLocaleString()} ${modal.item.unit}`} readOnly /></FormField>
+            <FormField label="입고 수량" required><input name="qty" type="number" style={inputStyle} placeholder="입고 수량 입력" min={1} required /></FormField>
+            <FormField label="입고 창고 위치"><input style={inputStyle} defaultValue={modal.item.location} /></FormField>
+            <FormField label="비고"><textarea style={{ ...inputStyle, height: 80, resize: 'vertical' }} placeholder="메모 (선택)" /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>입고 처리</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {modal?.type === 'add' && (
+        <Modal title="신규 부품 등록" onClose={() => setModal(null)}>
+          <form onSubmit={handleAddItem}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="부품 코드" required><input name="code" style={inputStyle} placeholder="P-XXXX" required /></FormField>
+              <FormField label="분류" required>
+                <select style={inputStyle} required>
+                  <option value="">선택</option>
+                  {['체결류', '회전체', '실링', '배관', '필터', '전기', '연결'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </FormField>
+            </div>
+            <FormField label="부품명" required><input style={inputStyle} placeholder="정확한 부품명 입력" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <FormField label="초기 재고" required><input type="number" style={inputStyle} placeholder="0" min={0} required /></FormField>
+              <FormField label="최소 재고" required><input type="number" style={inputStyle} placeholder="0" min={0} required /></FormField>
+              <FormField label="단위" required><input style={inputStyle} placeholder="개, EA, M..." required /></FormField>
+            </div>
+            <FormField label="보관 위치"><input style={inputStyle} placeholder="예: A-12-3" /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>등록</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 수발주 관리 ────────────────────────────────────────────
+function OrdersPage({ showToast }) {
+  const [modal, setModal] = useState(null);
+  const [orders, setOrders] = useState(ORDERS);
+
+  function handleApprove(id) {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: '발주확인' } : o));
+    showToast('발주서가 승인되었습니다.', 'success');
+  }
+
+  function handleCreate(e) {
+    e.preventDefault();
+    setModal(null);
+    showToast('발주서가 생성되어 거래처에 발송되었습니다.', 'success');
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 13, color: C.textSub }}>이번 달 총 발주 금액</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: C.primary }}>₩18,420,000</div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'create' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 8,
+          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}>+ 발주서 생성</button>
+      </div>
+
+      <div style={{ background: C.surface, borderRadius: 12, boxShadow: C.card.boxShadow, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: C.bg, borderBottom: `2px solid ${C.border}` }}>
+              {['발주번호', '거래처', '발주 품목', '금액', '발주일', '납기일', '상태', '액션'].map(h => (
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: C.textSub }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((order, i) => (
+              <tr key={order.id} style={{
+                borderBottom: `1px solid ${C.border}`,
+                animation: `slideUp 300ms ease ${i * 50}ms both`,
+                transition: 'background 150ms',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: 12, color: C.primary, fontWeight: 600 }}>{order.id}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 500 }}>{order.vendor}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub, maxWidth: 200 }}>{order.items}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 700 }}>{order.amount}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub, fontSize: 12 }}>{order.date}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub, fontSize: 12 }}>{order.due}</td>
+                <td style={{ padding: '14px 16px' }}><StatusBadge status={order.status} /></td>
+                <td style={{ padding: '14px 16px' }}>
+                  {order.status === '승인대기' && (
+                    <button onClick={() => handleApprove(order.id)} style={{
+                      background: '#D1FAE5', color: C.success, border: 'none', borderRadius: 6,
+                      padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginRight: 6,
+                    }}>승인</button>
+                  )}
+                  <button onClick={() => setModal({ type: 'detail', order })} style={{
+                    background: C.bg, color: C.textSub, border: `1px solid ${C.border}`, borderRadius: 6,
+                    padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+                  }}>상세</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="발주서 생성" onClose={() => setModal(null)} width={620}>
+          <form onSubmit={handleCreate}>
+            <FormField label="거래처" required>
+              <select style={inputStyle} required>
+                <option value="">거래처 선택</option>
+                {['(주)한국볼트', '베어링코리아(주)', '(주)유신실링', '한국유압(주)', '필터테크(주)'].map(v => <option key={v}>{v}</option>)}
+              </select>
+            </FormField>
+            <FormField label="발주 품목" required><input style={inputStyle} placeholder="품목명 및 수량 입력" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="발주 수량" required><input type="number" style={inputStyle} placeholder="0" min={1} required /></FormField>
+              <FormField label="단가 (원)" required><input type="number" style={inputStyle} placeholder="0" min={0} required /></FormField>
+            </div>
+            <FormField label="납기 요청일" required><input type="date" style={inputStyle} required /></FormField>
+            <FormField label="납품 장소"><input style={inputStyle} defaultValue="본사 창고 (경기도 안산시)" /></FormField>
+            <FormField label="비고"><textarea style={{ ...inputStyle, height: 80, resize: 'vertical' }} placeholder="특이사항 기재" /></FormField>
+            <div style={{
+              background: '#FEF3C7', borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+              fontSize: 12, color: C.warning, display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              ⚠️ 발주서 생성 시 담당 팀장 승인 후 거래처 이메일로 자동 발송됩니다.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>발주서 생성 및 승인 요청</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {modal?.type === 'detail' && (
+        <Modal title={`발주 상세 — ${modal.order.id}`} onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {[
+              ['거래처', modal.order.vendor], ['금액', modal.order.amount],
+              ['발주일', modal.order.date], ['납기일', modal.order.due],
+              ['상태', modal.order.status],
+            ].map(([k, v], i) => (
+              <div key={i} style={{ background: C.bg, borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{k}</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: C.bg, borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+            <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>발주 품목</div>
+            <div style={{ fontSize: 14 }}>{modal.order.items}</div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => { setModal(null); showToast('발주서 PDF가 다운로드됩니다.'); }} style={{ padding: '10px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>PDF 다운로드</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── AS 관리 ────────────────────────────────────────────────
+function AsPage({ showToast }) {
+  const [asList, setAsList] = useState(AS_LIST);
+  const [modal, setModal] = useState(null);
+  const [selected, setSelected] = useState(null);
+
+  const kanban = ['대기', '처리중', '완료'];
+  const byStatus = s => asList.filter(a => a.status === s);
+
+  function assignHandler(asId, assignee) {
+    setAsList(prev => prev.map(a => a.id === asId ? { ...a, assignee, status: '처리중' } : a));
+    setModal(null);
+    showToast(`${assignee}님에게 배정되었습니다.`, 'success');
+  }
+
+  function handleCreate(e) {
+    e.preventDefault();
+    setModal(null);
+    showToast('A/S 접수가 완료되었습니다.', 'success');
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 16 }}>
+          {kanban.map(s => (
+            <div key={s} style={{ background: C.surface, borderRadius: 8, padding: '10px 20px', boxShadow: C.card.boxShadow }}>
+              <span style={{ fontSize: 12, color: C.textSub }}>{s} </span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: s === '대기' ? C.warning : s === '처리중' ? C.info : C.success }}>
+                {byStatus(s).length}건
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'create' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 8,
+          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}>+ A/S 접수</button>
+      </div>
+
+      {/* 칸반 보드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {kanban.map(status => (
+          <div key={status} style={{
+            background: status === '대기' ? '#FFFBEB' : status === '처리중' ? '#EFF6FF' : '#F0FDF4',
+            borderRadius: 12, padding: 16, minHeight: 300,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{status}</span>
+              <span style={{
+                background: status === '대기' ? C.warning : status === '처리중' ? C.info : C.success,
+                color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700,
+                padding: '1px 8px',
+              }}>{byStatus(status).length}</span>
+            </div>
+            {byStatus(status).map((item, i) => (
+              <div key={item.id} onClick={() => setSelected(item)} style={{
+                background: C.surface, borderRadius: 10, padding: '14px', marginBottom: 10,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', cursor: 'pointer',
+                border: selected?.id === item.id ? `2px solid ${C.primary}` : '2px solid transparent',
+                animation: `slideUp 350ms ease ${i * 60}ms both`,
+                transition: 'all 150ms',
+              }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.primary, fontWeight: 600 }}>{item.id}</span>
+                  <StatusBadge status={item.priority} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{item.client}</div>
+                <div style={{ fontSize: 12, color: C.textSub }}>{item.type}</div>
+                <div style={{ fontSize: 11, color: C.textLight, marginTop: 8 }}>
+                  접수: {item.received} | 담당: {item.assignee}
+                </div>
+                {item.assignee === '미배정' && status === '대기' && (
+                  <button onClick={e => { e.stopPropagation(); setModal({ type: 'assign', item }); }} style={{
+                    marginTop: 8, width: '100%', background: C.primaryLight, color: C.primary,
+                    border: 'none', borderRadius: 6, padding: '6px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}>담당자 배정</button>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {modal?.type === 'assign' && (
+        <Modal title={`담당자 배정 — ${modal.item.client}`} onClose={() => setModal(null)} width={400}>
+          <p style={{ fontSize: 13, color: C.textSub, marginBottom: 16 }}>A/S 유형: <strong>{modal.item.type}</strong></p>
+          {['김민수 (생산팀)', '이준호 (기술팀)', '박서진 (서비스팀)', '정하윤 (기술팀)'].map(name => (
+            <button key={name} onClick={() => assignHandler(modal.item.id, name.split(' ')[0])} style={{
+              width: '100%', background: C.bg, border: `1px solid ${C.border}`,
+              borderRadius: 8, padding: '12px 16px', marginBottom: 8, textAlign: 'left',
+              cursor: 'pointer', fontSize: 13, transition: 'all 150ms',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = C.primaryLight; e.currentTarget.style.borderColor = C.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.background = C.bg; e.currentTarget.style.borderColor = C.border; }}
+            >
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: C.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>
+                {name[0]}
+              </div>
+              {name}
+            </button>
+          ))}
+        </Modal>
+      )}
+      {modal?.type === 'create' && (
+        <Modal title="A/S 접수" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="고객사 명" required><input style={inputStyle} placeholder="고객사 또는 공장명" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="A/S 유형" required>
+                <select style={inputStyle} required>
+                  <option value="">선택</option>
+                  {['긴급수리', '정기점검', '부품교체', '소프트웨어', '원격지원'].map(t => <option key={t}>{t}</option>)}
+                </select>
+              </FormField>
+              <FormField label="우선순위" required>
+                <select style={inputStyle} required>
+                  {['긴급', '보통', '일반'].map(p => <option key={p}>{p}</option>)}
+                </select>
+              </FormField>
+            </div>
+            <FormField label="연락처"><input style={inputStyle} placeholder="000-xxxx-xxxx" /></FormField>
+            <FormField label="증상 설명" required><textarea style={{ ...inputStyle, height: 100, resize: 'vertical' }} placeholder="장비 증상 및 현황을 상세히 기술해 주세요." required /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>접수 완료</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 전자 결재 ──────────────────────────────────────────────
+function ApprovalPage({ showToast }) {
+  const [docs, setDocs] = useState(APPROVALS);
+  const [modal, setModal] = useState(null);
+
+  function handleApprove(id) {
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, status: '승인완료' } : d));
+    setModal(null);
+    showToast('결재 승인이 완료되었습니다.', 'success');
+  }
+  function handleReject(id) {
+    setDocs(prev => prev.map(d => d.id === id ? { ...d, status: '반려' } : d));
+    setModal(null);
+    showToast('문서가 반려 처리되었습니다.', 'error');
+  }
+  function handleCreate(e) {
+    e.preventDefault();
+    setModal(null);
+    showToast('문서가 결재선에 등록되었습니다.', 'success');
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[['결재대기', docs.filter(d => d.status === '결재대기').length, C.info],
+            ['승인완료', docs.filter(d => d.status === '승인완료').length, C.success],
+            ['반려', docs.filter(d => d.status === '반려').length, C.danger],
+          ].map(([label, count, color]) => (
+            <div key={label} style={{ background: C.surface, borderRadius: 8, padding: '10px 20px', boxShadow: C.card.boxShadow }}>
+              <span style={{ fontSize: 12, color: C.textSub }}>{label} </span>
+              <span style={{ fontSize: 18, fontWeight: 700, color }}>{count}건</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'create' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 8,
+          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}>+ 문서 작성</button>
+      </div>
+
+      <div style={{ background: C.surface, borderRadius: 12, boxShadow: C.card.boxShadow, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: C.bg, borderBottom: `2px solid ${C.border}` }}>
+              {['문서번호', '제목', '유형', '작성자', '부서', '금액', '등록일', '상태', '액션'].map(h => (
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: C.textSub, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map((doc, i) => (
+              <tr key={doc.id} style={{
+                borderBottom: `1px solid ${C.border}`,
+                animation: `slideUp 300ms ease ${i * 50}ms both`,
+                transition: 'background 150ms',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = C.bg}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: 12, color: C.primary, fontWeight: 600 }}>{doc.id}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 500 }}>{doc.title}</td>
+                <td style={{ padding: '14px 16px' }}><Badge color={C.info}>{doc.type}</Badge></td>
+                <td style={{ padding: '14px 16px' }}>{doc.author}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub }}>{doc.dept}</td>
+                <td style={{ padding: '14px 16px', fontWeight: 600 }}>{doc.amount}</td>
+                <td style={{ padding: '14px 16px', color: C.textSub, fontSize: 12 }}>{doc.date}</td>
+                <td style={{ padding: '14px 16px' }}><StatusBadge status={doc.status} /></td>
+                <td style={{ padding: '14px 16px' }}>
+                  {doc.status === '결재대기' ? (
+                    <>
+                      <button onClick={() => handleApprove(doc.id)} style={{ background: '#D1FAE5', color: C.success, border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginRight: 6 }}>승인</button>
+                      <button onClick={() => handleReject(doc.id)} style={{ background: '#FEE2E2', color: C.danger, border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>반려</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setModal({ type: 'detail', doc })} style={{ background: C.bg, color: C.textSub, border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>보기</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="문서 작성" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="문서 유형" required>
+              <select style={inputStyle} required>
+                <option value="">선택</option>
+                {['지출결의서', '휴가신청', '구매요청', '법인카드 정산', '출장비 정산'].map(t => <option key={t}>{t}</option>)}
+              </select>
+            </FormField>
+            <FormField label="제목" required><input style={inputStyle} placeholder="문서 제목 입력" required /></FormField>
+            <FormField label="결재선">
+              <div style={{ background: C.bg, borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.textSub }}>
+                작성자(나) → 팀장 김민수 → 본부장 이상호 (자동 설정)
+              </div>
+            </FormField>
+            <FormField label="금액 (해당 시)"><input type="number" style={inputStyle} placeholder="0" min={0} /></FormField>
+            <FormField label="내용" required><textarea style={{ ...inputStyle, height: 120, resize: 'vertical' }} placeholder="문서 상세 내용을 작성해 주세요." required /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>결재 요청</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 프로젝트 관리 ──────────────────────────────────────────
+function ProjectPage({ showToast }) {
+  const [modal, setModal] = useState(null);
+
+  function handleCreate(e) {
+    e.preventDefault();
+    setModal(null);
+    showToast('프로젝트가 등록되었습니다.', 'success');
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+        <button onClick={() => setModal({ type: 'create' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 8,
+          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}>+ 프로젝트 등록</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20 }}>
+        {PROJECTS.map((prj, i) => (
+          <div key={prj.id} onClick={() => setModal({ type: 'detail', prj })} style={{
+            background: C.surface, borderRadius: 12, padding: 20,
+            boxShadow: C.card.boxShadow, cursor: 'pointer',
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+            transition: 'all 200ms',
+            border: '2px solid transparent',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = C.primary; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = 'transparent'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.primary, fontWeight: 600, marginBottom: 4 }}>{prj.id}</div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{prj.name}</div>
+                <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>{prj.client}</div>
+              </div>
+              <Badge color={prj.progress >= 80 ? C.success : prj.progress >= 50 ? C.info : C.warning}>
+                {prj.phase}
+              </Badge>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.textSub, marginBottom: 4 }}>
+                <span>진행률</span><span style={{ fontWeight: 700, color: C.text }}>{prj.progress}%</span>
+              </div>
+              <div style={{ height: 8, borderRadius: 4, background: C.bg, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 4,
+                  background: prj.progress >= 80 ? C.success : C.primary,
+                  width: `${prj.progress}%`, animation: 'barGrow 800ms ease 200ms both',
+                  '--target-width': `${prj.progress}%`,
+                }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.textSub }}>
+              <span>담당: {prj.manager}</span>
+              <span>{prj.startDate} ~ {prj.endDate}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="프로젝트 등록" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="프로젝트명" required><input style={inputStyle} placeholder="프로젝트 이름" required /></FormField>
+            <FormField label="고객사" required><input style={inputStyle} placeholder="고객사명" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="시작일" required><input type="date" style={inputStyle} required /></FormField>
+              <FormField label="종료 예정일" required><input type="date" style={inputStyle} required /></FormField>
+            </div>
+            <FormField label="담당 PM">
+              <select style={inputStyle}>
+                {['김민수', '이준호', '박서진', '정하윤'].map(n => <option key={n}>{n}</option>)}
+              </select>
+            </FormField>
+            <FormField label="프로젝트 설명"><textarea style={{ ...inputStyle, height: 100, resize: 'vertical' }} placeholder="프로젝트 개요 및 범위" /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 8, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>등록</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {modal?.type === 'detail' && (
+        <Modal title={modal.prj.name} onClose={() => setModal(null)}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            {[
+              ['고객사', modal.prj.client], ['담당 PM', modal.prj.manager],
+              ['현재 단계', modal.prj.phase], ['참여 인원', `${modal.prj.members}명`],
+              ['시작일', modal.prj.startDate], ['종료 예정', modal.prj.endDate],
+            ].map(([k, v]) => (
+              <div key={k} style={{ background: C.bg, borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{k}</div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+              <span style={{ fontWeight: 600 }}>진행률</span>
+              <span style={{ color: C.primary, fontWeight: 700 }}>{modal.prj.progress}%</span>
+            </div>
+            <div style={{ height: 10, borderRadius: 5, background: C.bg, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 5, background: C.primary, width: `${modal.prj.progress}%` }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <button onClick={() => { setModal(null); showToast('진행 상황이 업데이트되었습니다.'); }} style={{ padding: '10px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>상태 업데이트</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 기타 페이지 (자산, 계정) ────────────────────────────────
+function PlaceholderPage({ title, description }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', animation: 'fadeIn 300ms ease' }}>
+      <div style={{ fontSize: 64, marginBottom: 16 }}>🚧</div>
+      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 14, color: C.textSub }}>{description}</div>
+    </div>
+  );
+}
+
+// ── 스켈레톤 로딩 ─────────────────────────────────────────
+function SkeletonLoader() {
+  return (
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+        {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: 110 }} />)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+        <div className="skeleton" style={{ height: 200 }} />
+        <div className="skeleton" style={{ height: 200 }} />
+      </div>
+      <div className="skeleton" style={{ height: 240 }} />
+    </div>
+  );
+}
+
+// ── 알림 패널 ─────────────────────────────────────────────
+function AlertPanel({ onClose }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+      <div style={{
+        position: 'fixed', top: 64, right: 16, width: 340, background: C.surface,
+        borderRadius: 14, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', zIndex: 201,
+        animation: 'slideDown 200ms ease', border: `1px solid ${C.border}`, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>알림</span>
+          <span style={{ fontSize: 11, color: C.primary, cursor: 'pointer' }}>모두 읽음</span>
+        </div>
+        {[
+          { icon: '📦', msg: '커플링 어댑터 3/4" 재고 긴급 부족 (12개)', time: '5분 전', color: C.danger },
+          { icon: '🔧', msg: '삼성전자 화성 A/S 배정 대기 중', time: '23분 전', color: C.warning },
+          { icon: '📝', msg: 'PO-2026-0139 발주서 승인 요청', time: '1시간 전', color: C.info },
+          { icon: '📊', msg: '2월 생산량 목표 달성률 94%', time: '2시간 전', color: C.success },
+          { icon: '📦', msg: '베어링 6205-2RS 최소 재고 미달', time: '3시간 전', color: C.warning },
+        ].map((n, i) => (
+          <div key={i} style={{
+            padding: '12px 16px', borderBottom: i < 4 ? `1px solid ${C.border}` : 'none',
+            display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+            transition: 'background 150ms',
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = C.bg}
+            onMouseLeave={e => e.currentTarget.style.background = ''}
+          >
+            <span style={{ fontSize: 20 }}>{n.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: C.text }}>{n.msg}</div>
+              <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>{n.time}</div>
+            </div>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.color, flexShrink: 0, marginTop: 4 }} />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── 메인 앱 ───────────────────────────────────────────────
+const PAGE_TITLES = {
+  dashboard: '대시보드',
+  project: '프로젝트 관리',
+  inventory: '재고 관리',
+  orders: '수발주 관리',
+  as: 'A/S 관리',
+  approval: '전자 결재',
+  asset: '자산 관리',
+  accounts: '계정 관리',
+};
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState('dashboard');
+  const [toast, setToast] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type, key: Date.now() });
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <aside style={{ width: 240, background: C.sidebar }} />
+        <div style={{ flex: 1 }}>
+          <div style={{ height: 60, background: C.surface, borderBottom: `1px solid ${C.border}` }} />
+          <SkeletonLoader />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg }}>
+      <Sidebar page={page} onNav={p => { setPage(p); setShowAlert(false); }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TopBar
+          title={PAGE_TITLES[page]}
+          alertCount={5}
+          onAlertClick={() => setShowAlert(v => !v)}
+        />
+        <main style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          {page === 'dashboard' && <DashboardPage onNav={setPage} />}
+          {page === 'project' && <ProjectPage showToast={showToast} />}
+          {page === 'inventory' && <InventoryPage showToast={showToast} />}
+          {page === 'orders' && <OrdersPage showToast={showToast} />}
+          {page === 'as' && <AsPage showToast={showToast} />}
+          {page === 'approval' && <ApprovalPage showToast={showToast} />}
+          {page === 'asset' && <PlaceholderPage title="자산 관리" description="법인 차량 배차 및 법인카드 사용 내역 관리" />}
+          {page === 'accounts' && <PlaceholderPage title="계정 관리" description="사용자 계정 생성 및 역할 기반 권한 관리" />}
+        </main>
+      </div>
+      {showAlert && <AlertPanel onClose={() => setShowAlert(false)} />}
+      {toast && <Toast key={toast.key} message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

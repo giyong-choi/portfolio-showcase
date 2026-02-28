@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>넥서스ERP (Nexus ERP) — 통합 스마트팩토리 플랫폼</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#0F1117;color:#F1F5F9;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes countUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,0.4)}70%{box-shadow:0 0 0 8px rgba(6,182,212,0)}}
+.skeleton{background:linear-gradient(90deg,#1A1F2E 25%,#242938 50%,#1A1F2E 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:#475569}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── 디자인 토큰 ─────────────────────────────────────────────
+const C = {
+  primary: '#06B6D4',
+  primaryDark: '#0891B2',
+  primaryBg: '#06B6D410',
+  secondary: '#0F172A',
+  accent: '#22D3EE',
+  bg: '#0F1117',
+  surface: '#1A1F2E',
+  surfaceHover: '#1E2438',
+  border: '#242938',
+  borderLight: '#2D3448',
+  text: '#F1F5F9',
+  textSub: '#94A3B8',
+  textLight: '#475569',
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  info: '#3B82F6',
+  rail: '#141820',
+  card: { borderRadius: 6, border: '1px solid #242938', padding: '14px 16px' },
+};
+
+// ── 더미 데이터 ──────────────────────────────────────────────
+const PRODUCTION_LINES = [
+  { id: 'L-01', name: 'A라인 (엔진 블록)', oee: 94, output: 182, target: 200, defect: 0.8, status: 'running', temp: 72, vibration: 'normal' },
+  { id: 'L-02', name: 'B라인 (트랜스미션)', oee: 78, output: 143, target: 180, defect: 2.1, status: 'warning', temp: 89, vibration: 'high' },
+  { id: 'L-03', name: 'C라인 (브레이크 시스템)', oee: 91, output: 167, target: 190, defect: 1.2, status: 'running', temp: 68, vibration: 'normal' },
+  { id: 'L-04', name: 'D라인 (조향장치)', oee: 55, output: 82, target: 160, defect: 4.5, status: 'stopped', temp: 45, vibration: 'low' },
+  { id: 'L-05', name: 'E라인 (서스펜션)', oee: 88, output: 155, target: 175, defect: 1.5, status: 'running', temp: 71, vibration: 'normal' },
+];
+
+const EQUIPMENT = [
+  { id: 'EQ-001', name: 'CNC 머시닝센터 #1', model: 'FANUC α-T14iF', line: 'A라인', health: 92, lastMaint: '2026-01-15', nextMaint: '2026-04-15', runHours: 12450, failProbability: 8, status: '정상' },
+  { id: 'EQ-002', name: 'CNC 머시닝센터 #2', model: 'FANUC α-T14iF', line: 'B라인', health: 61, lastMaint: '2025-11-20', nextMaint: '2026-03-01', runHours: 18920, failProbability: 39, status: '주의' },
+  { id: 'EQ-003', name: '산업용 로봇 #3', model: 'KUKA KR 60', line: 'A라인', health: 88, lastMaint: '2026-02-01', nextMaint: '2026-05-01', runHours: 8340, failProbability: 12, status: '정상' },
+  { id: 'EQ-004', name: '유압 프레스 #1', model: 'AMADA HFE 50', line: 'D라인', health: 34, lastMaint: '2025-09-10', nextMaint: '2026-02-28', runHours: 25600, failProbability: 66, status: '위험' },
+  { id: 'EQ-005', name: '레이저 커팅기 #2', model: 'TRUMPF TruLaser 3030', line: 'C라인', health: 95, lastMaint: '2026-02-10', nextMaint: '2026-05-10', runHours: 5210, failProbability: 5, status: '정상' },
+  { id: 'EQ-006', name: '3D 측정기 CMM', model: 'Zeiss CONTURA G2', line: 'C라인', health: 78, lastMaint: '2026-01-25', nextMaint: '2026-04-25', runHours: 9870, failProbability: 22, status: '주의' },
+];
+
+const SUPPLY_ORDERS = [
+  { id: 'SO-3421', vendor: '현대스틸(주)', parts: 'SUS304 판재 2.0T × 500장', amount: '₩8,400,000', status: '입고완료', due: '2026-02-20', eta: null },
+  { id: 'SO-3420', vendor: '코리아베어링', parts: '베어링 FAG 6304 × 2,000개', amount: '₩3,200,000', status: '배송중', due: '2026-02-28', eta: '2026-02-27' },
+  { id: 'SO-3419', vendor: '국제볼트(주)', parts: 'M10 볼트/너트 세트 × 10,000개', amount: '₩1,850,000', status: '발주확인', due: '2026-03-05', eta: null },
+  { id: 'SO-3418', vendor: '삼성유압', parts: '유압 실린더 PN-220 × 8개', amount: '₩12,600,000', status: '승인대기', due: '2026-03-10', eta: null },
+  { id: 'SO-3417', vendor: '한국씰링', parts: '오링 세트 (100종) × 50세트', amount: '₩920,000', status: '입고완료', due: '2026-02-15', eta: null },
+  { id: 'SO-3416', vendor: '광진모터스', parts: '서보모터 SGMPH-08AAA × 4개', amount: '₩6,400,000', status: '배송중', due: '2026-03-01', eta: '2026-02-28' },
+];
+
+const APPROVALS_DOC = [
+  { id: 'AP-0582', title: 'EQ-004 긴급 정비 예산 승인 요청', type: '구매요청', author: '김민수', dept: '생산기술', date: '2026-02-25', status: '결재대기', amount: '₩4,200,000', urgency: 'high' },
+  { id: 'AP-0581', title: '2월 3째주 지출결의서', type: '지출결의', author: '강유진', dept: '경영지원', date: '2026-02-24', status: '결재대기', amount: '₩1,240,000', urgency: 'normal' },
+  { id: 'AP-0580', title: '이준호 출장비 정산 (대전)', type: '출장정산', author: '이준호', dept: '품질관리', date: '2026-02-23', status: '승인완료', amount: '₩215,000', urgency: 'normal' },
+  { id: 'AP-0579', title: '박서진 연차 2일 신청', type: '휴가신청', author: '박서진', dept: '생산기술', date: '2026-02-22', status: '승인완료', amount: '-', urgency: 'normal' },
+  { id: 'AP-0578', title: '1월 법인카드 정산서', type: '법인카드', author: '최예린', dept: '경영지원', date: '2026-02-20', status: '반려', amount: '₩3,840,000', urgency: 'normal' },
+  { id: 'AP-0577', title: 'KUKA 로봇 소프트웨어 업그레이드', type: '구매요청', author: '정하윤', dept: '생산기술', date: '2026-02-19', status: '승인완료', amount: '₩890,000', urgency: 'normal' },
+];
+
+// ── 유틸리티 ───────────────────────────────────────────────
+function Tag({ children, color = C.primary }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', padding: '2px 8px',
+      borderRadius: 4, fontSize: 11, fontWeight: 600, fontFamily: 'monospace',
+      color: color, background: color + '18', border: `1px solid ${color}30`,
+    }}>{children}</span>
+  );
+}
+
+function StatusDot({ status }) {
+  const map = { 'running': C.success, '정상': C.success, '입고완료': C.success, '승인완료': C.success,
+    'warning': C.warning, '주의': C.warning, '배송중': C.info, '결재대기': C.info, '발주확인': '#A78BFA',
+    'stopped': C.danger, '위험': C.danger, '승인대기': C.warning, '반려': C.danger };
+  const c = map[status] || C.textLight;
+  return <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: c, marginRight: 6, flexShrink: 0, animation: status === 'running' ? 'pulse 2s infinite' : 'none' }} />;
+}
+
+function CountUp({ end, suffix = '' }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let s = 0; const step = end / 50;
+    const t = setInterval(() => { s += step; if (s >= end) { setVal(end); clearInterval(t); } else setVal(Math.floor(s)); }, 24);
+    return () => clearInterval(t);
+  }, [end]);
+  return <span>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({ message, type = 'success', onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 9999,
+      background: C.surface, color: C.text, padding: '10px 16px',
+      borderRadius: 6, animation: 'slideUp 200ms ease',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', gap: 10, minWidth: 240,
+      border: `1px solid ${type === 'success' ? C.success : type === 'error' ? C.danger : C.primary}30`,
+      borderLeft: `3px solid ${type === 'success' ? C.success : type === 'error' ? C.danger : C.primary}`,
+    }}>
+      <span style={{ fontSize: 14, color: type === 'success' ? C.success : type === 'error' ? C.danger : C.primary }}>
+        {type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}
+      </span>
+      <span style={{ fontSize: 13 }}>{message}</span>
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children, width = 540 }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 300, backdropFilter: 'blur(3px)' }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%,-50%)', zIndex: 301,
+        background: C.surface, borderRadius: 8, width, maxWidth: '95vw', maxHeight: '90vh', overflow: 'auto',
+        boxShadow: `0 0 0 1px ${C.border}, 0 20px 60px rgba(0,0,0,0.5)`,
+        animation: 'fadeInScale 180ms ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textSub, fontSize: 18, lineHeight: 1 }}>×</button>
+        </div>
+        <div style={{ padding: 20 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+const inputStyle = {
+  width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13,
+  border: `1px solid ${C.border}`, outline: 'none', fontFamily: 'inherit',
+  color: C.text, background: '#11151E', transition: 'border 150ms',
+};
+
+function FormField({ label, children, required }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.textSub, marginBottom: 5 }}>
+        {label}{required && <span style={{ color: C.danger, marginLeft: 2 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ── 아이콘 레일 ─────────────────────────────────────────────
+const RAIL_ITEMS = [
+  { id: 'monitor', icon: '📡', label: '생산 모니터링' },
+  { id: 'maintenance', icon: '🔩', label: '예측 정비' },
+  { id: 'supply', icon: '🔗', label: '공급망/재고' },
+  { id: 'approval', icon: '📋', label: '전자 결재' },
+  { id: 'analytics', icon: '📊', label: '분석' },
+];
+
+const SECTION_TABS = {
+  monitor: [{ id: 'overview', label: '전체 현황' }, { id: 'lines', label: '라인별' }, { id: 'alerts', label: '알림' }],
+  maintenance: [{ id: 'list', label: '설비 목록' }, { id: 'schedule', label: '정비 일정' }, { id: 'history', label: '이력' }],
+  supply: [{ id: 'orders', label: '발주 현황' }, { id: 'inventory', label: '재고 분석' }, { id: 'vendors', label: '협력사' }],
+  approval: [{ id: 'pending', label: '결재 대기' }, { id: 'done', label: '완료 이력' }, { id: 'write', label: '문서 작성' }],
+  analytics: [{ id: 'kpi', label: 'KPI 요약' }, { id: 'quality', label: '품질 분석' }],
+};
+
+function RailIcon({ icon, label, active, onClick }) {
+  return (
+    <button title={label} onClick={onClick} style={{
+      width: 40, height: 40, borderRadius: 6, border: 'none', cursor: 'pointer',
+      background: active ? `${C.primary}20` : 'transparent',
+      color: active ? C.primary : C.textLight,
+      fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'all 150ms', position: 'relative',
+    }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = C.border; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+    >{icon}</button>
+  );
+}
+
+function TabUnderline({ label, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '6px 14px 5px', border: 'none', cursor: 'pointer',
+      background: 'transparent', fontFamily: 'inherit', fontSize: 12,
+      color: active ? C.primary : C.textSub,
+      fontWeight: active ? 700 : 400,
+      borderBottom: active ? `2px solid ${C.primary}` : '2px solid transparent',
+      marginBottom: -1, transition: 'all 120ms', letterSpacing: '0.01em',
+    }}>{label}</button>
+  );
+}
+
+// ── 생산 모니터링 ────────────────────────────────────────────
+function GaugeRing({ value, max = 100, color, size = 56 }) {
+  const r = 22; const cx = size / 2; const circ = 2 * Math.PI * r;
+  const dash = (value / max) * circ;
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke={C.border} strokeWidth={5} />
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke={color} strokeWidth={5}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LineCard({ line, selected, onClick }) {
+  const statusColor = { running: C.success, warning: C.warning, stopped: C.danger }[line.status];
+  return (
+    <div onClick={onClick} style={{
+      padding: '10px 14px', cursor: 'pointer',
+      borderBottom: `1px solid ${C.border}`,
+      background: selected ? `${C.primary}0A` : 'transparent',
+      borderLeft: selected ? `2px solid ${C.primary}` : '2px solid transparent',
+      transition: 'all 120ms',
+    }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = C.surfaceHover; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{line.id}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <StatusDot status={line.status} />
+          <span style={{ fontSize: 11, color: statusColor, fontWeight: 600 }}>
+            {line.status === 'running' ? '가동중' : line.status === 'warning' ? '이상감지' : '정지'}
+          </span>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: C.textSub, marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{line.name}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: C.textLight }}>OEE</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: line.oee >= 85 ? C.success : line.oee >= 70 ? C.warning : C.danger }}>
+          {line.oee}%
+        </span>
+      </div>
+      <div style={{ height: 4, borderRadius: 2, background: C.border, overflow: 'hidden', marginTop: 4 }}>
+        <div style={{ height: '100%', borderRadius: 2, background: line.oee >= 85 ? C.success : line.oee >= 70 ? C.warning : C.danger, width: `${line.oee}%`, animation: 'barGrow 600ms ease both', '--target-width': `${line.oee}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function LineDetail({ line }) {
+  if (!line) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.textLight }}>
+      <div style={{ fontSize: 40, marginBottom: 8 }}>📡</div>
+      <div style={{ fontSize: 13 }}>라인을 선택하세요</div>
+    </div>
+  );
+
+  const statusColor = { running: C.success, warning: C.warning, stopped: C.danger }[line.status];
+
+  return (
+    <div style={{ padding: '16px 20px', animation: 'fadeIn 200ms ease' }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <StatusDot status={line.status} />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{line.name}</span>
+        </div>
+        <Tag color={statusColor}>{line.id}</Tag>
+      </div>
+
+      {/* KPI 그리드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+        {[
+          { label: 'OEE', value: `${line.oee}%`, color: line.oee >= 85 ? C.success : C.warning },
+          { label: '일 생산량', value: `${line.output}/${line.target}개`, color: C.primary },
+          { label: '불량률', value: `${line.defect}%`, color: line.defect < 2 ? C.success : C.danger },
+          { label: '온도', value: `${line.temp}°C`, color: line.temp > 85 ? C.danger : C.success },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: C.bg, borderRadius: 6, padding: '10px 12px', border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.textLight, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{kpi.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: kpi.color }}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* OEE 게이지 */}
+      <div style={{ background: C.bg, borderRadius: 6, padding: '14px', marginBottom: 12, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ position: 'relative' }}>
+          <GaugeRing value={line.oee} color={line.oee >= 85 ? C.success : C.warning} size={64} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.text }}>{line.oee}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>OEE 현황</div>
+          <div style={{ fontSize: 11, color: C.textSub }}>가동률 × 성능률 × 양품률</div>
+          <div style={{ fontSize: 11, color: line.oee >= 85 ? C.success : C.warning, marginTop: 2, fontWeight: 600 }}>
+            {line.oee >= 85 ? '✓ 목표 달성' : '⚠ 목표 미달 (목표: 85%)'}
+          </div>
+        </div>
+      </div>
+
+      {/* 일간 생산 바 */}
+      <div style={{ background: C.bg, borderRadius: 6, padding: '12px 14px', border: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 11 }}>
+          <span style={{ color: C.textSub }}>일간 생산 목표 달성률</span>
+          <span style={{ fontWeight: 700, color: C.text }}>{Math.round((line.output / line.target) * 100)}%</span>
+        </div>
+        <div style={{ height: 8, borderRadius: 4, background: C.border, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 4, background: C.primary,
+            width: `${(line.output / line.target) * 100}%`,
+            animation: 'barGrow 700ms ease both', '--target-width': `${(line.output / line.target) * 100}%`,
+          }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: C.textLight }}>
+          <span>{line.output}개 생산</span><span>목표 {line.target}개</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MonitorPage({ tab, showToast }) {
+  const [selectedLine, setSelectedLine] = useState(PRODUCTION_LINES[0]);
+
+  if (tab === 'overview') {
+    return (
+      <div style={{ display: 'flex', overflow: 'hidden', height: '100%' }}>
+        {/* 마스터 목록 */}
+        <div style={{ width: '40%', borderRight: `1px solid ${C.border}`, overflowY: 'auto', flexShrink: 0 }}>
+          <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[['가동중', PRODUCTION_LINES.filter(l => l.status === 'running').length, C.success],
+                ['이상', PRODUCTION_LINES.filter(l => l.status === 'warning').length, C.warning],
+                ['정지', PRODUCTION_LINES.filter(l => l.status === 'stopped').length, C.danger]].map(([l, c, col]) => (
+                  <div key={l} style={{ flex: 1, textAlign: 'center', background: C.surface, borderRadius: 4, padding: '6px', border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: col }}>{c}</div>
+                    <div style={{ fontSize: 10, color: C.textLight }}>{l}</div>
+                  </div>
+                ))}
+            </div>
+          </div>
+          {PRODUCTION_LINES.map(line => (
+            <LineCard key={line.id} line={line} selected={selectedLine?.id === line.id} onClick={() => setSelectedLine(line)} />
+          ))}
+        </div>
+
+        {/* 디테일 패널 */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <LineDetail line={selectedLine} />
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === 'alerts') {
+    return (
+      <div style={{ padding: 16, overflowY: 'auto', height: '100%' }}>
+        {[
+          { level: 'critical', msg: 'D라인 유압 프레스 #1 이상 감지 — 즉시 점검 필요', time: '2분 전', eq: 'EQ-004' },
+          { level: 'warning', msg: 'B라인 OEE 78% — 목표(85%) 미달 지속 중', time: '18분 전', eq: 'L-02' },
+          { level: 'warning', msg: 'CNC 머시닝센터 #2 진동 수치 임계 초과', time: '34분 전', eq: 'EQ-002' },
+          { level: 'info', msg: 'SO-3418 발주서 승인 대기 (48시간 초과)', time: '1시간 전', eq: null },
+          { level: 'success', msg: 'A라인 일 생산 목표 91% 달성', time: '2시간 전', eq: 'L-01' },
+        ].map((a, i) => {
+          const colorMap = { critical: C.danger, warning: C.warning, info: C.info, success: C.success };
+          return (
+            <div key={i} style={{
+              display: 'flex', gap: 10, padding: '12px 14px',
+              borderBottom: `1px solid ${C.border}`,
+              animation: `slideUp 300ms ease ${i * 50}ms both`,
+              borderLeft: `3px solid ${colorMap[a.level]}`,
+              marginBottom: 4, borderRadius: '0 4px 4px 0',
+              background: a.level === 'critical' ? `${C.danger}08` : 'transparent',
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: colorMap[a.level], marginTop: 4, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12.5, color: C.text }}>{a.msg}</div>
+                {a.eq && <div style={{ fontSize: 10, color: C.textLight, marginTop: 2 }}>{a.eq}</div>}
+              </div>
+              <div style={{ fontSize: 10, color: C.textLight, whiteSpace: 'nowrap', marginTop: 2 }}>{a.time}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', overflow: 'hidden', height: '100%' }}>
+      <div style={{ width: '40%', borderRight: `1px solid ${C.border}`, overflowY: 'auto' }}>
+        {PRODUCTION_LINES.map(line => (
+          <LineCard key={line.id} line={line} selected={selectedLine?.id === line.id} onClick={() => setSelectedLine(line)} />
+        ))}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <LineDetail line={selectedLine} />
+      </div>
+    </div>
+  );
+}
+
+// ── 예측 정비 ────────────────────────────────────────────────
+function EquipCard({ eq, selected, onClick }) {
+  const healthColor = eq.health >= 80 ? C.success : eq.health >= 50 ? C.warning : C.danger;
+  return (
+    <div onClick={onClick} style={{
+      padding: '10px 14px', cursor: 'pointer',
+      borderBottom: `1px solid ${C.border}`,
+      background: selected ? `${C.primary}0A` : 'transparent',
+      borderLeft: selected ? `2px solid ${C.primary}` : '2px solid transparent',
+      transition: 'all 120ms',
+    }}
+      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = C.surfaceHover; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.primary }}>{eq.id}</span>
+        <Tag color={healthColor}>{eq.status}</Tag>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{eq.name}</div>
+      <div style={{ fontSize: 10, color: C.textSub, marginBottom: 6 }}>{eq.line}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ flex: 1, height: 3, borderRadius: 2, background: C.border, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 2, background: healthColor, width: `${eq.health}%`, animation: 'barGrow 600ms ease both', '--target-width': `${eq.health}%` }} />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: healthColor, minWidth: 32, textAlign: 'right' }}>{eq.health}%</span>
+      </div>
+    </div>
+  );
+}
+
+function EquipDetail({ eq, showToast }) {
+  if (!eq) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.textLight }}>
+      <div style={{ fontSize: 40, marginBottom: 8 }}>🔩</div>
+      <div style={{ fontSize: 13 }}>설비를 선택하세요</div>
+    </div>
+  );
+  const healthColor = eq.health >= 80 ? C.success : eq.health >= 50 ? C.warning : C.danger;
+
+  return (
+    <div style={{ padding: '16px 20px', overflowY: 'auto', height: '100%', animation: 'fadeIn 200ms ease' }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{eq.name}</div>
+            <div style={{ fontSize: 11, color: C.textSub }}>{eq.model}</div>
+          </div>
+          <Tag color={healthColor}>{eq.status}</Tag>
+        </div>
+      </div>
+
+      {/* 건강도 + 고장 확률 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div style={{ background: C.bg, borderRadius: 6, padding: '12px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>설비 건강도</div>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <GaugeRing value={eq.health} color={healthColor} size={72} />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: healthColor }}>{eq.health}</div>
+          </div>
+        </div>
+        <div style={{ background: C.bg, borderRadius: 6, padding: '12px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>30일 내 고장 확률</div>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <GaugeRing value={eq.failProbability} color={eq.failProbability > 40 ? C.danger : eq.failProbability > 20 ? C.warning : C.success} size={72} />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: eq.failProbability > 40 ? C.danger : eq.failProbability > 20 ? C.warning : C.success }}>{eq.failProbability}%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 세부 정보 */}
+      {[['라인', eq.line], ['모델', eq.model], ['가동 시간', `${eq.runHours.toLocaleString()} h`], ['최근 정비', eq.lastMaint], ['다음 정비', eq.nextMaint]].map(([k, v]) => (
+        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
+          <span style={{ color: C.textSub }}>{k}</span>
+          <span style={{ fontWeight: 600, color: k === '다음 정비' && eq.failProbability > 40 ? C.danger : C.text }}>{v}</span>
+        </div>
+      ))}
+
+      {eq.failProbability > 30 && (
+        <div style={{ marginTop: 14, background: `${C.danger}10`, border: `1px solid ${C.danger}30`, borderRadius: 6, padding: '10px 12px' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.danger, marginBottom: 4 }}>⚠ 선제 정비 권고</div>
+          <div style={{ fontSize: 11, color: C.textSub }}>고장 예측 확률이 높습니다. 계획 외 다운타임 방지를 위해 정비 일정을 앞당기는 것을 권장합니다.</div>
+          <button onClick={() => showToast('정비 요청이 등록되었습니다.', 'success')} style={{
+            marginTop: 10, width: '100%', background: C.danger, color: '#fff',
+            border: 'none', borderRadius: 4, padding: '7px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>긴급 정비 요청</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaintenancePage({ tab, showToast }) {
+  const [selectedEq, setSelectedEq] = useState(EQUIPMENT[0]);
+
+  return (
+    <div style={{ display: 'flex', overflow: 'hidden', height: '100%' }}>
+      <div style={{ width: '40%', borderRight: `1px solid ${C.border}`, overflowY: 'auto', flexShrink: 0 }}>
+        {EQUIPMENT.map(eq => (
+          <EquipCard key={eq.id} eq={eq} selected={selectedEq?.id === eq.id} onClick={() => setSelectedEq(eq)} />
+        ))}
+      </div>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <EquipDetail eq={selectedEq} showToast={showToast} />
+      </div>
+    </div>
+  );
+}
+
+// ── 공급망/재고 ──────────────────────────────────────────────
+function SupplyPage({ tab, showToast }) {
+  const [modal, setModal] = useState(null);
+  const [orders, setOrders] = useState(SUPPLY_ORDERS);
+
+  function handleApprove(id) {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status: '발주확인' } : o));
+    showToast('발주서가 승인되었습니다.', 'success');
+  }
+  function handleCreate(e) { e.preventDefault(); setModal(null); showToast('발주서가 생성되었습니다.', 'success'); }
+
+  const statusColorMap = {
+    '입고완료': C.success, '배송중': C.info, '발주확인': '#A78BFA',
+    '승인대기': C.warning, '반려': C.danger,
+  };
+
+  return (
+    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {[['전체', orders.length], ['배송중', orders.filter(o => o.status === '배송중').length], ['대기', orders.filter(o => ['승인대기', '발주확인'].includes(o.status)).length]].map(([l, c]) => (
+            <div key={l} style={{ background: C.bg, borderRadius: 4, padding: '5px 12px', fontSize: 12, border: `1px solid ${C.border}` }}>
+              <span style={{ color: C.textSub }}>{l} </span>
+              <span style={{ fontWeight: 700 }}>{c}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'create' })} style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ 발주</button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: C.bg, position: 'sticky', top: 0 }}>
+              {['발주번호', '협력사', '품목', '금액', '납기일', '상태', ''].map(h => (
+                <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: C.textSub, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((o, i) => (
+              <tr key={o.id} style={{
+                borderBottom: `1px solid ${C.border}`,
+                animation: `slideUp 250ms ease ${i * 35}ms both`,
+                transition: 'background 100ms',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+                onMouseLeave={e => e.currentTarget.style.background = ''}
+              >
+                <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: C.primary, fontSize: 11 }}>{o.id}</td>
+                <td style={{ padding: '10px 14px', fontWeight: 500 }}>{o.vendor}</td>
+                <td style={{ padding: '10px 14px', color: C.textSub, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.parts}</td>
+                <td style={{ padding: '10px 14px', fontWeight: 700 }}>{o.amount}</td>
+                <td style={{ padding: '10px 14px', color: C.textSub }}>{o.due}</td>
+                <td style={{ padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <StatusDot status={o.status} />
+                    <span style={{ fontSize: 11, color: statusColorMap[o.status] || C.textSub, fontWeight: 600 }}>{o.status}</span>
+                  </div>
+                </td>
+                <td style={{ padding: '10px 14px' }}>
+                  {o.status === '승인대기' && (
+                    <button onClick={() => handleApprove(o.id)} style={{ background: `${C.success}20`, color: C.success, border: 'none', borderRadius: 3, padding: '3px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>승인</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="신규 발주 생성" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="협력사" required>
+              <select style={inputStyle} required>
+                <option value="">선택</option>
+                {['현대스틸(주)', '코리아베어링', '국제볼트(주)', '삼성유압', '한국씰링'].map(v => <option key={v}>{v}</option>)}
+              </select>
+            </FormField>
+            <FormField label="품목명" required><input style={inputStyle} placeholder="부품명 및 규격" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="수량" required><input type="number" style={inputStyle} placeholder="0" min={1} required /></FormField>
+              <FormField label="단가 (원)" required><input type="number" style={inputStyle} placeholder="0" min={0} required /></FormField>
+            </div>
+            <FormField label="납기 요청일" required><input type="date" style={inputStyle} required /></FormField>
+            <FormField label="비고"><textarea style={{ ...inputStyle, height: 70, resize: 'vertical' }} placeholder="특이사항" /></FormField>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '8px 16px', border: `1px solid ${C.border}`, borderRadius: 4, background: 'none', cursor: 'pointer', fontSize: 12, color: C.textSub }}>취소</button>
+              <button type="submit" style={{ padding: '8px 18px', background: C.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>발주 생성</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 전자 결재 ────────────────────────────────────────────────
+function ApprovalPage({ tab, showToast }) {
+  const [docs, setDocs] = useState(APPROVALS_DOC);
+  const [selected, setSelected] = useState(APPROVALS_DOC[0]);
+  const [modal, setModal] = useState(null);
+
+  const pending = docs.filter(d => d.status === '결재대기');
+  const done = docs.filter(d => d.status !== '결재대기');
+  const list = tab === 'pending' ? pending : done;
+
+  function handleApprove() {
+    setDocs(prev => prev.map(d => d.id === selected.id ? { ...d, status: '승인완료' } : d));
+    setSelected(prev => ({ ...prev, status: '승인완료' }));
+    showToast('승인 완료되었습니다.', 'success');
+  }
+  function handleReject() {
+    setDocs(prev => prev.map(d => d.id === selected.id ? { ...d, status: '반려' } : d));
+    setSelected(prev => ({ ...prev, status: '반려' }));
+    showToast('문서가 반려되었습니다.', 'error');
+  }
+  function handleWrite(e) { e.preventDefault(); setModal(null); showToast('결재 요청이 등록되었습니다.', 'success'); }
+
+  if (tab === 'write') {
+    return (
+      <div style={{ padding: 16, overflowY: 'auto', height: '100%' }}>
+        <form onSubmit={handleWrite}>
+          <FormField label="문서 유형" required>
+            <select style={inputStyle} required>
+              <option value="">선택</option>
+              {['구매요청', '지출결의', '출장정산', '휴가신청', '법인카드'].map(t => <option key={t}>{t}</option>)}
+            </select>
+          </FormField>
+          <FormField label="제목" required><input style={inputStyle} placeholder="문서 제목" required /></FormField>
+          <FormField label="결재선">
+            <div style={{ background: C.bg, borderRadius: 4, padding: '8px 10px', fontSize: 11, color: C.textSub, border: `1px solid ${C.border}` }}>
+              작성자 → 팀장 김민수 → 본부장 이상호 (자동)
+            </div>
+          </FormField>
+          <FormField label="금액 (해당 시)"><input type="number" style={inputStyle} placeholder="0" /></FormField>
+          <FormField label="내용" required><textarea style={{ ...inputStyle, height: 100, resize: 'vertical' }} placeholder="문서 내용 작성" required /></FormField>
+          <button type="submit" style={{ padding: '8px 20px', background: C.primary, color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700, width: '100%', marginTop: 4 }}>결재 요청</button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', overflow: 'hidden', height: '100%' }}>
+      {/* 마스터 목록 */}
+      <div style={{ width: '42%', borderRight: `1px solid ${C.border}`, overflowY: 'auto', flexShrink: 0 }}>
+        {list.map(doc => (
+          <div key={doc.id} onClick={() => setSelected(doc)} style={{
+            padding: '10px 14px', cursor: 'pointer',
+            borderBottom: `1px solid ${C.border}`,
+            background: selected?.id === doc.id ? `${C.primary}0A` : 'transparent',
+            borderLeft: selected?.id === doc.id ? `2px solid ${C.primary}` : '2px solid transparent',
+            transition: 'all 100ms',
+          }}
+            onMouseEnter={e => { if (selected?.id !== doc.id) e.currentTarget.style.background = C.surfaceHover; }}
+            onMouseLeave={e => { if (selected?.id !== doc.id) e.currentTarget.style.background = 'transparent'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.primary }}>{doc.id}</span>
+              {doc.urgency === 'high' && <span style={{ fontSize: 10, color: C.danger, fontWeight: 700 }}>긴급</span>}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.textLight }}>
+              <span>{doc.author} · {doc.dept}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <StatusDot status={doc.status} />
+                <span style={{ color: doc.status === '결재대기' ? C.info : doc.status === '승인완료' ? C.success : C.danger, fontWeight: 600 }}>{doc.status}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 디테일 */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16, animation: 'fadeIn 200ms ease' }}>
+        {selected ? (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{selected.title}</div>
+                  <Tag color={C.accent}>{selected.type}</Tag>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <StatusDot status={selected.status} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: selected.status === '결재대기' ? C.info : selected.status === '승인완료' ? C.success : C.danger }}>{selected.status}</span>
+                </div>
+              </div>
+            </div>
+            {[['문서번호', selected.id], ['작성자', selected.author], ['부서', selected.dept], ['금액', selected.amount], ['등록일', selected.date]].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
+                <span style={{ color: C.textSub }}>{k}</span>
+                <span style={{ fontWeight: 600 }}>{v}</span>
+              </div>
+            ))}
+            {/* 결재선 시각화 */}
+            <div style={{ marginTop: 14, background: C.bg, borderRadius: 6, padding: '12px 14px', border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 11, color: C.textSub, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>결재선</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {[['작성자', selected.author, 'done'], ['팀장', '김민수', selected.status === '결재대기' ? 'pending' : 'done'], ['본부장', '이상호', selected.status === '승인완료' ? 'done' : 'wait']].map(([role, name, state], i, arr) => (
+                  <React.Fragment key={role}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%', margin: '0 auto 4px',
+                        background: state === 'done' ? C.success : state === 'pending' ? C.primary : C.border,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#fff', fontWeight: 700, fontSize: 12,
+                      }}>{state === 'done' ? '✓' : name[0]}</div>
+                      <div style={{ fontSize: 9, color: C.textLight }}>{role}</div>
+                      <div style={{ fontSize: 10, color: C.text, fontWeight: 600 }}>{name}</div>
+                    </div>
+                    {i < arr.length - 1 && <div style={{ flex: 1, height: 1, background: state === 'done' ? C.success : C.border }} />}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+            {selected.status === '결재대기' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button onClick={handleApprove} style={{ flex: 1, background: C.success, color: '#fff', border: 'none', borderRadius: 4, padding: '9px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>승인</button>
+                <button onClick={handleReject} style={{ flex: 1, background: `${C.danger}20`, color: C.danger, border: `1px solid ${C.danger}30`, borderRadius: 4, padding: '9px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>반려</button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.textLight }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
+            <div style={{ fontSize: 13 }}>문서를 선택하세요</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 분석 ────────────────────────────────────────────────────
+function AnalyticsPage({ tab }) {
+  return (
+    <div style={{ padding: 16, overflowY: 'auto', height: '100%', animation: 'fadeIn 300ms ease' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
+        {[
+          { label: '전체 OEE 평균', value: '81.2%', sub: '목표 85% 대비 -3.8%', color: C.warning, icon: '📈' },
+          { label: '월간 생산량', value: '4,832개', sub: '전월 대비 +7.4%', color: C.success, icon: '🏭' },
+          { label: '불량률 평균', value: '2.02%', sub: '목표 2% 근접', color: C.warning, icon: '⚠️' },
+          { label: '설비 가동률', value: '94.1%', sub: '계획 정비 준수율 98%', color: C.success, icon: '⚙️' },
+        ].map((kpi, i) => (
+          <div key={i} style={{
+            background: C.bg, borderRadius: 6, padding: '14px 16px',
+            border: `1px solid ${C.border}`,
+            animation: `slideUp 300ms ease ${i * 60}ms both`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 10, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{kpi.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: kpi.color }}>{kpi.value}</div>
+                <div style={{ fontSize: 11, color: C.textSub, marginTop: 3 }}>{kpi.sub}</div>
+              </div>
+              <span style={{ fontSize: 24 }}>{kpi.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 라인별 OEE 바 차트 */}
+      <div style={{ background: C.bg, borderRadius: 6, padding: '14px 16px', border: `1px solid ${C.border}`, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>라인별 OEE</div>
+        {PRODUCTION_LINES.map((line, i) => (
+          <div key={line.id} style={{ marginBottom: 10, animation: `slideUp 350ms ease ${i * 60}ms both` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11 }}>
+              <span style={{ color: C.textSub }}>{line.id}</span>
+              <span style={{ fontWeight: 700, color: line.oee >= 85 ? C.success : line.oee >= 70 ? C.warning : C.danger }}>{line.oee}%</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 3,
+                background: line.oee >= 85 ? C.success : line.oee >= 70 ? C.warning : C.danger,
+                width: `${line.oee}%`, animation: `barGrow 700ms ease ${i * 80}ms both`,
+                '--target-width': `${line.oee}%`,
+              }} />
+            </div>
+          </div>
+        ))}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 10 }}>
+          <div style={{ width: 10, height: 3, borderRadius: 2, background: C.border, position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: '85%', borderRadius: 2, background: '#fff4', borderRight: '1px dashed #fff6' }} />
+          </div>
+          <span style={{ color: C.textLight }}>목표선: 85%</span>
+        </div>
+      </div>
+
+      {/* 설비 건강도 분포 */}
+      <div style={{ background: C.bg, borderRadius: 6, padding: '14px 16px', border: `1px solid ${C.border}` }}>
+        <div style={{ fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>설비 건강도 분포</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[['정상 (80+)', EQUIPMENT.filter(e => e.health >= 80).length, C.success],
+            ['주의 (50-79)', EQUIPMENT.filter(e => e.health >= 50 && e.health < 80).length, C.warning],
+            ['위험 (<50)', EQUIPMENT.filter(e => e.health < 50).length, C.danger]].map(([label, count, color]) => (
+              <div key={label} style={{ flex: 1, background: C.surface, borderRadius: 4, padding: '10px', textAlign: 'center', border: `1px solid ${color}30` }}>
+                <div style={{ fontSize: 24, fontWeight: 900, color }}>{count}</div>
+                <div style={{ fontSize: 10, color: C.textLight, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 스켈레톤 ────────────────────────────────────────────────
+function SkeletonLoader() {
+  return (
+    <div style={{ display: 'flex', height: '100vh', background: C.bg }}>
+      <div style={{ width: 56, background: C.rail, borderRight: `1px solid ${C.border}` }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: 40, background: C.surface, borderBottom: `1px solid ${C.border}` }} />
+        <div style={{ height: 38, background: C.surface, borderBottom: `1px solid ${C.border}` }} />
+        <div style={{ flex: 1, display: 'flex', gap: 0 }}>
+          <div style={{ width: '40%', padding: 12, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...Array(5)].map((_, i) => <div key={i} className="skeleton" style={{ height: 72 }} />)}
+          </div>
+          <div style={{ flex: 1, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: 80 }} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 알림 패널 ────────────────────────────────────────────────
+function AlertPanel({ onClose }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+      <div style={{
+        position: 'fixed', top: 44, right: 8, width: 300,
+        background: C.surface, borderRadius: 6,
+        boxShadow: `0 0 0 1px ${C.border}, 0 8px 32px rgba(0,0,0,0.4)`,
+        zIndex: 201, animation: 'slideDown 150ms ease', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>알림</span>
+          <span style={{ fontSize: 10, color: C.primary, cursor: 'pointer' }}>모두 읽음</span>
+        </div>
+        {[
+          { icon: '🔴', msg: 'EQ-004 즉시 점검 필요', time: '2분 전' },
+          { icon: '🟡', msg: 'B라인 OEE 78% 미달', time: '18분 전' },
+          { icon: '🔵', msg: 'SO-3418 발주 승인 대기', time: '1시간 전' },
+          { icon: '🟢', msg: 'A라인 목표 91% 달성', time: '2시간 전' },
+        ].map((n, i) => (
+          <div key={i} style={{ padding: '9px 14px', borderBottom: i < 3 ? `1px solid ${C.border}` : 'none', display: 'flex', gap: 8, cursor: 'pointer', transition: 'background 100ms', fontSize: 12 }}
+            onMouseEnter={e => e.currentTarget.style.background = C.surfaceHover}
+            onMouseLeave={e => e.currentTarget.style.background = ''}>
+            <span>{n.icon}</span>
+            <span style={{ flex: 1, color: C.text }}>{n.msg}</span>
+            <span style={{ color: C.textLight, fontSize: 10 }}>{n.time}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── 메인 앱 ───────────────────────────────────────────────
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState('monitor');
+  const [tab, setTab] = useState(0);
+  const [toast, setToast] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+  useEffect(() => { setTab(0); }, [section]);
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type, key: Date.now() });
+  }
+
+  if (loading) return <SkeletonLoader />;
+
+  const currentTabs = SECTION_TABS[section] || [];
+  const currentTab = currentTabs[tab]?.id || 'overview';
+
+  const breadcrumbLabels = { monitor: '생산 모니터링', maintenance: '예측 정비', supply: '공급망/재고', approval: '전자 결재', analytics: '분석' };
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', background: C.bg, overflow: 'hidden' }}>
+      {/* 아이콘 레일 */}
+      <nav style={{
+        width: 56, background: C.rail, borderRight: `1px solid ${C.border}`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        paddingTop: 12, gap: 2, flexShrink: 0, zIndex: 10,
+      }}>
+        {/* 앱 아이콘 */}
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 16, cursor: 'pointer' }}>⚡</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, width: '100%', alignItems: 'center' }}>
+          {RAIL_ITEMS.map(item => (
+            <RailIcon key={item.id} icon={item.icon} label={item.label} active={section === item.id} onClick={() => setSection(item.id)} />
+          ))}
+        </div>
+
+        <div style={{ paddingBottom: 12, display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+          <RailIcon icon="⚙️" label="설정" active={section === 'settings'} onClick={() => showToast('설정 페이지', 'info')} />
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: C.primary + '30', border: `1px solid ${C.primary}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.primary, fontWeight: 700, fontSize: 11, cursor: 'pointer', marginTop: 4 }}>김</div>
+        </div>
+      </nav>
+
+      {/* 메인 컨텐츠 */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* 앱바 (얇게 44px) */}
+        <header style={{
+          height: 40, borderBottom: `1px solid ${C.border}`,
+          display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8,
+          background: C.surface, flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 11, color: C.textLight }}>넥서스ERP</span>
+          <span style={{ color: C.border, fontSize: 10 }}>›</span>
+          <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{breadcrumbLabels[section]}</span>
+          {currentTabs[tab] && (
+            <>
+              <span style={{ color: C.border, fontSize: 10 }}>›</span>
+              <span style={{ fontSize: 11, color: C.primary }}>{currentTabs[tab].label}</span>
+            </>
+          )}
+          <div style={{ flex: 1 }} />
+          {/* 콤팩트 검색 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.bg, borderRadius: 4, padding: '4px 10px', border: `1px solid ${C.border}`, width: 160 }}>
+            <span style={{ fontSize: 11, color: C.textLight }}>🔍</span>
+            <span style={{ fontSize: 11, color: C.textLight }}>검색...</span>
+          </div>
+          {/* 알림 버튼 */}
+          <button onClick={() => setShowAlert(v => !v)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, color: C.textSub, position: 'relative', borderRadius: 4,
+          }}>
+            🔔
+            <span style={{ position: 'absolute', top: 3, right: 3, background: C.danger, borderRadius: '50%', width: 7, height: 7, border: `1px solid ${C.bg}` }} />
+          </button>
+        </header>
+
+        {/* 인라인 탭 스트립 (38px) */}
+        <div style={{
+          height: 38, borderBottom: `1px solid ${C.border}`,
+          display: 'flex', alignItems: 'flex-end', padding: '0 14px',
+          background: C.surface, flexShrink: 0,
+        }}>
+          {currentTabs.map((t, i) => (
+            <TabUnderline key={t.id} label={t.label} active={tab === i} onClick={() => setTab(i)} />
+          ))}
+          <div style={{ flex: 1 }} />
+          {/* 액션 버튼 영역 */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 6 }}>
+            <button onClick={() => showToast('데이터가 새로고침되었습니다.', 'info')} style={{ background: 'none', border: `1px solid ${C.border}`, color: C.textSub, borderRadius: 4, padding: '3px 10px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              ↻ 새로고침
+            </button>
+            <button onClick={() => showToast('내보내기 중...', 'info')} style={{ background: `${C.primary}20`, border: `1px solid ${C.primary}40`, color: C.primary, borderRadius: 4, padding: '3px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
+              ↓ 내보내기
+            </button>
+          </div>
+        </div>
+
+        {/* 마스터-디테일 워크스페이스 */}
+        <div style={{ flex: 1, overflow: 'hidden', animation: 'fadeIn 250ms ease' }}>
+          {section === 'monitor' && <MonitorPage tab={currentTab} showToast={showToast} />}
+          {section === 'maintenance' && <MaintenancePage tab={currentTab} showToast={showToast} />}
+          {section === 'supply' && <SupplyPage tab={currentTab} showToast={showToast} />}
+          {section === 'approval' && <ApprovalPage tab={currentTab} showToast={showToast} />}
+          {section === 'analytics' && <AnalyticsPage tab={currentTab} />}
+        </div>
+      </div>
+
+      {showAlert && <AlertPanel onClose={() => setShowAlert(false)} />}
+      {toast && <Toast key={toast.key} message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

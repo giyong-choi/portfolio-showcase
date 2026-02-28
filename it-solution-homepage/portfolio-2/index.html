@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>핀에듀 — 홈페이지 관리 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.skeleton{background:linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#A78BFA}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── 디자인 토큰 (Berry Luxe / bold-vibrant) ── */
+const C = {
+  primary:'#7C3AED', primaryDark:'#5B21B6', primaryLight:'#EDE9FE',
+  secondary:'#1E1B4B', accent:'#A78BFA',
+  bg:'#FAF5FF', surface:'#FFFFFF', border:'#E5E7EB',
+  text:'#1E1B4B', textSub:'#6B7280', textLight:'#9CA3AF',
+  success:'#059669', warning:'#D97706', danger:'#DC2626', info:'#7C3AED',
+  card:{ borderRadius:16, boxShadow:'0 4px 16px rgba(0,0,0,0.10)', padding:20 },
+};
+
+/* ── 더미 데이터 ── */
+const CONTENTS = [
+  { id:1, title:'금융 데이터 분석 부트캠프 2기', type:'강좌', category:'데이터 분석', image:'📊', status:'게시중', date:'2024-04-01', views:1240, order:1 },
+  { id:2, title:'핀테크 서비스 기획 마스터클래스', type:'프로그램', category:'기획', image:'💡', status:'게시중', date:'2024-03-28', views:890, order:2 },
+  { id:3, title:'파이썬으로 배우는 퀀트 투자', type:'강좌', category:'투자', image:'📈', status:'게시중', date:'2024-03-20', views:2100, order:3 },
+  { id:4, title:'블록체인 기초부터 실전까지', type:'강좌', category:'블록체인', image:'🔗', status:'임시저장', date:'2024-03-15', views:0, order:4 },
+  { id:5, title:'금융 AI 챗봇 개발 워크숍', type:'이벤트', category:'AI', image:'🤖', status:'게시중', date:'2024-03-10', views:670, order:5 },
+  { id:6, title:'디지털 금융 리터러시 과정', type:'강좌', category:'기초', image:'📖', status:'게시중', date:'2024-03-05', views:1560, order:6 },
+];
+
+const RESOURCES = [
+  { id:1, title:'2024년 핀테크 트렌드 리포트', fileType:'PDF', size:'4.2MB', date:'2024-04-01', downloads:342, category:'리포트' },
+  { id:2, title:'금융 데이터 분석 실습 자료집', fileType:'ZIP', size:'28MB', date:'2024-03-25', downloads:189, category:'실습자료' },
+  { id:3, title:'파이썬 퀀트 투자 소스코드', fileType:'ZIP', size:'12MB', date:'2024-03-20', downloads:567, category:'소스코드' },
+  { id:4, title:'블록체인 기술 백서 (한국어)', fileType:'PDF', size:'2.8MB', date:'2024-03-15', downloads:234, category:'백서' },
+  { id:5, title:'금융 AI 모델 학습 데이터셋', fileType:'CSV', size:'156MB', date:'2024-03-10', downloads:98, category:'데이터셋' },
+  { id:6, title:'디지털 금융 자격증 가이드', fileType:'PDF', size:'1.5MB', date:'2024-03-05', downloads:412, category:'가이드' },
+];
+
+const INQUIRIES_2 = [
+  { id:'INQ-201', name:'장민혁', company:'(주)한국투자증권', email:'mh.jang@kis.co.kr', subject:'기업 교육 위탁 프로그램 문의', message:'직원 30명 대상 금융 데이터 분석 교육 프로그램 진행 가능 여부를 문의드립니다.', date:'2024-04-02', status:'대기', category:'교육위탁' },
+  { id:'INQ-200', name:'윤서정', company:'케이뱅크', email:'sj.yoon@kbank.com', subject:'맞춤형 핀테크 과정 개설 요청', message:'신입 개발자 대상 핀테크 기초 과정 커스텀 개설이 가능한지 확인 부탁드립니다.', date:'2024-04-01', status:'처리중', category:'과정개설' },
+  { id:'INQ-199', name:'한승우', company:'삼성생명', email:'sw.han@samsung.com', subject:'오프라인 세미나 공간 대여 문의', message:'40인 규모 세미나 공간 5월 중 가능한 일정을 알려주세요.', date:'2024-03-28', status:'완료', category:'공간대여' },
+  { id:'INQ-198', name:'김나영', company:'신한카드', email:'ny.kim@shinhan.com', subject:'강의 협업 제안', message:'AI 금융 관련 강의 협업을 제안드리고자 합니다.', date:'2024-03-25', status:'대기', category:'제휴문의' },
+];
+
+const TABS = [
+  { id:'dashboard', label:'대시보드' },
+  { id:'contents', label:'콘텐츠 관리' },
+  { id:'library', label:'자료실 관리' },
+  { id:'inquiry', label:'문의 관리' },
+  { id:'settings', label:'사이트 설정' },
+];
+
+const heroMeta = {
+  dashboard:{ title:'대시보드', icon:'📊', kpis:[{label:'총 방문자',value:'22,340',change:'+18%'},{label:'활성 콘텐츠',value:'12',change:'+3'},{label:'이번 달 문의',value:'24',change:'+6'}]},
+  contents:{ title:'콘텐츠 관리', icon:'📝', kpis:[{label:'게시중',value:'5',change:''},{label:'임시저장',value:'1',change:''},{label:'총 조회수',value:'6,460',change:'+12%'}]},
+  library:{ title:'자료실 관리', icon:'📁', kpis:[{label:'등록 자료',value:'6',change:'+2'},{label:'총 다운로드',value:'1,842',change:'+8%'},{label:'인기 카테고리',value:'리포트',change:''}]},
+  inquiry:{ title:'문의 관리', icon:'📨', kpis:[{label:'미처리',value:'2',change:''},{label:'처리중',value:'1',change:''},{label:'전환율',value:'5.8%',change:'+0.4%'}]},
+  settings:{ title:'사이트 설정', icon:'⚙️', kpis:[{label:'등록 도메인',value:'2',change:''},{label:'마지막 배포',value:'04.01',change:''},{label:'SEO 점수',value:'92',change:'+3'}]},
+};
+
+/* ── 유틸 컴포넌트 ── */
+function Badge({ children, color=C.primary, bg }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 12px', borderRadius:24, fontSize:12, fontWeight:600, color, background:bg||color+'18' }}>{children}</span>;
+}
+function StatusBadge({ status }) {
+  const m = {'대기':{c:C.warning,b:'#FEF3C7'},'처리중':{c:C.primary,b:C.primaryLight},'완료':{c:C.success,b:'#D1FAE5'},'게시중':{c:C.success,b:'#D1FAE5'},'임시저장':{c:C.textSub,b:'#F3F4F6'}};
+  const s = m[status]||{c:C.textSub,b:'#F3F4F6'};
+  return <Badge color={s.c} bg={s.b}>{status}</Badge>;
+}
+function CountUp({ end, suffix='' }) {
+  const [val, setVal] = useState(0);
+  useEffect(()=>{ let s=0; const step=end/50; const t=setInterval(()=>{ s+=step; if(s>=end){setVal(end);clearInterval(t);} else setVal(Math.floor(s)); },24); return ()=>clearInterval(t); },[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({ message, onClose }) {
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primary,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 20px rgba(124,58,237,0.3)',fontSize:14}}>{message}</div>;
+}
+function Btn({ children, onClick, variant='primary', size='md' }) {
+  const base = { border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:700, borderRadius:12, display:'inline-flex', alignItems:'center', gap:6, transition:'all 200ms' };
+  const sizes = { sm:{padding:'6px 14px',fontSize:12}, md:{padding:'9px 18px',fontSize:13}, lg:{padding:'11px 22px',fontSize:14} };
+  const variants = { primary:{background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`,color:'#fff'}, secondary:{background:C.bg,color:C.primary,border:`1px solid ${C.border}`}, danger:{background:C.danger,color:'#fff'}, ghost:{background:'transparent',color:C.textSub} };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant]}}
+    onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.25)';}}
+    onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>{children}</button>;
+}
+
+/* ── Drawer (슬라이드오버) ── */
+function Drawer({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:200 }} />
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:480, background:C.surface, boxShadow:'-8px 0 40px rgba(0,0,0,0.15)', zIndex:201, overflowY:'auto', animation:'slideInRight 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+/* ── Modal ── */
+function Modal({ open, onClose, title, width=520, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:500 }} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width, maxWidth:'90vw', maxHeight:'85vh', overflowY:'auto', background:C.surface, borderRadius:20, boxShadow:'0 20px 60px rgba(0,0,0,0.2)', zIndex:501, animation:'fadeInScale 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+function InputField({ label, value, onChange, placeholder, textarea, type='text' }) {
+  const s = { width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', background:C.surface, transition:'border-color 150ms' };
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>{label}</label>
+      {textarea ? <textarea value={value} onChange={onChange} placeholder={placeholder} rows={4} style={{...s, resize:'vertical'}} /> : <input type={type} value={value} onChange={onChange} placeholder={placeholder} style={s} />}
+    </div>
+  );
+}
+
+/* ── 스켈레톤 ── */
+function SkeletonLoader() {
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg }}>
+      <div style={{ height:56, background:C.surface, borderBottom:`1px solid ${C.border}` }} />
+      <div style={{ height:120, background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`, opacity:0.3 }} />
+      <div style={{ padding:24, display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>{[...Array(6)].map((_,i)=><div key={i} className="skeleton" style={{ height:180 }} />)}</div>
+    </div>
+  );
+}
+
+/* ── 대시보드 ── */
+function DashboardContent({ onToast }) {
+  const months = ['11월','12월','1월','2월','3월','4월'];
+  const visitors = [8200,10400,14100,17800,19500,22340];
+  const maxV = Math.max(...visitors);
+  const downloads = [120,180,210,290,340,412];
+  const maxD = Math.max(...downloads);
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16, marginBottom:20 }}>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ fontSize:16, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:16, color:C.textSub, fontSize:13 }}>월별 방문자 추이</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:12, height:160 }}>
+            {months.map((m,i)=>(
+              <div key={m} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{ fontSize:11, color:C.textLight, fontWeight:600 }}>{(visitors[i]/1000).toFixed(1)}k</div>
+                <div style={{ width:'100%', borderRadius:8, background:`linear-gradient(to top, ${C.primary}, ${C.accent})`, animation:`barGrow 800ms ease ${i*100}ms both`, '--target-width':'100%', height:`${(visitors[i]/maxV)*130}px` }} />
+                <div style={{ fontSize:11, color:C.textSub }}>{m}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:16, color:C.textSub }}>인기 콘텐츠</div>
+          {CONTENTS.filter(c=>c.status==='게시중').slice(0,4).map((c,i)=>(
+            <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, marginBottom:6, transition:'background 150ms', cursor:'pointer' }}
+              onMouseOver={e=>e.currentTarget.style.background=C.primaryLight}
+              onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+              <div style={{ fontSize:20 }}>{c.image}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.title}</div>
+                <div style={{ fontSize:11, color:C.textLight }}>{c.views.toLocaleString()} 조회</div>
+              </div>
+              <div style={{ fontSize:12, fontWeight:700, color:C.primary }}>#{i+1}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12, color:C.textSub }}>최근 문의</div>
+          {INQUIRIES_2.slice(0,3).map(inq=>(
+            <div key={inq.id} style={{ padding:'8px 0', borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ fontSize:13, fontWeight:600 }}>{inq.subject}</div>
+              <div style={{ fontSize:11, color:C.textLight, display:'flex', justifyContent:'space-between', marginTop:2 }}><span>{inq.company}</span><StatusBadge status={inq.status} /></div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12, color:C.textSub }}>자료 다운로드 추이</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:100 }}>
+            {months.map((m,i)=>(
+              <div key={m} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                <div style={{ width:'100%', borderRadius:6, background:C.accent+'60', animation:`barGrow 800ms ease ${i*80}ms both`, '--target-width':'100%', height:`${(downloads[i]/maxD)*80}px` }} />
+                <div style={{ fontSize:9, color:C.textLight }}>{m}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12, color:C.textSub }}>카테고리 분포</div>
+          {[{label:'데이터 분석',pct:35,color:C.primary},{label:'투자',pct:25,color:C.accent},{label:'기획',pct:20,color:C.success},{label:'AI',pct:15,color:C.warning},{label:'기초',pct:5,color:C.textLight}].map((cat,i)=>(
+            <div key={cat.label} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+              <div style={{ fontSize:12, color:C.textSub, width:70 }}>{cat.label}</div>
+              <div style={{ flex:1, height:6, borderRadius:3, background:'#F3F4F6' }}>
+                <div style={{ height:'100%', borderRadius:3, background:cat.color, animation:`barGrow 800ms ease ${i*100}ms both`, '--target-width':`${cat.pct}%`, width:`${cat.pct}%` }} />
+              </div>
+              <div style={{ fontSize:11, fontWeight:700, color:cat.color, width:30, textAlign:'right' }}>{cat.pct}%</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 콘텐츠 관리 ── */
+function ContentsContent({ onToast }) {
+  const [modal, setModal] = useState(null);
+  const [drawerItem, setDrawerItem] = useState(null);
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+        <Btn onClick={()=>setModal('create')}>+ 콘텐츠 추가</Btn>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        {CONTENTS.map((c,i)=>(
+          <div key={c.id} onClick={()=>setDrawerItem(c)} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, overflow:'hidden', animation:`slideUp 400ms ease ${i*80}ms both`, transition:'all 200ms', cursor:'pointer' }}
+            onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)';}}
+            onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}>
+            <div style={{ height:120, background:`linear-gradient(135deg, ${C.primary}15, ${C.accent}25)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:48 }}>{c.image}</div>
+            <div style={{ padding:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                <Badge>{c.type}</Badge>
+                <StatusBadge status={c.status} />
+              </div>
+              <h4 style={{ fontSize:14, fontWeight:700, marginBottom:6, lineHeight:1.4 }}>{c.title}</h4>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:C.textLight }}>
+                <span>{c.category}</span>
+                <span>{c.views.toLocaleString()} 조회</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Drawer 상세 */}
+      <Drawer open={!!drawerItem} onClose={()=>setDrawerItem(null)} title="콘텐츠 상세">
+        {drawerItem && (
+          <>
+            <div style={{ height:160, background:`linear-gradient(135deg, ${C.primary}20, ${C.accent}30)`, borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', fontSize:64, marginBottom:20 }}>{drawerItem.image}</div>
+            <div style={{ display:'flex', gap:8, marginBottom:12 }}><Badge>{drawerItem.type}</Badge><Badge>{drawerItem.category}</Badge><StatusBadge status={drawerItem.status} /></div>
+            <h3 style={{ fontSize:20, fontWeight:800, marginBottom:8 }}>{drawerItem.title}</h3>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16, fontSize:13, color:C.textSub }}>
+              <div>등록일: {drawerItem.date}</div><div>조회수: {drawerItem.views.toLocaleString()}</div>
+            </div>
+            <div style={{ padding:16, background:'#F9FAFB', borderRadius:12, fontSize:14, lineHeight:1.8, marginBottom:16 }}>
+              핀에듀테크에서 제공하는 프리미엄 금융교육 콘텐츠입니다. 현업 전문가들의 실무 경험을 바탕으로 구성된 커리큘럼으로, 수강생 만족도 98%를 달성하고 있습니다.
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setDrawerItem(null)}>닫기</Btn>
+              <Btn onClick={()=>{setDrawerItem(null);setModal({type:'edit',item:drawerItem});}}>수정</Btn>
+            </div>
+          </>
+        )}
+      </Drawer>
+
+      {/* 생성/수정 모달 */}
+      <Modal open={!!modal} onClose={()=>setModal(null)} title={modal?.type==='edit'?'콘텐츠 수정':'새 콘텐츠 추가'}>
+        <InputField label="제목" value={modal?.type==='edit'?modal.item.title:''} onChange={()=>{}} placeholder="콘텐츠 제목" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>유형</label>
+            <select style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit' }}>
+              <option>강좌</option><option>프로그램</option><option>이벤트</option>
+            </select>
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>카테고리</label>
+            <select style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit' }}>
+              <option>데이터 분석</option><option>투자</option><option>기획</option><option>AI</option><option>블록체인</option><option>기초</option>
+            </select>
+          </div>
+        </div>
+        <InputField label="설명" textarea value="" onChange={()=>{}} placeholder="콘텐츠 설명을 입력하세요" />
+        <InputField label="썸네일 이미지" type="file" value="" onChange={()=>{}} />
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);onToast(modal?.type==='edit'?'콘텐츠가 수정되었습니다.':'콘텐츠가 추가되었습니다.');}}>{modal?.type==='edit'?'수정':'추가'}</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 자료실 관리 ── */
+function LibraryContent({ onToast }) {
+  const [drawerItem, setDrawerItem] = useState(null);
+  const [uploadModal, setUploadModal] = useState(false);
+  const fileIcons = { PDF:'📕', ZIP:'📦', CSV:'📊' };
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+        <Btn onClick={()=>setUploadModal(true)}>+ 자료 업로드</Btn>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        {RESOURCES.map((r,i)=>(
+          <div key={r.id} onClick={()=>setDrawerItem(r)} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, animation:`slideUp 400ms ease ${i*80}ms both`, transition:'all 200ms', cursor:'pointer' }}
+            onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)';}}
+            onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+              <div style={{ fontSize:32 }}>{fileIcons[r.fileType]||'📄'}</div>
+              <div>
+                <Badge>{r.fileType}</Badge>
+                <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>{r.size}</div>
+              </div>
+            </div>
+            <h4 style={{ fontSize:14, fontWeight:700, marginBottom:8, lineHeight:1.4 }}>{r.title}</h4>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:C.textLight }}>
+              <span>{r.category}</span>
+              <span>⬇ {r.downloads}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Drawer open={!!drawerItem} onClose={()=>setDrawerItem(null)} title="자료 상세">
+        {drawerItem && (
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:16, background:'#F9FAFB', borderRadius:12 }}>
+              <div style={{ fontSize:48 }}>{fileIcons[drawerItem.fileType]||'📄'}</div>
+              <div>
+                <Badge>{drawerItem.fileType}</Badge>
+                <div style={{ fontSize:14, fontWeight:700, marginTop:4 }}>{drawerItem.title}</div>
+                <div style={{ fontSize:12, color:C.textLight }}>{drawerItem.size} · {drawerItem.category}</div>
+              </div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div style={{ padding:12, background:C.primaryLight, borderRadius:10, textAlign:'center' }}>
+                <div style={{ fontSize:22, fontWeight:800, color:C.primary }}>{drawerItem.downloads}</div>
+                <div style={{ fontSize:11, color:C.textSub }}>다운로드</div>
+              </div>
+              <div style={{ padding:12, background:'#F0FDF4', borderRadius:10, textAlign:'center' }}>
+                <div style={{ fontSize:22, fontWeight:800, color:C.success }}>{drawerItem.date}</div>
+                <div style={{ fontSize:11, color:C.textSub }}>등록일</div>
+              </div>
+            </div>
+            <div style={{ padding:16, background:'#F9FAFB', borderRadius:12, fontSize:14, lineHeight:1.8, marginBottom:16 }}>
+              핀에듀테크에서 제공하는 프리미엄 금융교육 자료입니다. 실무에서 바로 활용 가능한 고품질 콘텐츠로 구성되어 있습니다.
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setDrawerItem(null)}>닫기</Btn>
+              <Btn variant="danger" onClick={()=>{setDrawerItem(null);onToast('자료가 삭제되었습니다.');}}>삭제</Btn>
+              <Btn onClick={()=>{setDrawerItem(null);onToast('자료가 수정되었습니다.');}}>수정</Btn>
+            </div>
+          </>
+        )}
+      </Drawer>
+
+      <Modal open={uploadModal} onClose={()=>setUploadModal(false)} title="자료 업로드">
+        <InputField label="제목" value="" onChange={()=>{}} placeholder="자료 제목" />
+        <div style={{ marginBottom:16 }}>
+          <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>카테고리</label>
+          <select style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit' }}>
+            <option>리포트</option><option>실습자료</option><option>소스코드</option><option>백서</option><option>데이터셋</option><option>가이드</option>
+          </select>
+        </div>
+        <InputField label="파일" type="file" value="" onChange={()=>{}} />
+        <InputField label="설명" textarea value="" onChange={()=>{}} placeholder="자료 설명" />
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <Btn variant="secondary" onClick={()=>setUploadModal(false)}>취소</Btn>
+          <Btn onClick={()=>{setUploadModal(false);onToast('자료가 업로드되었습니다.');}}>업로드</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 문의 관리 ── */
+function InquiryContent({ onToast }) {
+  const [drawerItem, setDrawerItem] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
+        {INQUIRIES_2.map((inq,i)=>(
+          <div key={inq.id} onClick={()=>{setDrawerItem(inq);setReplyText('');}} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, animation:`slideUp 400ms ease ${i*80}ms both`, transition:'all 200ms', cursor:'pointer' }}
+            onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)';}}
+            onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+              <Badge>{inq.category}</Badge>
+              <StatusBadge status={inq.status} />
+            </div>
+            <h4 style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>{inq.subject}</h4>
+            <div style={{ fontSize:13, color:C.textSub, marginBottom:8, lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{inq.message}</div>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:C.textLight }}>
+              <span>{inq.name} · {inq.company}</span>
+              <span>{inq.date}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Drawer open={!!drawerItem} onClose={()=>setDrawerItem(null)} title="문의 상세">
+        {drawerItem && (
+          <>
+            <div style={{ display:'flex', gap:8, marginBottom:12 }}><Badge>{drawerItem.category}</Badge><StatusBadge status={drawerItem.status} /></div>
+            <h3 style={{ fontSize:20, fontWeight:800, marginBottom:12 }}>{drawerItem.subject}</h3>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16, fontSize:13, color:C.textSub }}>
+              <div>문의자: <b>{drawerItem.name}</b></div>
+              <div>회사: <b>{drawerItem.company}</b></div>
+              <div>이메일: {drawerItem.email}</div>
+              <div>접수일: {drawerItem.date}</div>
+            </div>
+            <div style={{ padding:16, background:'#F9FAFB', borderRadius:12, fontSize:14, lineHeight:1.8, marginBottom:20 }}>{drawerItem.message}</div>
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>답변 작성</label>
+              <textarea value={replyText} onChange={e=>setReplyText(e.target.value)} placeholder="답변 내용을 입력하세요..." rows={4} style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', resize:'vertical' }} />
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setDrawerItem(null)}>닫기</Btn>
+              <Btn onClick={()=>{setDrawerItem(null);onToast('답변이 전송되었습니다.');}}>답변 전송</Btn>
+            </div>
+          </>
+        )}
+      </Drawer>
+    </div>
+  );
+}
+
+/* ── 사이트 설정 ── */
+function SettingsContent({ onToast }) {
+  return (
+    <div style={{ animation:'fadeIn 300ms ease', maxWidth:700 }}>
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16 }}>
+        <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>기본 정보</h3>
+        <InputField label="사이트명" value="핀에듀테크" onChange={()=>{}} />
+        <InputField label="사이트 URL" value="https://finedu.co.kr" onChange={()=>{}} />
+        <InputField label="대표 이메일" value="contact@finedu.co.kr" onChange={()=>{}} />
+        <InputField label="전화번호" value="02-1234-5678" onChange={()=>{}} />
+        <InputField label="사이트 소개" textarea value="금융교육 전문 기업 핀에듀테크 - 데이터 분석, 핀테크, 퀀트 투자 교육" onChange={()=>{}} />
+      </div>
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16 }}>
+        <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>SEO 설정</h3>
+        <InputField label="메타 타이틀" value="핀에듀테크 | 금융교육 전문 플랫폼" onChange={()=>{}} />
+        <InputField label="메타 설명" textarea value="데이터 분석, 핀테크, 퀀트 투자 등 금융 분야 전문 교육을 제공합니다." onChange={()=>{}} />
+        <InputField label="키워드" value="금융교육, 핀테크, 데이터분석, 퀀트투자" onChange={()=>{}} />
+      </div>
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+        <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>SNS 연동</h3>
+        <InputField label="Instagram" value="@finedu_official" onChange={()=>{}} />
+        <InputField label="YouTube" value="@finedutech" onChange={()=>{}} />
+        <InputField label="LinkedIn" value="finedutech" onChange={()=>{}} />
+      </div>
+      <div style={{ marginTop:16, display:'flex', justifyContent:'flex-end' }}>
+        <Btn onClick={()=>onToast('설정이 저장되었습니다.')}>설정 저장</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ── App ── */
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('contents');
+  const [toast, setToast] = useState(null);
+  useEffect(()=>{ setTimeout(()=>setLoading(false), 1500); },[]);
+  if (loading) return <SkeletonLoader />;
+
+  const meta = heroMeta[tab];
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg }}>
+      {/* 상단 수평 네비 */}
+      <header style={{ position:'sticky', top:0, zIndex:100, background:C.surface, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', height:56, padding:'0 24px', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:16 }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:800 }}>F</div>
+          <span style={{ fontSize:15, fontWeight:800, color:C.secondary }}>핀에듀</span>
+        </div>
+        {TABS.map(t => (
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            padding:'8px 16px', borderRadius:8, border:'none', cursor:'pointer', fontSize:13,
+            fontWeight:tab===t.id?700:500, fontFamily:'inherit',
+            background:tab===t.id?C.primaryLight:'transparent', color:tab===t.id?C.primary:C.textSub,
+            transition:'all 150ms',
+          }}
+            onMouseOver={e=>{if(tab!==t.id)e.target.style.background='#F3F4F6';}}
+            onMouseOut={e=>{if(tab!==t.id)e.target.style.background='transparent';}}>{t.label}</button>
+        ))}
+        <div style={{ flex:1 }} />
+        <div style={{ position:'relative' }}>
+          <input placeholder="검색..." style={{ padding:'7px 12px 7px 32px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, outline:'none', width:180 }} />
+          <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', fontSize:13 }}>🔍</span>
+        </div>
+        <div style={{ position:'relative', cursor:'pointer', marginLeft:8 }}><span style={{ fontSize:18 }}>🔔</span><span style={{ position:'absolute', top:-2, right:-3, width:7, height:7, borderRadius:'50%', background:C.danger }} /></div>
+        <div style={{ width:30, height:30, borderRadius:'50%', background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:12, marginLeft:8 }}>관</div>
+      </header>
+
+      {/* 히어로 배너 */}
+      <div style={{ background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`, padding:'28px 32px', color:'#fff' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+          <span style={{ fontSize:28 }}>{meta.icon}</span>
+          <h1 style={{ fontSize:28, fontWeight:800, letterSpacing:'-0.03em' }}>{meta.title}</h1>
+        </div>
+        <div style={{ display:'flex', gap:32, marginTop:12 }}>
+          {meta.kpis.map(k => (
+            <div key={k.label}>
+              <div style={{ fontSize:12, opacity:0.8, marginBottom:2 }}>{k.label}</div>
+              <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+                <span style={{ fontSize:22, fontWeight:800 }}>{k.value}</span>
+                {k.change && <span style={{ fontSize:12, background:'rgba(255,255,255,0.2)', padding:'2px 8px', borderRadius:10 }}>{k.change}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 콘텐츠 */}
+      <main style={{ padding:'24px 32px', maxHeight:'calc(100vh - 56px - 120px)', overflow:'auto' }}>
+        {tab==='dashboard' && <DashboardContent onToast={msg=>setToast(msg)} />}
+        {tab==='contents' && <ContentsContent onToast={msg=>setToast(msg)} />}
+        {tab==='library' && <LibraryContent onToast={msg=>setToast(msg)} />}
+        {tab==='inquiry' && <InquiryContent onToast={msg=>setToast(msg)} />}
+        {tab==='settings' && <SettingsContent onToast={msg=>setToast(msg)} />}
+      </main>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>메디케어360 (MediCare360) — 의료기기 CRM 플랫폼</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.skeleton{background:linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:10px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── 디자인 토큰 ─────────────────────────────────────────────
+const C = {
+  primary: '#7C3AED',
+  primaryDark: '#6D28D9',
+  primaryLight: '#EDE9FE',
+  secondary: '#1E1B4B',
+  accent: '#A78BFA',
+  bg: '#FAF5FF',
+  surface: '#FFFFFF',
+  border: '#E9D5FF',
+  borderLight: '#F3E8FF',
+  text: '#1E1B4B',
+  textSub: '#6B7280',
+  textLight: '#9CA3AF',
+  success: '#059669',
+  warning: '#D97706',
+  danger: '#DC2626',
+  info: '#0284C7',
+  heroGrad: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 50%, #38BDF8 100%)',
+};
+
+// ── 더미 데이터 ──────────────────────────────────────────────
+const HOSPITALS = [
+  { id: 'H001', name: '서울아산병원 의료기기팀', type: '상급종합', region: '서울', devices: 12, pendingAS: 1, expiringSoon: 2, lastVisit: '2026-02-20', manager: '이지은', contractEnd: '2026-12-31', status: 'active' },
+  { id: 'H002', name: '분당서울대병원', type: '상급종합', region: '경기', devices: 8, pendingAS: 0, expiringSoon: 1, lastVisit: '2026-02-15', manager: '박하나', contractEnd: '2026-08-31', status: 'active' },
+  { id: 'H003', name: '강남세브란스병원', type: '종합', region: '서울', devices: 6, pendingAS: 2, expiringSoon: 0, lastVisit: '2026-01-28', manager: '정수민', contractEnd: '2026-10-31', status: 'warning' },
+  { id: 'H004', name: '한양대병원', type: '종합', region: '서울', devices: 5, pendingAS: 0, expiringSoon: 3, lastVisit: '2026-02-10', manager: '최예린', contractEnd: '2026-03-15', status: 'warning' },
+  { id: 'H005', name: '가천대 길병원', type: '종합', region: '인천', devices: 9, pendingAS: 1, expiringSoon: 0, lastVisit: '2026-02-22', manager: '강유진', contractEnd: '2026-11-30', status: 'active' },
+  { id: 'H006', name: '아주대병원', type: '상급종합', region: '경기', devices: 7, pendingAS: 0, expiringSoon: 1, lastVisit: '2026-02-18', manager: '이지은', contractEnd: '2026-09-30', status: 'active' },
+];
+
+const DEVICES = [
+  { id: 'D001', name: 'MRI 스캐너 3T', model: 'Signa Premier 3T', hospital: '서울아산병원', serial: 'SIG-2023-0821', status: '정상', nextMaint: '2026-04-15', installDate: '2023-08-21', consumable: 85 },
+  { id: 'D002', name: '초음파 진단기', model: 'EPIQ Elite', hospital: '분당서울대병원', serial: 'PHI-2024-0114', status: '점검필요', nextMaint: '2026-03-01', installDate: '2024-01-14', consumable: 22 },
+  { id: 'D003', name: '내시경 시스템', model: 'EVIS X1', hospital: '강남세브란스', serial: 'OLY-2022-1205', status: '정상', nextMaint: '2026-05-20', installDate: '2022-12-05', consumable: 60 },
+  { id: 'D004', name: 'X-ray 디지털', model: 'DigitalDiagnost C90', hospital: '한양대병원', serial: 'PHI-2023-0603', status: 'A/S중', nextMaint: '2026-06-10', installDate: '2023-06-03', consumable: 45 },
+  { id: 'D005', name: '혈액분석기', model: 'Sysmex XN-9100', hospital: '가천대 길병원', serial: 'SYS-2024-0220', status: '정상', nextMaint: '2026-03-20', installDate: '2024-02-20', consumable: 15 },
+];
+
+const AS_REQUESTS = [
+  { id: 'AS-1042', hospital: '강남세브란스병원', device: 'X-ray 디지털', type: '긴급수리', priority: 'high', status: '배정대기', date: '2026-02-25', engineer: null, desc: '이미지 품질 저하 및 간헐적 오류' },
+  { id: 'AS-1041', hospital: '서울아산병원', device: 'MRI 스캐너 3T', type: '정기점검', priority: 'normal', status: '진행중', date: '2026-02-24', engineer: '김민수', desc: '3개월 정기 유지보수 점검' },
+  { id: 'AS-1040', hospital: '가천대 길병원', device: '혈액분석기', type: '소모품 교체', priority: 'normal', status: '완료', date: '2026-02-22', engineer: '이준호', desc: '시약 카트리지 교체 및 보정' },
+  { id: 'AS-1039', hospital: '분당서울대병원', device: '초음파 진단기', type: '점검', priority: 'low', status: '완료', date: '2026-02-20', engineer: '박서진', desc: '프로브 교정 및 소프트웨어 업데이트' },
+];
+
+const QUOTES = [
+  { id: 'QT-2026-0089', hospital: '서울아산병원', item: 'MRI 코일 어셈블리 교체', amount: '₩18,500,000', status: '서명완료', date: '2026-02-20', validity: '2026-03-20' },
+  { id: 'QT-2026-0088', hospital: '강남세브란스병원', item: 'X-ray 디텍터 판넬 교체', amount: '₩7,200,000', status: '검토중', date: '2026-02-23', validity: '2026-03-23' },
+  { id: 'QT-2026-0087', hospital: '한양대병원', item: '내시경 세척 소독기 납품', amount: '₩12,400,000', status: '승인대기', date: '2026-02-22', validity: '2026-03-22' },
+  { id: 'QT-2026-0086', hospital: '아주대병원', item: '초음파 프로브 3개 교체', amount: '₩4,800,000', status: '서명완료', date: '2026-02-15', validity: '2026-03-15' },
+];
+
+// ── 유틸리티 ───────────────────────────────────────────────
+function Badge({ children, color = C.primary, bg, size = 'sm' }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      padding: size === 'sm' ? '3px 10px' : '5px 14px',
+      borderRadius: 20, fontSize: size === 'sm' ? 12 : 13, fontWeight: 600,
+      color: color, background: bg || color + '18',
+    }}>{children}</span>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    'active': { c: C.success, bg: '#D1FAE5', label: '정상 계약' },
+    'warning': { c: C.warning, bg: '#FEF3C7', label: '주의 필요' },
+    'expired': { c: C.danger, bg: '#FEE2E2', label: '만료' },
+    '정상': { c: C.success, bg: '#D1FAE5' },
+    '점검필요': { c: C.warning, bg: '#FEF3C7' },
+    'A/S중': { c: C.info, bg: '#E0F2FE' },
+    '배정대기': { c: C.warning, bg: '#FEF3C7' },
+    '진행중': { c: C.info, bg: '#E0F2FE' },
+    '완료': { c: C.success, bg: '#D1FAE5' },
+    '서명완료': { c: C.success, bg: '#D1FAE5' },
+    '검토중': { c: C.info, bg: '#E0F2FE' },
+    '승인대기': { c: C.warning, bg: '#FEF3C7' },
+  };
+  const s = map[status] || { c: C.textSub, bg: '#F1F5F9' };
+  return <Badge color={s.c} bg={s.bg}>{s.label || status}</Badge>;
+}
+
+function CountUp({ end, suffix = '', prefix = '' }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let s = 0; const step = end / 50;
+    const t = setInterval(() => { s += step; if (s >= end) { setVal(end); clearInterval(t); } else setVal(Math.floor(s)); }, 24);
+    return () => clearInterval(t);
+  }, [end]);
+  return <span>{prefix}{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({ message, type = 'success', onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: '#1E1B4B', color: '#fff', padding: '12px 20px',
+      borderRadius: 12, animation: 'slideUp 300ms ease',
+      boxShadow: '0 8px 24px rgba(124,58,237,0.3)',
+      display: 'flex', alignItems: 'center', gap: 10, minWidth: 260,
+      borderLeft: `4px solid ${type === 'success' ? C.success : C.danger}`,
+    }}>
+      <span style={{ fontSize: 16 }}>{type === 'success' ? '✓' : '✕'}</span>
+      <span style={{ fontSize: 13.5 }}>{message}</span>
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children, width = 580 }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(30,27,75,0.5)', zIndex: 300, backdropFilter: 'blur(2px)' }} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%',
+        transform: 'translate(-50%,-50%)', zIndex: 301,
+        background: C.surface, borderRadius: 20, width, maxWidth: '95vw', maxHeight: '90vh', overflow: 'auto',
+        boxShadow: '0 24px 80px rgba(124,58,237,0.2)',
+        animation: 'fadeInScale 200ms ease',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: `1px solid ${C.border}` }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.textSub }}>×</button>
+        </div>
+        <div style={{ padding: 24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+const inputStyle = {
+  width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14,
+  border: `1.5px solid ${C.border}`, outline: 'none', fontFamily: 'inherit',
+  color: C.text, background: C.bg, transition: 'border 150ms',
+};
+
+function FormField({ label, children, required }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.textSub, marginBottom: 6 }}>
+        {label}{required && <span style={{ color: C.danger, marginLeft: 2 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ── Drawer (슬라이드오버) ────────────────────────────────────
+function Drawer({ item, type, onClose, showToast }) {
+  if (!item) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(30,27,75,0.4)', zIndex: 200, backdropFilter: 'blur(1px)' }} />
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, width: 480,
+        background: C.surface, boxShadow: '-12px 0 48px rgba(124,58,237,0.15)',
+        zIndex: 201, overflowY: 'auto',
+        animation: 'slideInRight 200ms ease',
+      }}>
+        {/* 헤더 */}
+        <div style={{
+          background: C.heroGrad, padding: '24px 28px', color: '#fff',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>{type === 'hospital' ? '병원 상세' : type === 'device' ? '기기 상세' : 'A/S 상세'}</div>
+              <div style={{ fontSize: 20, fontWeight: 800 }}>{item.name || item.id}</div>
+            </div>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          </div>
+        </div>
+
+        {/* 콘텐츠 */}
+        <div style={{ padding: 24 }}>
+          {type === 'hospital' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                {[
+                  ['병원 유형', item.type], ['담당 지역', item.region],
+                  ['관리 기기', `${item.devices}대`], ['담당자', item.manager],
+                  ['계약 만료', item.contractEnd], ['마지막 방문', item.lastVisit],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ background: C.bg, borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{k}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>현황 요약</div>
+                {[
+                  { label: 'A/S 대기', value: item.pendingAS, color: item.pendingAS > 0 ? C.danger : C.success, icon: '🔧' },
+                  { label: '소모품 만료 임박', value: item.expiringSoon, color: item.expiringSoon > 0 ? C.warning : C.success, icon: '⏰' },
+                ].map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: C.bg, borderRadius: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 20 }}>{s.icon}</span>
+                    <span style={{ flex: 1, fontSize: 13 }}>{s.label}</span>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => { onClose(); showToast('A/S 접수가 등록되었습니다.', 'success'); }} style={{
+                width: '100%', background: C.primary, color: '#fff', border: 'none',
+                borderRadius: 10, padding: '14px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              }}>A/S 접수</button>
+            </>
+          )}
+          {type === 'device' && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                {[['모델', item.model], ['시리얼', item.serial], ['설치 병원', item.hospital], ['설치일', item.installDate], ['다음 점검', item.nextMaint]].map(([k, v]) => (
+                  <div key={k} style={{ background: C.bg, borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{k}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>소모품 잔여율</div>
+                <div style={{ height: 12, borderRadius: 6, background: C.border, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 6,
+                    background: item.consumable > 50 ? C.success : item.consumable > 20 ? C.warning : C.danger,
+                    width: `${item.consumable}%`, animation: 'barGrow 800ms ease both',
+                    '--target-width': `${item.consumable}%`,
+                  }} />
+                </div>
+                <div style={{ fontSize: 12, color: C.textSub, marginTop: 6 }}>잔여 {item.consumable}%</div>
+              </div>
+              <StatusBadge status={item.status} />
+            </>
+          )}
+          {type === 'as' && (
+            <>
+              <div style={{ background: item.priority === 'high' ? '#FEE2E2' : '#F0FDF4', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: item.priority === 'high' ? C.danger : C.success }}>
+                  {item.priority === 'high' ? '🚨 긴급 요청' : '✓ 일반 요청'}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                {[['병원', item.hospital], ['기기', item.device], ['유형', item.type], ['접수일', item.date], ['담당 엔지니어', item.engineer || '미배정']].map(([k, v]) => (
+                  <div key={k} style={{ background: C.bg, borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>{k}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: C.bg, borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: C.textSub, marginBottom: 4 }}>증상 설명</div>
+                <div style={{ fontSize: 13 }}>{item.desc}</div>
+              </div>
+              {!item.engineer && (
+                <button onClick={() => { onClose(); showToast('담당 엔지니어가 배정되었습니다.', 'success'); }} style={{
+                  width: '100%', background: C.primary, color: '#fff', border: 'none',
+                  borderRadius: 10, padding: '12px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                }}>엔지니어 배정</button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── 탑 네비게이션 ───────────────────────────────────────────
+const TABS = [
+  { id: 'home', label: '홈' },
+  { id: 'hospitals', label: '병원 관리' },
+  { id: 'devices', label: '기기/재고' },
+  { id: 'as', label: 'A/S 관리' },
+  { id: 'quotes', label: '견적/계약' },
+  { id: 'reports', label: '리포트' },
+];
+
+function TopNav({ tab, onTab }) {
+  return (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 100,
+      background: C.surface, borderBottom: `1px solid ${C.border}`,
+      display: 'flex', alignItems: 'center', height: 56, padding: '0 24px', gap: 4,
+      boxShadow: '0 1px 8px rgba(124,58,237,0.08)',
+    }}>
+      {/* 로고 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 24 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: C.heroGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>⚕</div>
+        <span style={{ fontWeight: 800, fontSize: 15, color: C.secondary, letterSpacing: '-0.02em' }}>MediCare<span style={{ color: C.primary }}>360</span></span>
+      </div>
+
+      {TABS.map(t => (
+        <button key={t.id} onClick={() => onTab(t.id)} style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: '0 14px',
+          height: '100%', fontSize: 13.5, fontFamily: 'inherit', fontWeight: tab === t.id ? 700 : 500,
+          color: tab === t.id ? C.primary : C.textSub,
+          borderBottom: tab === t.id ? `2px solid ${C.primary}` : '2px solid transparent',
+          transition: 'all 150ms', whiteSpace: 'nowrap',
+        }}>{t.label}</button>
+      ))}
+
+      <div style={{ flex: 1 }} />
+
+      {/* 검색 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: C.bg, borderRadius: 20, padding: '7px 14px',
+        border: `1px solid ${C.border}`, width: 200, marginRight: 12,
+      }}>
+        <span style={{ color: C.textLight, fontSize: 13 }}>🔍</span>
+        <span style={{ fontSize: 13, color: C.textLight }}>검색...</span>
+      </div>
+
+      {/* 알림 */}
+      <button style={{
+        background: 'none', border: 'none', cursor: 'pointer',
+        width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: 18, position: 'relative', color: C.textSub,
+      }}>
+        🔔
+        <span style={{ position: 'absolute', top: 4, right: 4, background: C.danger, borderRadius: '50%', width: 10, height: 10, border: '2px solid #fff' }} />
+      </button>
+
+      {/* 아바타 */}
+      <div style={{ marginLeft: 8, width: 32, height: 32, borderRadius: '50%', background: C.heroGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+        이
+      </div>
+    </header>
+  );
+}
+
+// ── 히어로 배너 ─────────────────────────────────────────────
+const PAGE_META = {
+  home: { title: '전체 현황 대시보드', subtitle: '오늘 날짜: 2026년 2월 26일', kpis: [{ label: '계약 병원', value: 148, suffix: '개' }, { label: '관리 기기', value: 1240, suffix: '대' }, { label: '이번달 A/S', value: 42, suffix: '건' }] },
+  hospitals: { title: '병원 관리', subtitle: '계약 병원 현황 및 방문 일정', kpis: [{ label: '전체 병원', value: 148, suffix: '개' }, { label: '주의 필요', value: 12, suffix: '개' }, { label: '이번달 방문', value: 24, suffix: '건' }] },
+  devices: { title: '기기 및 재고 관리', subtitle: '설치 기기 현황 및 소모품 재고', kpis: [{ label: '설치 기기', value: 1240, suffix: '대' }, { label: '점검 필요', value: 18, suffix: '대' }, { label: '소모품 교체', value: 7, suffix: '건' }] },
+  as: { title: 'A/S 요청 관리', subtitle: '접수 현황 및 엔지니어 배정', kpis: [{ label: '대기 중', value: 8, suffix: '건' }, { label: '진행 중', value: 15, suffix: '건' }, { label: '이번달 완료', value: 37, suffix: '건' }] },
+  quotes: { title: '견적 및 계약 관리', subtitle: '견적서 작성 및 전자 서명', kpis: [{ label: '이번달 견적', value: 14, suffix: '건' }, { label: '계약 완료', value: 9, suffix: '건' }, { label: '계약 금액', value: 0, suffix: '', custom: '₩4.8억' }] },
+  reports: { title: '리포트 및 분석', subtitle: '성과 지표 및 통계', kpis: [{ label: '월간 매출', value: 0, suffix: '', custom: '₩2.3억' }, { label: '고객 만족도', value: 98, suffix: '%' }, { label: 'A/S 처리율', value: 94, suffix: '%' }] },
+};
+
+function HeroBanner({ tab }) {
+  const meta = PAGE_META[tab] || PAGE_META.home;
+  return (
+    <div style={{
+      background: C.heroGrad, padding: '28px 32px', color: '#fff',
+    }}>
+      <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        {meta.subtitle}
+      </div>
+      <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 16 }}>{meta.title}</h1>
+      <div style={{ display: 'flex', gap: 32 }}>
+        {meta.kpis.map((k, i) => (
+          <div key={i} style={{ animation: `slideUp 400ms ease ${i * 80}ms both` }}>
+            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em' }}>
+              {k.custom || <CountUp end={k.value} suffix={k.suffix} />}
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 홈 대시보드 ─────────────────────────────────────────────
+function DonutChart({ value, size = 80, color, label }) {
+  const r = 30; const c = size / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (value / 100) * circ;
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke={color + '20'} strokeWidth={8} />
+        <circle cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth={8}
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+      </svg>
+      <div style={{ marginTop: 4, fontSize: 18, fontWeight: 800, color }}>{value}%</div>
+      <div style={{ fontSize: 11, color: C.textSub }}>{label}</div>
+    </div>
+  );
+}
+
+function HomePage({ setDrawer, setTab }) {
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      {/* 빠른 현황 카드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[
+          { icon: '🏥', label: '계약 병원', value: 148, sub: '▲ 12 이번달 신규', color: C.primary },
+          { icon: '🔬', label: '관리 기기', value: 1240, sub: '정상 1,204대', color: '#059669' },
+          { icon: '🔧', label: 'A/S 대기', value: 8, sub: '긴급 2건 포함', color: C.warning },
+          { icon: '📄', label: '미완료 견적', value: 5, sub: '₩42,700,000', color: C.info },
+        ].map((card, i) => (
+          <div key={i} style={{
+            background: C.surface, borderRadius: 16, padding: '20px',
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)', cursor: 'pointer',
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+            transition: 'all 200ms',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.08)'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ fontSize: 12, color: C.textSub, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{card.label}</div>
+              <span style={{ fontSize: 22 }}>{card.icon}</span>
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: card.color, letterSpacing: '-0.03em' }}>
+              <CountUp end={card.value} />
+            </div>
+            <div style={{ fontSize: 12, color: C.textSub, marginTop: 6 }}>{card.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 요약 차트 + 최근 AS */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        {/* 비율 차트 */}
+        <div style={{ background: C.surface, borderRadius: 16, padding: 24, boxShadow: '0 4px 16px rgba(124,58,237,0.08)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.textSub }}>기기 상태 현황</div>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+            <DonutChart value={97} color={C.success} label="정상 가동" />
+            <DonutChart value={86} color={C.warning} label="소모품 충족" />
+            <DonutChart value={94} color={C.primary} label="A/S 처리율" />
+          </div>
+        </div>
+        {/* 최근 A/S */}
+        <div style={{ background: C.surface, borderRadius: 16, padding: 24, boxShadow: '0 4px 16px rgba(124,58,237,0.08)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.textSub }}>최근 A/S 요청</div>
+            <button onClick={() => setTab('as')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.primary, fontWeight: 600 }}>전체 보기 →</button>
+          </div>
+          {AS_REQUESTS.slice(0, 3).map((as, i) => (
+            <div key={as.id} onClick={() => setDrawer({ item: as, type: 'as' })} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+              borderRadius: 10, marginBottom: 6, cursor: 'pointer',
+              border: `1px solid ${C.border}`, transition: 'all 150ms',
+              animation: `slideUp 350ms ease ${i * 60}ms both`,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = C.bg; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = ''; }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: as.priority === 'high' ? C.danger : C.success, flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{as.hospital}</div>
+                <div style={{ fontSize: 11, color: C.textSub }}>{as.device} · {as.type}</div>
+              </div>
+              <StatusBadge status={as.status} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 최근 병원 카드 */}
+      <div style={{ background: C.surface, borderRadius: 16, padding: 24, boxShadow: '0 4px 16px rgba(124,58,237,0.08)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.textSub }}>최근 방문 병원</div>
+          <button onClick={() => setTab('hospitals')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.primary, fontWeight: 600 }}>전체 보기 →</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {HOSPITALS.slice(0, 3).map((h, i) => (
+            <div key={h.id} onClick={() => setDrawer({ item: h, type: 'hospital' })} style={{
+              background: C.bg, borderRadius: 12, padding: '14px 16px', cursor: 'pointer',
+              border: `1px solid ${C.border}`, transition: 'all 200ms',
+              animation: `slideUp 400ms ease ${i * 80}ms both`,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.borderColor = C.primary; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = C.border; }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: C.primary, fontWeight: 600 }}>{h.type}</div>
+                <StatusBadge status={h.status} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{h.name}</div>
+              <div style={{ fontSize: 12, color: C.textSub }}>기기 {h.devices}대 · {h.region} · {h.manager}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 병원 관리 ───────────────────────────────────────────────
+function HospitalsPage({ setDrawer, showToast }) {
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(null);
+
+  const filtered = HOSPITALS.filter(h => h.name.includes(search) || h.region.includes(search));
+
+  function handleAddHospital(e) {
+    e.preventDefault();
+    setModal(null);
+    showToast('병원이 등록되었습니다.', 'success');
+  }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  병원명, 지역으로 검색" style={{ ...inputStyle, width: 260 }} />
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setModal({ type: 'add' })} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 10,
+          padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        }}>+ 병원 등록</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+        {filtered.map((h, i) => (
+          <div key={h.id} onClick={() => setDrawer({ item: h, type: 'hospital' })} style={{
+            background: C.surface, borderRadius: 16, padding: 20, cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)',
+            border: `2px solid ${h.status === 'warning' ? C.warning + '40' : 'transparent'}`,
+            animation: `slideUp 400ms ease ${i * 60}ms both`,
+            transition: 'all 200ms',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.08)'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: C.primary, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h.region} · {h.type}</div>
+              <StatusBadge status={h.status} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>{h.name}</div>
+            <div style={{ fontSize: 12, color: C.textSub, marginBottom: 14 }}>담당자: {h.manager}</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, background: C.bg, borderRadius: 20, padding: '3px 10px', color: C.textSub, border: `1px solid ${C.border}` }}>기기 {h.devices}대</span>
+              {h.pendingAS > 0 && <span style={{ fontSize: 11, background: '#FEE2E2', borderRadius: 20, padding: '3px 10px', color: C.danger }}>A/S {h.pendingAS}건</span>}
+              {h.expiringSoon > 0 && <span style={{ fontSize: 11, background: '#FEF3C7', borderRadius: 20, padding: '3px 10px', color: C.warning }}>만료임박 {h.expiringSoon}</span>}
+            </div>
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.textLight }}>
+              <span>계약: {h.contractEnd}</span>
+              <span>방문: {h.lastVisit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal?.type === 'add' && (
+        <Modal title="신규 병원 등록" onClose={() => setModal(null)}>
+          <form onSubmit={handleAddHospital}>
+            <FormField label="병원명" required><input style={inputStyle} placeholder="병원 공식 명칭" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="병원 유형">
+                <select style={inputStyle}><option>상급종합</option><option>종합</option><option>병원</option><option>의원</option></select>
+              </FormField>
+              <FormField label="지역">
+                <select style={inputStyle}><option>서울</option><option>경기</option><option>인천</option><option>부산</option><option>기타</option></select>
+              </FormField>
+            </div>
+            <FormField label="담당자명" required><input style={inputStyle} placeholder="병원 측 담당자" required /></FormField>
+            <FormField label="계약 시작일"><input type="date" style={inputStyle} /></FormField>
+            <FormField label="계약 만료일"><input type="date" style={inputStyle} /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>등록</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 기기 관리 ───────────────────────────────────────────────
+function DevicesPage({ setDrawer, showToast }) {
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+        <button onClick={() => showToast('기기가 등록되었습니다.', 'success')} style={{
+          background: C.primary, color: '#fff', border: 'none', borderRadius: 10,
+          padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        }}>+ 기기 등록</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+        {DEVICES.map((d, i) => (
+          <div key={d.id} onClick={() => setDrawer({ item: d, type: 'device' })} style={{
+            background: C.surface, borderRadius: 16, padding: 20, cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)',
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+            transition: 'all 200ms',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.08)'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: C.primary, fontWeight: 700 }}>{d.id}</span>
+              <StatusBadge status={d.status} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>{d.name}</div>
+            <div style={{ fontSize: 12, color: C.textSub, marginBottom: 4 }}>{d.model}</div>
+            <div style={{ fontSize: 12, color: C.textSub, marginBottom: 16 }}>📍 {d.hospital}</div>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                <span style={{ color: C.textSub }}>소모품 잔여</span>
+                <span style={{ fontWeight: 700, color: d.consumable > 50 ? C.success : d.consumable > 20 ? C.warning : C.danger }}>{d.consumable}%</span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: C.border, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 3,
+                  background: d.consumable > 50 ? C.success : d.consumable > 20 ? C.warning : C.danger,
+                  width: `${d.consumable}%`, animation: 'barGrow 800ms ease both',
+                  '--target-width': `${d.consumable}%`,
+                }} />
+              </div>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 11, color: C.textLight }}>다음 점검: {d.nextMaint}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── A/S 관리 ────────────────────────────────────────────────
+function AsPage({ setDrawer, showToast }) {
+  const [modal, setModal] = useState(null);
+  function handleCreate(e) { e.preventDefault(); setModal(null); showToast('A/S 접수 완료', 'success'); }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {[['🟡 대기', AS_REQUESTS.filter(a => a.status === '배정대기').length],
+            ['🔵 진행중', AS_REQUESTS.filter(a => a.status === '진행중').length],
+            ['🟢 완료', AS_REQUESTS.filter(a => a.status === '완료').length]].map(([label, count]) => (
+              <div key={label} style={{ background: C.surface, borderRadius: 10, padding: '8px 16px', boxShadow: '0 2px 8px rgba(124,58,237,0.08)', fontSize: 13, fontWeight: 600 }}>
+                {label} <span style={{ fontWeight: 800 }}>{count}</span>
+              </div>
+            ))}
+        </div>
+        <button onClick={() => setModal({ type: 'create' })} style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ A/S 접수</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+        {AS_REQUESTS.map((as, i) => (
+          <div key={as.id} onClick={() => setDrawer({ item: as, type: 'as' })} style={{
+            background: C.surface, borderRadius: 16, padding: 20, cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)',
+            borderLeft: `4px solid ${as.priority === 'high' ? C.danger : C.primary}`,
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+            transition: 'all 200ms',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.08)'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.primary, fontWeight: 700 }}>{as.id}</span>
+              <StatusBadge status={as.status} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>{as.hospital}</div>
+            <div style={{ fontSize: 12, color: C.textSub, marginBottom: 8 }}>{as.device} · {as.type}</div>
+            <div style={{ fontSize: 12, color: C.textLight }}>
+              {as.priority === 'high' && <span style={{ color: C.danger, fontWeight: 700 }}>🚨 긴급 · </span>}
+              접수: {as.date} · 담당: {as.engineer || '미배정'}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="A/S 접수" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="병원" required>
+              <select style={inputStyle} required>
+                <option value="">병원 선택</option>
+                {HOSPITALS.map(h => <option key={h.id}>{h.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="기기" required>
+              <select style={inputStyle} required>
+                <option value="">기기 선택</option>
+                {DEVICES.map(d => <option key={d.id}>{d.name} ({d.model})</option>)}
+              </select>
+            </FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="A/S 유형"><select style={inputStyle}><option>긴급수리</option><option>정기점검</option><option>소모품 교체</option><option>소프트웨어</option></select></FormField>
+              <FormField label="우선순위"><select style={inputStyle}><option value="high">긴급</option><option value="normal">일반</option><option value="low">낮음</option></select></FormField>
+            </div>
+            <FormField label="증상 설명" required><textarea style={{ ...inputStyle, height: 100, resize: 'vertical' }} placeholder="장비 증상 상세 기술" required /></FormField>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>접수</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 견적 관리 ───────────────────────────────────────────────
+function QuotesPage({ showToast }) {
+  const [modal, setModal] = useState(null);
+  function handleCreate(e) { e.preventDefault(); setModal(null); showToast('견적서가 생성되어 병원에 발송되었습니다.', 'success'); }
+
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+        <button onClick={() => setModal({ type: 'create' })} style={{ background: C.primary, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ 견적서 작성</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+        {QUOTES.map((q, i) => (
+          <div key={q.id} style={{
+            background: C.surface, borderRadius: 16, padding: 20,
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)',
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+            transition: 'all 200ms',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(124,58,237,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.08)'; }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.primary, fontWeight: 700 }}>{q.id}</span>
+              <StatusBadge status={q.status} />
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>{q.hospital}</div>
+            <div style={{ fontSize: 13, color: C.textSub, marginBottom: 12 }}>{q.item}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: C.primary }}>{q.amount}</span>
+              <span style={{ fontSize: 11, color: C.textLight }}>유효: {q.validity}</span>
+            </div>
+            {q.status === '검토중' && (
+              <button onClick={() => showToast('서명 요청 링크가 발송되었습니다.', 'success')} style={{
+                marginTop: 12, width: '100%', background: C.primaryLight, color: C.primary,
+                border: 'none', borderRadius: 8, padding: '8px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>전자 서명 요청</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {modal?.type === 'create' && (
+        <Modal title="견적서 작성" onClose={() => setModal(null)}>
+          <form onSubmit={handleCreate}>
+            <FormField label="병원" required>
+              <select style={inputStyle} required>
+                <option value="">병원 선택</option>
+                {HOSPITALS.map(h => <option key={h.id}>{h.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="견적 품목" required><input style={inputStyle} placeholder="납품 기기 또는 서비스명" required /></FormField>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="수량"><input type="number" style={inputStyle} placeholder="1" min={1} /></FormField>
+              <FormField label="단가 (원)"><input type="number" style={inputStyle} placeholder="0" /></FormField>
+            </div>
+            <FormField label="유효기간"><input type="date" style={inputStyle} /></FormField>
+            <FormField label="비고"><textarea style={{ ...inputStyle, height: 80, resize: 'vertical' }} placeholder="특이사항" /></FormField>
+            <div style={{ background: C.primaryLight, borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: C.primary }}>
+              ✉️ 견적서 작성 후 병원 담당자 이메일로 자동 발송되며, 전자 서명 링크가 포함됩니다.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setModal(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, borderRadius: 10, background: 'none', cursor: 'pointer', fontSize: 13 }}>취소</button>
+              <button type="submit" style={{ padding: '10px 24px', background: C.primary, color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>견적서 발송</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── 리포트 ──────────────────────────────────────────────────
+function ReportsPage() {
+  return (
+    <div style={{ animation: 'fadeIn 300ms ease', padding: '24px 32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+        {[
+          { label: '이번달 A/S 처리건', value: 37, suffix: '건', icon: '🔧', color: C.primary, sub: '전월 대비 +8%' },
+          { label: '병원 만족도', value: 98, suffix: '%', icon: '⭐', color: '#F59E0B', sub: '목표 95% 초과' },
+          { label: '평균 A/S 응대 시간', value: 28, suffix: '분', icon: '⏱', color: C.success, sub: '전월 42분 → 28분' },
+        ].map((s, i) => (
+          <div key={i} style={{
+            background: C.surface, borderRadius: 16, padding: 20,
+            boxShadow: '0 4px 16px rgba(124,58,237,0.08)',
+            animation: `slideUp 400ms ease ${i * 80}ms both`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 11, color: C.textSub, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{s.label}</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: s.color }}><CountUp end={s.value} suffix={s.suffix} /></div>
+                <div style={{ fontSize: 12, color: C.textSub, marginTop: 4 }}>{s.sub}</div>
+              </div>
+              <span style={{ fontSize: 28 }}>{s.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: C.surface, borderRadius: 16, padding: 24, boxShadow: '0 4px 16px rgba(124,58,237,0.08)', textAlign: 'center', color: C.textSub, paddingTop: 48, paddingBottom: 48 }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>상세 분석 차트</div>
+        <div style={{ fontSize: 13 }}>월별 A/S 현황, 기기별 고장 빈도, 병원별 매출 분석 차트가 표시됩니다.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── 스켈레톤 ───────────────────────────────────────────────
+function SkeletonLoader() {
+  return (
+    <div>
+      <div style={{ background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', height: 110 }} />
+      <div style={{ padding: '24px 32px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+        {[...Array(4)].map((_, i) => <div key={i} className="skeleton" style={{ height: 110 }} />)}
+      </div>
+      <div style={{ padding: '0 32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="skeleton" style={{ height: 200 }} />
+        <div className="skeleton" style={{ height: 200 }} />
+      </div>
+    </div>
+  );
+}
+
+// ── 메인 앱 ───────────────────────────────────────────────
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('home');
+  const [drawer, setDrawer] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type, key: Date.now() });
+  }
+
+  if (loading) return <SkeletonLoader />;
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '100vh' }}>
+      <TopNav tab={tab} onTab={t => { setTab(t); setDrawer(null); }} />
+      <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <HeroBanner tab={tab} />
+        <div style={{ flex: 1 }}>
+          {tab === 'home' && <HomePage setDrawer={setDrawer} setTab={setTab} />}
+          {tab === 'hospitals' && <HospitalsPage setDrawer={setDrawer} showToast={showToast} />}
+          {tab === 'devices' && <DevicesPage setDrawer={setDrawer} showToast={showToast} />}
+          {tab === 'as' && <AsPage setDrawer={setDrawer} showToast={showToast} />}
+          {tab === 'quotes' && <QuotesPage showToast={showToast} />}
+          {tab === 'reports' && <ReportsPage />}
+        </div>
+      </div>
+
+      {drawer && (
+        <Drawer
+          item={drawer.item}
+          type={drawer.type}
+          onClose={() => setDrawer(null)}
+          showToast={showToast}
+        />
+      )}
+      {toast && <Toast key={toast.key} message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

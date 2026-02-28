@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DocuFlow — 스마트 문서 자동화 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F8FAFC;color:#0F172A;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+
+const C={
+  primary:'#334155',secondary:'#0F172A',accent:'#06B6D4',
+  bg:'#F8FAFC',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#0F172A',textLight:'#64748B',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  sidebarBg:'#FFFFFF',
+};
+
+/* ─── Data ─── */
+const PIPELINE_STEPS=[
+  {name:'파싱',icon:'📄',status:'완료',count:42,total:42},
+  {name:'검증',icon:'✅',status:'완료',count:40,total:42},
+  {name:'계산',icon:'🔢',status:'처리중',count:35,total:40},
+  {name:'생성',icon:'📝',status:'대기',count:0,total:40},
+];
+
+const DOCUMENTS_DATA=[
+  {id:'DOC-0615-001',company:'(주)대한소재',type:'발주서',file:'DH_PO_0615.xlsx',status:'파싱완료',amount:'3,420,000',items:12,date:'2024.06.15',ai:false},
+  {id:'DOC-0615-002',company:'삼일금속(주)',type:'발주서',file:'SI_order_0615.xls',status:'검증완료',amount:'1,890,000',items:8,date:'2024.06.15',ai:false},
+  {id:'DOC-0615-003',company:'(주)세진스틸',type:'이미지',file:'SJ_scan_0615.jpg',status:'AI분석중',amount:'—',items:0,date:'2024.06.15',ai:true},
+  {id:'DOC-0615-004',company:'한국특수강(주)',type:'발주서',file:'HK_발주_0615.xlsx',status:'명세서생성',amount:'2,150,000',items:5,date:'2024.06.15',ai:false},
+  {id:'DOC-0615-005',company:'동방메탈(주)',type:'발주서',file:'DB_PO_0615.xlsx',status:'결재대기',amount:'4,870,000',items:18,date:'2024.06.15',ai:false},
+  {id:'DOC-0614-001',company:'(주)포항합금',type:'발주서',file:'PH_발주서_0614.xlsx',status:'완료',amount:'5,670,000',items:20,date:'2024.06.14',ai:false},
+  {id:'DOC-0614-002',company:'(주)세진스틸',type:'이미지',file:'SJ_scan_0614.png',status:'완료',amount:'1,230,000',items:4,date:'2024.06.14',ai:true},
+];
+
+const APPROVALS=[
+  {id:'APR-001',docNo:'INV-2606-0042',company:'동방메탈(주)',amount:'4,870,000',items:18,status:'대기',urgency:'일반',requester:'김민수',date:'2024.06.15 14:30'},
+  {id:'APR-002',docNo:'INV-2606-0041',company:'(주)대한소재',amount:'3,420,000',items:12,status:'대기',urgency:'긴급',requester:'김민수',date:'2024.06.15 14:25'},
+  {id:'APR-003',docNo:'INV-2606-0040',company:'삼일금속(주)',amount:'1,890,000',items:8,status:'검토중',urgency:'일반',requester:'이지은',date:'2024.06.15 14:20'},
+  {id:'APR-004',docNo:'INV-2606-0038',company:'한국특수강(주)',amount:'2,150,000',items:5,status:'승인',urgency:'일반',requester:'김민수',date:'2024.06.15 13:10'},
+  {id:'APR-005',docNo:'INV-2606-0035',company:'(주)포항합금',amount:'5,670,000',items:20,status:'승인',urgency:'일반',requester:'이지은',date:'2024.06.14 17:00'},
+  {id:'APR-006',docNo:'INV-2606-0033',company:'대한특수강(주)',amount:'890,000',items:4,status:'반려',urgency:'일반',requester:'박서진',date:'2024.06.14 15:30'},
+];
+
+const ANALYTICS_DATA=[
+  {company:'(주)대한소재',m1:28,m2:32,m3:35,total:'₩12,480,000'},
+  {company:'삼일금속(주)',m1:22,m2:18,m3:25,total:'₩8,920,000'},
+  {company:'한국특수강(주)',m1:15,m2:20,m3:18,total:'₩7,350,000'},
+  {company:'동방메탈(주)',m1:30,m2:28,m3:32,total:'₩15,870,000'},
+  {company:'(주)포항합금',m1:25,m2:30,m3:22,total:'₩10,560,000'},
+  {company:'(주)세진스틸',m1:8,m2:12,m3:10,total:'₩4,230,000'},
+];
+
+/* ─── Utils ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const[val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14,display:'flex',alignItems:'center',gap:8}}><span style={{color:C.accent}}>✓</span>{message}</div>;
+}
+
+function Modal({open,onClose,title,width=560,children}){
+  if(!open)return null;
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:16,boxShadow:'0 24px 48px rgba(0,0,0,0.15)',zIndex:1001,animation:'fadeInScale 250ms ease',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'18px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+function Badge({text,color}){
+  const colors={success:{bg:'#ECFDF5',text:'#059669'},danger:{bg:'#FEF2F2',text:'#DC2626'},warning:{bg:'#FFFBEB',text:'#D97706'},info:{bg:'#F0F9FF',text:'#0284C7'},accent:{bg:'#ECFEFF',text:'#0891B2'},muted:{bg:'#F1F5F9',text:'#64748B'}};
+  const c=colors[color]||colors.muted;
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+
+function Btn({children,variant='primary',size='md',onClick,style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600,borderRadius:8,transition:'all 150ms',display:'inline-flex',alignItems:'center',gap:6};
+  const vars={primary:{background:C.accent,color:'#fff',padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13},secondary:{background:C.bg,color:C.text,padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13,border:`1px solid ${C.border}`},danger:{background:'#FEF2F2',color:C.danger,padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13}};
+  return <button onClick={onClick} style={{...base,...vars[variant],...s}} onMouseOver={e=>e.currentTarget.style.opacity='0.85'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>{children}</button>;
+}
+
+/* ─── Skeleton ─── */
+function Skeleton(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:C.surface,borderRight:`1px solid ${C.border}`}}/>
+      <div style={{flex:1,padding:20,display:'flex',flexDirection:'column',gap:12}}>
+        {[40,38,...Array(3).fill(160)].map((h,i)=><div key={i} style={{height:h,borderRadius:10,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+}
+
+/* ─── SideNav ─── */
+const NAV_ITEMS=[
+  {id:'dashboard',icon:'📊',label:'대시보드'},
+  {id:'documents',icon:'📄',label:'문서 처리'},
+  {id:'approval',icon:'✅',label:'결재 관리'},
+  {id:'analytics',icon:'📈',label:'분석 리포트'},
+];
+
+function SideNav({section,setSection}){
+  return(
+    <nav style={{width:240,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0}}>
+      <div style={{padding:'0 16px 20px',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:12}}>DF</div>
+        <div><div style={{fontWeight:700,fontSize:15,color:C.text}}>DocuFlow</div><div style={{fontSize:10,color:C.textMuted}}>문서 자동화 플랫폼</div></div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+        {NAV_ITEMS.map(item=>(
+          <button key={item.id} onClick={()=>setSection(item.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',background:section===item.id?`${C.accent}12`:'transparent',color:section===item.id?C.accent:C.textLight,borderLeft:section===item.id?`3px solid ${C.accent}`:'3px solid transparent',fontSize:13,fontWeight:section===item.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}} onMouseOver={e=>{if(section!==item.id)e.currentTarget.style.background=`${C.accent}06`}} onMouseOut={e=>{if(section!==item.id)e.currentTarget.style.background='transparent'}}>
+            <span style={{fontSize:16}}>{item.icon}</span>{item.label}
+            {item.id==='approval'&&<span style={{marginLeft:'auto',background:C.danger,color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8,fontWeight:700}}>2</span>}
+          </button>
+        ))}
+      </div>
+      <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:8}}>
+        <button onClick={()=>setSection('settings')} style={{display:'flex',alignItems:'center',gap:8,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',fontSize:13,color:C.textLight,padding:4}}>⚙️ 설정</button>
+      </div>
+    </nav>
+  );
+}
+
+/* ─── AppBar ─── */
+function AppBar({section,tabLabel}){
+  const labels={dashboard:'대시보드',documents:'문서 처리',approval:'결재 관리',analytics:'분석 리포트',settings:'설정'};
+  return(
+    <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:6,background:C.surface,flexShrink:0,fontSize:12}}>
+      <span style={{color:C.textMuted}}>DocuFlow</span>
+      <span style={{color:C.textMuted}}>/</span>
+      <span style={{fontWeight:600,color:C.text}}>{labels[section]||section}</span>
+      {tabLabel&&<><span style={{color:C.textMuted}}>/</span><span style={{color:C.textLight}}>{tabLabel}</span></>}
+      <div style={{flex:1}}/>
+      <div style={{position:'relative'}}>
+        <input placeholder="검색..." style={{width:160,padding:'5px 10px 5px 26px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.bg}}/>
+        <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:11}}>🔍</span>
+      </div>
+      <div style={{width:26,height:26,borderRadius:'50%',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,cursor:'pointer'}}>김</div>
+    </header>
+  );
+}
+
+/* ─── TabStrip ─── */
+function TabStrip({tabs,active,setActive,actions}){
+  return(
+    <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+      {tabs.map((t,i)=>(
+        <button key={t.id} onClick={()=>setActive(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:12,color:active===i?C.accent:C.textLight,fontWeight:active===i?600:400,borderBottom:active===i?`2px solid ${C.accent}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{t.label}</button>
+      ))}
+      <div style={{flex:1}}/>
+      {actions}
+    </div>
+  );
+}
+
+/* ─── Dashboard Page ─── */
+function DashboardPage(){
+  const TABS=[{id:'overview',label:'전체 현황'},{id:'pipeline',label:'파이프라인'}];
+  const[tab,setTab]=useState(0);
+
+  return(
+    <>
+      <TabStrip tabs={TABS} active={tab} setActive={setTab}/>
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        {tab===0?(
+          <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+              {[
+                {label:'오늘 처리',value:42,suffix:'건',icon:'📄',color:C.accent},
+                {label:'처리 금액',value:1850,suffix:'만',icon:'💰',color:C.success},
+                {label:'결재 대기',value:2,suffix:'건',icon:'📋',color:C.warning},
+                {label:'AI 분석',value:3,suffix:'건',icon:'🤖',color:'#8B5CF6'},
+              ].map((k,i)=>(
+                <div key={i} style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 150ms'}} onMouseOver={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseOut={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.borderLeft=`1px solid ${C.border}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:11,color:C.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k.label}</span>
+                    <span style={{fontSize:18}}>{k.icon}</span>
+                  </div>
+                  <div style={{fontSize:24,fontWeight:700,color:k.color}}><CountUp end={k.value} suffix={k.suffix}/></div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>파이프라인 현황</div>
+                <div style={{display:'flex',gap:8}}>
+                  {PIPELINE_STEPS.map((s,i)=>(
+                    <div key={i} style={{flex:1,textAlign:'center'}}>
+                      <div style={{fontSize:24,marginBottom:6}}>{s.icon}</div>
+                      <div style={{fontSize:11,fontWeight:600,marginBottom:4}}>{s.name}</div>
+                      <div style={{height:6,borderRadius:3,background:C.bg,overflow:'hidden'}}>
+                        <div style={{height:'100%',borderRadius:3,background:s.status==='완료'?C.success:s.status==='처리중'?C.accent:C.border,width:s.total>0?`${(s.count/s.total)*100}%`:'0%',animation:`barGrow 800ms ease ${i*150}ms both`,'--target-width':s.total>0?`${(s.count/s.total)*100}%`:'0%'}}/>
+                      </div>
+                      <div style={{fontSize:10,color:C.textMuted,marginTop:4}}>{s.count}/{s.total}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>최근 결재 대기</div>
+                {APPROVALS.filter(a=>a.status==='대기').slice(0,3).map((a,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:i<1?`1px solid ${C.border}`:'none'}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:a.urgency==='긴급'?C.danger:C.warning}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600}}>{a.company}</div>
+                      <div style={{fontSize:11,color:C.textMuted}}>{a.docNo} · ₩{a.amount}</div>
+                    </div>
+                    <Badge text={a.urgency} color={a.urgency==='긴급'?'danger':'warning'}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ):(
+          <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+            <div style={{background:C.surface,borderRadius:10,padding:20,border:`1px solid ${C.border}`}}>
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:16}}>실시간 처리 파이프라인</div>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:24}}>
+                {PIPELINE_STEPS.map((s,i)=>(
+                  <React.Fragment key={i}>
+                    <div style={{flex:1,padding:16,borderRadius:10,background:s.status==='완료'?'#ECFDF5':s.status==='처리중'?'#ECFEFF':'#F8FAFC',border:`1px solid ${s.status==='완료'?'#A7F3D0':s.status==='처리중'?'#A5F3FC':C.border}`,textAlign:'center'}}>
+                      <div style={{fontSize:28,marginBottom:6}}>{s.icon}</div>
+                      <div style={{fontSize:13,fontWeight:700}}>{s.name}</div>
+                      <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{s.count}/{s.total}</div>
+                      <Badge text={s.status} color={s.status==='완료'?'success':s.status==='처리중'?'accent':'muted'}/>
+                    </div>
+                    {i<3&&<span style={{fontSize:18,color:C.textMuted}}>→</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:12}}>처리 로그 (실시간)</div>
+              {[
+                {time:'14:32:05',msg:'(주)대한소재 — 발주서 파싱 완료 (12건)',type:'success'},
+                {time:'14:32:03',msg:'삼일금속(주) — 금액 검증 완료, 오차 0원',type:'success'},
+                {time:'14:31:58',msg:'(주)세진스틸 — AI 양식 분석 중 (GPT-4 Vision)',type:'info'},
+                {time:'14:31:45',msg:'한국특수강(주) — 명세서 PDF 생성 완료',type:'success'},
+                {time:'14:31:30',msg:'동방메탈(주) — 결재 요청 발송 (팀장: 이준호)',type:'info'},
+              ].map((log,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                  <span style={{fontFamily:'monospace',fontSize:11,color:C.textMuted,minWidth:70}}>{log.time}</span>
+                  <span style={{width:6,height:6,borderRadius:'50%',background:log.type==='success'?C.success:C.accent}}/>
+                  <span>{log.msg}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Documents Page ─── */
+function DocumentsPage(){
+  const TABS=[{id:'all',label:'전체'},{id:'parsing',label:'파싱'},{id:'validation',label:'검증'},{id:'generation',label:'생성'}];
+  const[tab,setTab]=useState(0);
+  const[selected,setSelected]=useState(null);
+  const[uploadModal,setUploadModal]=useState(false);
+  const[toast,setToast]=useState('');
+
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab} actions={<Btn size="sm" onClick={()=>setUploadModal(true)} style={{marginBottom:4}}>📤 업로드</Btn>}/>
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          {DOCUMENTS_DATA.map((doc,i)=>(
+            <div key={i} onClick={()=>setSelected(doc)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===doc.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===doc.id?`3px solid ${C.accent}`:'3px solid transparent',transition:'all 150ms',display:'flex',alignItems:'center',gap:12}} onMouseOver={e=>{if(selected?.id!==doc.id)e.currentTarget.style.background=`${C.accent}04`}} onMouseOut={e=>{if(selected?.id!==doc.id)e.currentTarget.style.background='transparent'}}>
+              <div style={{width:36,height:36,borderRadius:8,background:doc.ai?'#F5F3FF':doc.type==='이미지'?'#FFF7ED':'#F0F9FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>
+                {doc.ai?'🤖':doc.type==='이미지'?'🖼️':'📄'}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
+                  <span style={{fontSize:13,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.company}</span>
+                  <Badge text={doc.status} color={doc.status==='완료'?'success':doc.status.includes('AI')?'accent':doc.status==='결재대기'?'warning':'info'}/>
+                </div>
+                <div style={{fontSize:11,color:C.textMuted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.file} · {doc.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected?(
+            <div style={{animation:'slideInRight 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <div>
+                  <h3 style={{fontSize:18,fontWeight:700}}>{selected.company}</h3>
+                  <div style={{fontSize:12,color:C.textMuted}}>{selected.id} · {selected.date}</div>
+                </div>
+                <Badge text={selected.status} color={selected.status==='완료'?'success':selected.status.includes('AI')?'accent':'info'}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
+                {[{l:'파일',v:selected.file},{l:'품목 수',v:`${selected.items}건`},{l:'금액',v:selected.amount==='—'?'계산 중':`₩${selected.amount}`}].map((info,i)=>(
+                  <div key={i} style={{background:C.bg,borderRadius:8,padding:12}}>
+                    <div style={{fontSize:10,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{info.l}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{info.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              {selected.ai&&(
+                <div style={{padding:16,background:'#F5F3FF',borderRadius:10,border:'1px solid #DDD6FE',marginBottom:16}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <span style={{fontSize:18}}>🤖</span>
+                    <span style={{fontSize:13,fontWeight:700,color:'#7C3AED'}}>AI 양식 분석 결과</span>
+                  </div>
+                  <div style={{fontSize:12,color:'#4C1D95',lineHeight:1.6}}>
+                    GPT-4 Vision이 이미지에서 필드 12개를 감지했습니다.<br/>
+                    신뢰도: <strong>0.91</strong> (자동 승인 임계치 0.85 초과)<br/>
+                    감지된 필드: 품명, 규격(W×D×H), 수량, 단가, 비고
+                  </div>
+                </div>
+              )}
+
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:10}}>처리 이력</div>
+              {[
+                {step:'파일 수신',time:'14:20:00',status:'완료'},
+                {step:selected.ai?'AI 양식 분석':'규칙 기반 파싱',time:'14:20:05',status:selected.status.includes('AI')?'처리중':'완료'},
+                {step:'데이터 검증',time:'14:20:12',status:['파싱완료','AI분석중'].includes(selected.status)?'대기':'완료'},
+                {step:'명세서 생성',time:'14:20:18',status:['파싱완료','AI분석중','검증완료'].includes(selected.status)?'대기':'완료'},
+              ].map((h,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:h.status==='완료'?C.success:h.status==='처리중'?C.accent:C.border}}/>
+                  <span style={{fontSize:12,fontWeight:600,minWidth:120}}>{h.step}</span>
+                  <span style={{fontSize:11,fontFamily:'monospace',color:C.textMuted}}>{h.time}</span>
+                  <span style={{marginLeft:'auto'}}><Badge text={h.status} color={h.status==='완료'?'success':h.status==='처리중'?'accent':'muted'}/></span>
+                </div>
+              ))}
+
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <Btn onClick={()=>setToast('명세서를 생성합니다')}>📝 명세서 생성</Btn>
+                <Btn variant="secondary" onClick={()=>setToast('PDF를 다운로드합니다')}>📥 PDF</Btn>
+              </div>
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,gap:8}}>
+              <span style={{fontSize:36}}>📄</span>
+              <span style={{fontSize:13}}>좌측에서 문서를 선택하세요</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Modal open={uploadModal} onClose={()=>setUploadModal(false)} title="발주서 업로드" width={500}>
+        <div style={{border:`2px dashed ${C.border}`,borderRadius:10,padding:36,textAlign:'center',marginBottom:16,background:C.bg}}>
+          <div style={{fontSize:36,marginBottom:8}}>📁</div>
+          <div style={{fontSize:13,fontWeight:600}}>파일을 드래그하거나 클릭하세요</div>
+          <div style={{fontSize:11,color:C.textMuted}}>xlsx, xls, jpg, png · AI가 신규 양식 자동 감지</div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <Btn variant="secondary" onClick={()=>setUploadModal(false)}>취소</Btn>
+          <Btn onClick={()=>{setUploadModal(false);setToast('파일 업로드 및 처리를 시작합니다')}}>업로드</Btn>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
+/* ─── Approval Page ─── */
+function ApprovalPage(){
+  const TABS=[{id:'pending',label:'대기/검토'},{id:'completed',label:'처리 완료'}];
+  const[tab,setTab]=useState(0);
+  const[selected,setSelected]=useState(null);
+  const[approveModal,setApproveModal]=useState(null);
+  const[toast,setToast]=useState('');
+
+  const pending=APPROVALS.filter(a=>['대기','검토중'].includes(a.status));
+  const completed=APPROVALS.filter(a=>['승인','반려'].includes(a.status));
+  const list=tab===0?pending:completed;
+
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab}/>
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          {list.map((a,i)=>(
+            <div key={i} onClick={()=>setSelected(a)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===a.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===a.id?`3px solid ${C.accent}`:'3px solid transparent',transition:'all 150ms'}} onMouseOver={e=>{if(selected?.id!==a.id)e.currentTarget.style.background=`${C.accent}04`}} onMouseOut={e=>{if(selected?.id!==a.id)e.currentTarget.style.background='transparent'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:600}}>{a.company}</span>
+                <Badge text={a.status} color={a.status==='승인'?'success':a.status==='반려'?'danger':a.status==='검토중'?'accent':'warning'}/>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textMuted}}>
+                <span>{a.docNo}</span>
+                <span>₩{a.amount}</span>
+              </div>
+              {a.urgency==='긴급'&&<div style={{marginTop:4}}><Badge text="🔴 긴급" color="danger"/></div>}
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected?(
+            <div style={{animation:'slideInRight 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <div>
+                  <h3 style={{fontSize:18,fontWeight:700}}>{selected.company}</h3>
+                  <div style={{fontSize:12,color:C.textMuted}}>{selected.docNo}</div>
+                </div>
+                <Badge text={selected.status} color={selected.status==='승인'?'success':selected.status==='반려'?'danger':'warning'}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+                {[{l:'금액',v:`₩${selected.amount}`},{l:'품목 수',v:`${selected.items}건`},{l:'요청자',v:selected.requester},{l:'요청일시',v:selected.date}].map((info,i)=>(
+                  <div key={i} style={{background:C.bg,borderRadius:8,padding:12}}>
+                    <div style={{fontSize:10,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{info.l}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{info.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:10}}>결재선</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20}}>
+                {[{name:'김민수',role:'담당자',done:true},{name:'이준호',role:'팀장',done:selected.status==='승인'},{name:'박서진',role:'부장',done:false}].map((p,i)=>(
+                  <React.Fragment key={i}>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{width:40,height:40,borderRadius:'50%',background:p.done?C.success:C.bg,border:`2px solid ${p.done?C.success:C.border}`,display:'flex',alignItems:'center',justifyContent:'center',color:p.done?'#fff':C.textMuted,fontSize:13,fontWeight:700,marginBottom:4}}>{p.done?'✓':p.name[0]}</div>
+                      <div style={{fontSize:11,fontWeight:600}}>{p.name}</div>
+                      <div style={{fontSize:10,color:C.textMuted}}>{p.role}</div>
+                    </div>
+                    {i<2&&<div style={{width:32,height:2,background:C.border,marginBottom:20}}/>}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {['대기','검토중'].includes(selected.status)&&(
+                <div style={{display:'flex',gap:8}}>
+                  <Btn onClick={()=>setApproveModal({...selected,action:'approve'})}>✅ 승인</Btn>
+                  <Btn variant="danger" onClick={()=>setApproveModal({...selected,action:'reject'})}>❌ 반려</Btn>
+                  <Btn variant="secondary" onClick={()=>setToast('위임 처리되었습니다')}>👤 위임</Btn>
+                </div>
+              )}
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,gap:8}}>
+              <span style={{fontSize:36}}>✅</span>
+              <span style={{fontSize:13}}>좌측에서 결재 건을 선택하세요</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Modal open={!!approveModal} onClose={()=>setApproveModal(null)} title={approveModal?.action==='approve'?'결재 승인':'결재 반려'} width={440}>
+        {approveModal&&(
+          <div>
+            <div style={{padding:14,background:C.bg,borderRadius:8,marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:600}}>{approveModal.company}</div>
+              <div style={{fontSize:12,color:C.textMuted}}>{approveModal.docNo} · ₩{approveModal.amount}</div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{display:'block',fontSize:12,fontWeight:600,color:C.textLight,marginBottom:6}}>{approveModal.action==='approve'?'승인 의견':'반려 사유'}</label>
+              <textarea placeholder={approveModal.action==='approve'?'(선택) 승인 의견을 입력하세요':'반려 사유를 입력해주세요'} rows={3} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit',outline:'none',resize:'vertical'}}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <Btn variant="secondary" onClick={()=>setApproveModal(null)}>취소</Btn>
+              <Btn variant={approveModal.action==='approve'?'primary':'danger'} onClick={()=>{setApproveModal(null);setSelected(null);setToast(approveModal.action==='approve'?'승인 처리되었습니다':'반려 처리되었습니다')}}>{approveModal.action==='approve'?'승인':'반려'}</Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+/* ─── Analytics Page ─── */
+function AnalyticsPage(){
+  const TABS=[{id:'overview',label:'종합 현황'},{id:'company',label:'거래처별'}];
+  const[tab,setTab]=useState(0);
+  const[toast,setToast]=useState('');
+
+  const max=Math.max(...ANALYTICS_DATA.map(d=>d.m1+d.m2+d.m3));
+
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab} actions={<Btn size="sm" variant="secondary" onClick={()=>setToast('리포트 PDF를 생성합니다')} style={{marginBottom:4}}>📥 리포트</Btn>}/>
+      <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+        {tab===0?(
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+              {[{l:'이번 달 처리',v:'156건'},{l:'이번 달 금액',v:'₩5,940만'},{l:'평균 처리 건수',v:'26건/일'},{l:'오류율',v:'1.8%'}].map((k,i)=>(
+                <div key={i} style={{background:C.surface,borderRadius:10,padding:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                  <div style={{fontSize:10,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>{k.l}</div>
+                  <div style={{fontSize:20,fontWeight:700}}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:C.surface,borderRadius:10,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:16}}>
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>거래처별 월간 추이</div>
+              {ANALYTICS_DATA.map((d,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                  <span style={{fontSize:12,fontWeight:600,minWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{d.company}</span>
+                  <div style={{flex:1,display:'flex',height:10,borderRadius:5,overflow:'hidden',background:C.bg}}>
+                    <div style={{width:`${(d.m1/max*3)*100}%`,background:C.primary,animation:`barGrow 800ms ease ${i*80}ms both`,'--target-width':`${(d.m1/max*3)*100}%`}}/>
+                    <div style={{width:`${(d.m2/max*3)*100}%`,background:C.accent,animation:`barGrow 800ms ease ${i*80+100}ms both`,'--target-width':`${(d.m2/max*3)*100}%`}}/>
+                    <div style={{width:`${(d.m3/max*3)*100}%`,background:'#67E8F9',animation:`barGrow 800ms ease ${i*80+200}ms both`,'--target-width':`${(d.m3/max*3)*100}%`}}/>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:700,minWidth:100,textAlign:'right'}}>{d.total}</span>
+                </div>
+              ))}
+              <div style={{display:'flex',gap:16,justifyContent:'flex-end',marginTop:12}}>
+                {[{label:'4월',color:C.primary},{label:'5월',color:C.accent},{label:'6월',color:'#67E8F9'}].map((l,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.textMuted}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:l.color}}/>{l.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ):(
+          <div>
+            <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse'}}>
+                <thead>
+                  <tr style={{background:C.bg}}>
+                    {['거래처','4월','5월','6월','합계','누적 금액'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ANALYTICS_DATA.map((d,i)=>(
+                    <tr key={i} style={{borderBottom:`1px solid ${C.border}`,transition:'all 150ms',height:44}} onMouseOver={e=>{e.currentTarget.style.background=`${C.accent}04`;e.currentTarget.style.borderLeft=`2px solid ${C.accent}`}} onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none'}}>
+                      <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{d.company}</td>
+                      <td style={{padding:'10px 14px',fontSize:13}}>{d.m1}건</td>
+                      <td style={{padding:'10px 14px',fontSize:13}}>{d.m2}건</td>
+                      <td style={{padding:'10px 14px',fontSize:13}}>{d.m3}건</td>
+                      <td style={{padding:'10px 14px',fontSize:13,fontWeight:700}}>{d.m1+d.m2+d.m3}건</td>
+                      <td style={{padding:'10px 14px',fontSize:13,fontWeight:700,color:C.accent}}>{d.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── App ─── */
+function App(){
+  const[loading,setLoading]=useState(true);
+  const[section,setSection]=useState('dashboard');
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+
+  const render=()=>{
+    switch(section){
+      case 'dashboard':return <DashboardPage/>;
+      case 'documents':return <DocumentsPage/>;
+      case 'approval':return <ApprovalPage/>;
+      case 'analytics':return <AnalyticsPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',maxHeight:'100vh'}}>
+      <SideNav section={section} setSection={setSection}/>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <AppBar section={section}/>
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} key={section}>
+          {render()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
