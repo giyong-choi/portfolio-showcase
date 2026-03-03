@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>루틴랩 — AI 행동 미션·커뮤니티 통합 라이프스타일 플랫폼</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#F5F3FF;color:#1E1B4B;word-break:keep-all;overflow-wrap:break-word}
+:root{
+  --primary:#7C3AED;--primary-dark:#6D28D9;--primary-light:#EDE9FE;
+  --secondary:#A78BFA;--accent:#EC4899;
+  --bg:#F5F3FF;--surface:#FFFFFF;
+  --text:#1E1B4B;--text2:#5B4B8A;--text3:#9B8CC4;
+  --border:#DDD6FE;--border2:#EDE9FE;
+  --sidebar-w:240px;
+  --green:#059669;--green-bg:#D1FAE5;
+  --blue:#2563EB;--blue-bg:#DBEAFE;
+  --pink:#DB2777;--pink-bg:#FCE7F3;
+  --yellow:#D97706;--yellow-bg:#FEF3C7;
+}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar — bright-workspace */
+.sidebar{width:var(--sidebar-w);background:#fff;border-right:1px solid var(--border2);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid var(--border2)}
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:17px;flex-shrink:0}
+.logo-text{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.4px}
+.logo-sub{font-size:10px;color:var(--text3);font-weight:500}
+.sidebar-nav{padding:12px 10px;flex:1}
+.nav-group-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.7px;padding:0 10px;margin:14px 0 6px;display:flex;align-items:center;gap:6px}
+.nav-group-label:first-child{margin-top:0}
+.nav-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:500;color:var(--text2);transition:all 0.12s;display:flex;align-items:center;gap:10px;font-family:inherit}
+.nav-btn:hover{background:var(--primary-light);color:var(--primary-dark)}
+.nav-btn.active{background:linear-gradient(135deg,var(--primary-light),#E8E0FD);color:var(--primary);font-weight:700;box-shadow:inset 3px 0 0 var(--primary)}
+.nav-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--primary);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 7px}
+.sidebar-footer{padding:14px;border-top:1px solid var(--border2)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px;background:var(--primary-light);border-radius:10px}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.user-name{font-size:13px;font-weight:700;color:var(--text)}
+.user-level{font-size:10px;color:var(--primary);font-weight:600}
+
+/* Main */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;background:#fff;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:800;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border2);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text2)}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:14px;padding:20px;border:1px solid var(--border2);position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--accent))}
+.stat-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.13}
+.stat-label{font-size:11.5px;color:var(--text2);font-weight:500;margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:-1px}
+.stat-sub{font-size:11px;color:var(--text3)}
+
+/* Btn */
+.btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:none;transition:all 0.15s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-outline{background:#fff;color:var(--text2);border:1px solid var(--border2)}
+.btn-outline:hover{background:var(--bg)}
+.btn-pink{background:var(--accent);color:#fff;border:none}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* Section header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:14.5px;font-weight:700;color:var(--text)}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.badge-purple{background:var(--primary-light);color:var(--primary)}
+.badge-green{background:var(--green-bg);color:#065F46}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-pink{background:var(--pink-bg);color:var(--pink)}
+.badge-yellow{background:var(--yellow-bg);color:#92400E}
+.badge-gray{background:#F1F5F9;color:#64748B}
+
+/* Mission Recommendation */
+.mission-hero{background:linear-gradient(135deg,var(--primary),#5B21B6,var(--accent));border-radius:16px;padding:24px;color:#fff;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.mission-hero-left{flex:1}
+.mission-hero-title{font-size:12.5px;font-weight:600;opacity:0.8;margin-bottom:6px}
+.mission-hero-msg{font-size:20px;font-weight:800;line-height:1.3;margin-bottom:8px}
+.mission-hero-sub{font-size:13px;opacity:0.8;line-height:1.5}
+.mission-hero-right{font-size:64px;opacity:0.9;flex-shrink:0;margin-left:20px}
+.mood-chips{display:flex;gap:8px;margin-top:12px}
+.mood-chip{padding:6px 14px;border-radius:20px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;transition:all 0.12s}
+.mood-chip.active{background:rgba(255,255,255,0.9);color:var(--primary-dark)}
+.mission-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.mission-card{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:20px;transition:all 0.15s;cursor:pointer;position:relative;overflow:hidden}
+.mission-card:hover{border-color:var(--primary);box-shadow:0 4px 20px rgba(124,58,237,0.12)}
+.mission-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.mission-card-1::before{background:linear-gradient(90deg,var(--primary),var(--secondary))}
+.mission-card-2::before{background:linear-gradient(90deg,var(--accent),#F472B6)}
+.mission-card-3::before{background:linear-gradient(90deg,#06B6D4,#0EA5E9)}
+.mission-emoji{font-size:32px;margin-bottom:12px}
+.mission-tag{display:inline-flex;padding:3px 9px;border-radius:8px;font-size:10.5px;font-weight:700;margin-bottom:8px}
+.mission-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}
+.mission-desc{font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:14px}
+.mission-meta{display:flex;align-items:center;gap:8px}
+.mission-time{font-size:11.5px;color:var(--text3)}
+.mission-diff{font-size:11.5px;font-weight:600}
+.start-btn{margin-top:12px;width:100%;padding:9px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;border:none}
+
+/* Heatmap */
+.heatmap-section{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:20px;margin-bottom:20px}
+.heatmap-grid{display:grid;grid-template-columns:repeat(52,1fr);gap:2px;margin:12px 0}
+.heatmap-cell{aspect-ratio:1;border-radius:2px;cursor:pointer;transition:transform 0.1s}
+.heatmap-cell:hover{transform:scale(1.3)}
+.heatmap-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)}
+.heatmap-legend-cell{width:12px;height:12px;border-radius:2px}
+.tracking-layout{display:grid;grid-template-columns:1fr 280px;gap:20px}
+.chart-card{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:20px;margin-bottom:16px}
+.chart-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.chart-sub{font-size:11.5px;color:var(--text3);margin-bottom:14px}
+.goal-card{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:18px;margin-bottom:14px}
+.goal-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.goal-item{margin-bottom:14px}
+.goal-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.goal-name{font-size:12.5px;color:var(--text)}
+.goal-pct{font-size:12.5px;font-weight:700;color:var(--primary)}
+.goal-track{height:8px;background:var(--primary-light);border-radius:4px;overflow:hidden}
+.goal-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--primary),var(--secondary))}
+
+/* Challenge */
+.challenge-layout{display:grid;grid-template-columns:1fr 300px;gap:20px}
+.challenge-card{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:18px;margin-bottom:12px;cursor:pointer;transition:all 0.14s}
+.challenge-card:hover{border-color:var(--primary);box-shadow:0 3px 16px rgba(124,58,237,0.1)}
+.challenge-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.challenge-thumb{width:48px;height:48px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.challenge-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.challenge-meta{font-size:11.5px;color:var(--text3)}
+.challenge-prog{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.challenge-fill{height:100%;border-radius:3px}
+.challenge-footer{display:flex;align-items:center;justify-content:space-between}
+.leaderboard-card{background:#fff;border-radius:14px;border:1px solid var(--border2);overflow:hidden}
+.lb-header{padding:14px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.lb-title{font-size:13px;font-weight:700;color:var(--text)}
+.lb-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border2)}
+.lb-item:last-child{border-bottom:none}
+.lb-rank{width:24px;font-size:13px;font-weight:800;text-align:center;flex-shrink:0}
+.lb-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.lb-name{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.lb-score{font-size:13px;font-weight:700;color:var(--primary)}
+
+/* Content Library */
+.content-toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.tag-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border2);background:#fff;color:var(--text2);font-family:inherit;transition:all 0.12s}
+.tag-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.content-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.content-card{background:#fff;border-radius:14px;border:1px solid var(--border2);overflow:hidden;cursor:pointer;transition:all 0.15s}
+.content-card:hover{border-color:var(--primary);box-shadow:0 4px 18px rgba(124,58,237,0.1)}
+.content-cover{height:130px;display:flex;align-items:center;justify-content:center;font-size:40px}
+.content-body{padding:14px}
+.content-tag-row{margin-bottom:8px}
+.content-title{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:6px;line-height:1.4}
+.content-desc{font-size:11.5px;color:var(--text2);line-height:1.5;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.content-footer{display:flex;align-items:center;justify-content:space-between}
+.content-plan{font-size:10.5px;font-weight:600}
+.content-date{font-size:10.5px;color:var(--text3)}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;background:var(--primary-light);cursor:pointer;margin-bottom:16px;transition:all 0.12s}
+.upload-zone:hover{border-color:var(--primary);background:#E8E0FD}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:5px;padding:14px 0}
+.page-btn{width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:#fff;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;color:var(--text2);transition:all 0.12s}
+.page-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+.page-btn:hover:not(.active){background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000}
+.modal{background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);animation:fadeInScale 0.2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+.form-group{margin-bottom:12px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border2);font-size:13px;font-family:inherit;color:var(--text);outline:none}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary)}
+.modal-btns{display:flex;gap:8px;margin-top:14px}
+.modal-btn-cancel{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)}
+.modal-btn-confirm{flex:1;padding:10px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {PieChart,Pie,Cell,LineChart,Line,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend} = Recharts;
+
+// ─── 더미 데이터 ───
+const MISSIONS = [
+  {emoji:'🧘',tag:'마음챙김',tagBg:'#EDE9FE',tagColor:'#6D28D9',title:'5분 호흡 명상',desc:'복식 호흡으로 자율신경을 안정시키는 미션. 조용한 공간에서 진행하세요.',time:'5분',diff:'쉬움',diffColor:'#10B981',cardClass:'mission-card-1',btnBg:'linear-gradient(135deg,#7C3AED,#A78BFA)',btnText:'미션 시작'},
+  {emoji:'🚶',tag:'신체활동',tagBg:'#FCE7F3',tagColor:'#DB2777',title:'15분 산책 미션',desc:'자연광을 쬐며 가볍게 걷는 활동. 점심 시간 활용을 권장합니다.',time:'15분',diff:'보통',diffColor:'#D97706',cardClass:'mission-card-2',btnBg:'linear-gradient(135deg,#EC4899,#F472B6)',btnText:'미션 시작'},
+  {emoji:'📓',tag:'자기성찰',tagBg:'#DBEAFE',tagColor:'#1D4ED8',title:'감사 일기 3줄',desc:'오늘 감사한 일 3가지를 기록. 긍정 감정 자본을 쌓는 핵심 루틴.',time:'10분',diff:'쉬움',diffColor:'#10B981',cardClass:'mission-card-3',btnBg:'linear-gradient(135deg,#06B6D4,#0EA5E9)',btnText:'미션 시작'},
+];
+const ROUTINE_CATS = [
+  {name:'명상',value:22,color:'#7C3AED'},{name:'걷기',value:18,color:'#EC4899'},{name:'일기',value:25,color:'#06B6D4'},{name:'독서',value:14,color:'#10B981'},{name:'호흡',value:20,color:'#F59E0B'},
+];
+const LINE_DATA = [
+  {week:'1주',완료율:68,목표율:80},{week:'2주',완료율:72,목표율:80},{week:'3주',완료율:62,목표율:80},
+  {week:'4주',완료율:79,목표율:80},{week:'5주',완료율:84,목표율:80},{week:'6주',완료율:88,목표율:80},
+];
+const CHALLENGES = [
+  {emoji:'🌅',bg:'linear-gradient(135deg,#FEF3C7,#FDE68A)',title:'30일 아침 루틴 챌린지',host:'루틴랩 공식',participants:248,completed:62,progress:21,total:30,tag:'진행중',tagColor:'badge-purple'},
+  {emoji:'🚶',bg:'linear-gradient(135deg,#D1FAE5,#A7F3D0)',title:'매일 만보 걷기 챌린지',host:'건강팀 @healthlab',participants:183,completed:41,progress:14,total:21,tag:'참여중',tagColor:'badge-green'},
+  {emoji:'📖',bg:'linear-gradient(135deg,#DBEAFE,#BAE6FD)',title:'독서 21일 집중 챌린지',host:'북클럽 @booklab',participants:96,completed:28,progress:18,total:21,tag:'거의 완료',tagColor:'badge-blue'},
+  {emoji:'🧘',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',title:'마음챙김 14일 명상 챌린지',host:'마인드랩 @mindlab',participants:312,completed:89,progress:6,total:14,tag:'신규',tagColor:'badge-pink'},
+];
+const LEADERBOARD = [
+  {name:'이지윤',score:98,color:'#7C3AED',rank:'🥇'},{name:'박민준',score:92,color:'#EC4899',rank:'🥈'},
+  {name:'최서아',score:87,color:'#06B6D4',rank:'🥉'},{name:'김루틴',score:81,color:'#10B981',rank:'4'},
+  {name:'나',score:79,color:'#F59E0B',rank:'5'},
+];
+const CONTENTS = [
+  {emoji:'📚',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',tag:'아티클',tagColor:'badge-purple',title:'번아웃 없이 지속하는 루틴 설계법',desc:'작은 습관이 큰 변화를 만든다. 심리학 기반 루틴 지속성 강화 전략.',plan:'PRO',planColor:'#7C3AED',date:'2025.02.20'},
+  {emoji:'🧘',bg:'linear-gradient(135deg,#D1FAE5,#A7F3D0)',tag:'명상 가이드',tagColor:'badge-green',title:'5분 바디 스캔 명상 — 출근 전 루틴',desc:'출근 전 5분 바디 스캔으로 하루를 안정적으로 시작하는 가이드.',plan:'FREE',planColor:'#10B981',date:'2025.02.18'},
+  {emoji:'📝',bg:'linear-gradient(135deg,#DBEAFE,#BAE6FD)',tag:'루틴 템플릿',tagColor:'badge-blue',title:'직장인 주간 루틴 템플릿 2025',desc:'월요일부터 일요일까지 균형 잡힌 루틴 배치 가이드라인.',plan:'PRO',planColor:'#7C3AED',date:'2025.02.15'},
+  {emoji:'🎯',bg:'linear-gradient(135deg,#FCE7F3,#FBCFE8)',tag:'아티클',tagColor:'badge-pink',title:'목표 설정보다 중요한 것 — 시스템 구축',desc:'James Clear의 원자적 습관 이론을 현실에 적용하는 방법론.',plan:'PRO',planColor:'#7C3AED',date:'2025.02.12'},
+  {emoji:'🌙',bg:'linear-gradient(135deg,#FEF3C7,#FDE68A)',tag:'명상 가이드',tagColor:'badge-yellow',title:'숙면 유도 10분 야간 호흡 명상',desc:'수면의 질을 높이는 4-7-8 호흡법 가이드.',plan:'FREE',planColor:'#10B981',date:'2025.02.10'},
+  {emoji:'💡',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',tag:'루틴 템플릿',tagColor:'badge-purple',title:'감정 자본 주간 점검 워크시트',desc:'일주일간 감정 소비·충전 패턴을 점검하는 구조화된 워크시트.',plan:'PRO',planColor:'#7C3AED',date:'2025.02.08'},
+];
+
+// Heatmap cells (52weeks × 7days simplified)
+const HEATMAP = useMemo ? null : null;
+const heatColors = v => v===0?'#F3F0FF':v<=2?'#C4B5FD':v<=4?'#8B5CF6':'#5B21B6';
+
+function App() {
+  const [menu, setMenu] = useState('main');
+  const [loading, setLoading] = useState(false);
+  const [activeMood, setActiveMood] = useState('보통');
+  const [tagFilter, setTagFilter] = useState('전체');
+  const [contentPage, setContentPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState('mission');
+  const [joinedChallenge, setJoinedChallenge] = useState(null);
+
+  useEffect(()=>{
+    setLoading(true);
+    const t = setTimeout(()=>setLoading(false),1500);
+    return ()=>clearTimeout(t);
+  },[menu]);
+
+  const navItems = [
+    {key:'main',label:'미션 추천',icon:'🎯',group:'AI 코칭'},
+    {key:'routine-tracking',label:'루틴 트래킹',icon:'📊',group:'분석'},
+    {key:'challenge',label:'챌린지',icon:'🏆',group:'커뮤니티',badge:3},
+    {key:'content-library',label:'콘텐츠 라이브러리',icon:'📚',group:'콘텐츠'},
+  ];
+  const groups = [...new Set(navItems.map(n=>n.group))];
+  const pageTitle = navItems.find(n=>n.key===menu)?.label||'';
+
+  const openModal = (type) => {setModalType(type);setModalOpen(true);};
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-wrap">
+            <div className="logo-icon">🧬</div>
+            <div>
+              <div className="logo-text">루틴랩</div>
+              <div className="logo-sub">라이프스타일 코칭 플랫폼</div>
+            </div>
+          </div>
+        </div>
+        <nav className="sidebar-nav">
+          {groups.map(g=>(
+            <div key={g}>
+              <div className="nav-group-label">{g}</div>
+              {navItems.filter(n=>n.group===g).map(n=>(
+                <button key={n.key} className={`nav-btn${menu===n.key?' active':''}`} onClick={()=>setMenu(n.key)}>
+                  <span className="nav-icon">{n.icon}</span>
+                  {n.label}
+                  {n.badge && <span className="nav-badge">{n.badge}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-card">
+            <div className="user-avatar">이</div>
+            <div>
+              <div className="user-name">이지윤</div>
+              <div className="user-level">⭐ PRO · Lv.12</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="main-area">
+        <div className="topbar">
+          <div className="topbar-title">{pageTitle}</div>
+          <div className="topbar-right">
+            <button className="icon-btn">🔔</button>
+            <button className="icon-btn" onClick={()=>openModal('upload')}>+</button>
+            <button className="icon-btn">⚙️</button>
+          </div>
+        </div>
+        <div className="content">
+          {loading ? <SkelView/> : (
+            <>
+              {menu==='main' && <MissionView activeMood={activeMood} setActiveMood={setActiveMood} openModal={openModal}/>}
+              {menu==='routine-tracking' && <TrackingView/>}
+              {menu==='challenge' && <ChallengeView joinedChallenge={joinedChallenge} setJoinedChallenge={setJoinedChallenge} openModal={openModal}/>}
+              {menu==='content-library' && <ContentView tagFilter={tagFilter} setTagFilter={setTagFilter} contentPage={contentPage} setContentPage={setContentPage} openModal={openModal}/>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {modalOpen && (
+        <div className="modal-overlay" onClick={()=>setModalOpen(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            {modalType==='mission' && <>
+              <div className="modal-title">미션 완료 인증</div>
+              <div className="modal-sub">오늘의 미션을 완료했나요? 간단히 기록해 주세요.</div>
+              <div className="form-group"><label>완료한 미션</label><input defaultValue="5분 호흡 명상"/></div>
+              <div className="form-group"><label>한 줄 소감</label><input defaultValue="생각보다 집중이 잘 됐어요!"/></div>
+            </>}
+            {modalType==='challenge' && <>
+              <div className="modal-title">챌린지 인증 등록</div>
+              <div className="modal-sub">오늘 수행한 내용을 등록하세요. Bull Queue로 비동기 처리됩니다.</div>
+              <div className="form-group"><label>인증 내용</label><input defaultValue="오늘 아침 6시에 기상 후 루틴 완료!"/></div>
+              <div className="form-group"><label>인증 이미지</label><input type="text" placeholder="이미지 파일 선택 (S3 업로드)"/></div>
+            </>}
+            {modalType==='upload' && <>
+              <div className="modal-title">콘텐츠 업로드</div>
+              <div className="modal-sub">새 코칭 콘텐츠를 등록합니다.</div>
+              <div className="form-group"><label>제목</label><input defaultValue="새 코칭 아티클 제목"/></div>
+              <div className="form-group"><label>카테고리</label><select><option>아티클</option><option>명상 가이드</option><option>루틴 템플릿</option></select></div>
+              <div className="form-group"><label>접근 플랜</label><select><option>FREE</option><option>PRO</option></select></div>
+            </>}
+            <div className="modal-btns">
+              <button className="modal-btn-cancel" onClick={()=>setModalOpen(false)}>취소</button>
+              <button className="modal-btn-confirm" onClick={()=>setModalOpen(false)}>
+                {modalType==='upload'?'업로드':'등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkelView() {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:16}}>
+      <div className="skel" style={{height:160}}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {[1,2,3].map(i=><div key={i} className="skel" style={{height:220}}/>)}
+      </div>
+      <div className="skel" style={{height:120}}/>
+    </div>
+  );
+}
+
+function MissionView({activeMood,setActiveMood,openModal}) {
+  const moods = ['피곤','보통','괜찮아','에너지 넘침'];
+  return (
+    <>
+      <div className="mission-hero">
+        <div className="mission-hero-left">
+          <div className="mission-hero-title">🧬 pgvector + NestJS 크론잡 기반 AI 미션 추천</div>
+          <div className="mission-hero-msg">안녕하세요, 이지윤님!<br/>오늘 기운 상태에 맞는 미션 3종을 준비했어요.</div>
+          <div className="mission-hero-sub">기분 체크인 후 미션을 확인해 보세요 ✨</div>
+          <div className="mood-chips">
+            {moods.map(m=>(
+              <button key={m} className={`mood-chip${activeMood===m?' active':''}`} onClick={()=>setActiveMood(m)}>{m}</button>
+            ))}
+          </div>
+        </div>
+        <div className="mission-hero-right">🌿</div>
+      </div>
+
+      <div style={{marginBottom:16}}>
+        <div className="section-header">
+          <div className="section-title">🎯 오늘의 AI 추천 미션</div>
+          <span style={{fontSize:12,color:'var(--text3)'}}>기분: "{activeMood}" 기준 · 매일 새벽 갱신</span>
+        </div>
+      </div>
+
+      <div className="mission-cards">
+        {MISSIONS.map((m,i)=>(
+          <div key={i} className={`mission-card ${m.cardClass}`}>
+            <div className="mission-emoji">{m.emoji}</div>
+            <div className="mission-tag" style={{background:m.tagBg,color:m.tagColor}}>{m.tag}</div>
+            <div className="mission-title">{m.title}</div>
+            <div className="mission-desc">{m.desc}</div>
+            <div className="mission-meta">
+              <span className="mission-time">⏱ {m.time}</span>
+              <span className="mission-diff" style={{color:m.diffColor}}>● {m.diff}</span>
+            </div>
+            <button className="start-btn" style={{background:m.btnBg,color:'#fff',marginTop:14}} onClick={()=>openModal('mission')}>
+              {m.btnText}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:'#fff',borderRadius:14,border:'1px solid var(--border2)',padding:18}}>
+        <div className="section-header" style={{marginBottom:10}}>
+          <div className="section-title">⚡ 오늘의 기운 점수</div>
+          <span className="badge badge-purple">NestJS 크론잡 분석</span>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+          {[
+            {label:'기운 점수',value:'78',unit:'/ 100',color:'var(--primary)'},
+            {label:'연속 달성',value:'12',unit:'일 🔥',color:'var(--accent)'},
+            {label:'이번 달 미션',value:'21',unit:'/ 28',color:'#06B6D4'},
+            {label:'레벨',value:'Lv.12',unit:'',color:'#F59E0B'},
+          ].map((s,i)=>(
+            <div key={i} style={{textAlign:'center',padding:'12px 0'}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4}}>{s.label}</div>
+              <div style={{fontSize:22,fontWeight:800,color:s.color}}>{s.value}<span style={{fontSize:12,fontWeight:500,color:'var(--text3)'}}>{s.unit}</span></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TrackingView() {
+  // Generate heatmap data
+  const heatData = Array.from({length:52*7},(_,i)=>{
+    const v = Math.random();
+    return v<0.3?0:v<0.5?1:v<0.7?2:v<0.85?3:4;
+  });
+
+  const goals = [
+    {name:'명상',done:22,total:28},{name:'걷기',done:18,total:28},{name:'감사 일기',done:25,total:28},{name:'독서',done:14,total:28},
+  ];
+
+  return (
+    <div>
+      <div className="stats-row">
+        {[
+          {label:'이번 달 완료율',value:'79%',sub:'22 / 28일',icon:'✅'},
+          {label:'연속 달성',value:'12일',sub:'개인 최고 18일',icon:'🔥'},
+          {label:'총 완료 미션',value:'284',sub:'가입 이후 누적',icon:'🎯'},
+          {label:'현재 레벨',value:'Lv.12',sub:'다음 레벨까지 340xp',icon:'⭐'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="heatmap-section">
+        <div className="section-header">
+          <div className="section-title">📅 365일 루틴 달성 히트맵</div>
+          <div className="heatmap-legend">
+            없음
+            {[0,1,2,3,4].map(v=><div key={v} className="heatmap-legend-cell" style={{background:heatColors(v)}}/>)}
+            많음
+          </div>
+        </div>
+        <div className="heatmap-grid">
+          {heatData.map((v,i)=>(
+            <div key={i} className="heatmap-cell" style={{background:heatColors(v)}} title={`${v}개 미션`}/>
+          ))}
+        </div>
+      </div>
+
+      <div className="tracking-layout">
+        <div>
+          <div className="chart-card">
+            <div className="chart-title">주간 완료율 추이</div>
+            <div className="chart-sub">목표 달성률 vs 실제 완료율</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={LINE_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDE9FE"/>
+                <XAxis dataKey="week" tick={{fontSize:11}}/>
+                <YAxis tick={{fontSize:11}} domain={[0,100]} tickFormatter={v=>`${v}%`}/>
+                <Tooltip formatter={(v)=>`${v}%`}/>
+                <Line type="monotone" dataKey="완료율" stroke="#7C3AED" strokeWidth={2.5} dot={{fill:'#7C3AED',r:4}}/>
+                <Line type="monotone" dataKey="목표율" stroke="#DDD6FE" strokeWidth={1.5} strokeDasharray="5 5" dot={false}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="chart-card">
+            <div className="chart-title">카테고리별 달성 현황</div>
+            <div className="chart-sub">이번 달 미션 종류별 완료 수</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={ROUTINE_CATS}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EDE9FE"/>
+                <XAxis dataKey="name" tick={{fontSize:11}}/>
+                <YAxis tick={{fontSize:11}} domain={[0,28]}/>
+                <Tooltip/>
+                <Bar dataKey="value" radius={[5,5,0,0]}>
+                  {ROUTINE_CATS.map((c,i)=><Cell key={i} fill={c.color}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div>
+          <div className="goal-card">
+            <div className="goal-title">🎯 카테고리별 목표 진행률</div>
+            {goals.map((g,i)=>(
+              <div key={i} className="goal-item">
+                <div className="goal-label">
+                  <div className="goal-name">{g.name}</div>
+                  <div className="goal-pct">{Math.round((g.done/g.total)*100)}%</div>
+                </div>
+                <div className="goal-track">
+                  <div className="goal-fill" style={{width:`${(g.done/g.total)*100}%`}}/>
+                </div>
+                <div style={{fontSize:10.5,color:'var(--text3)',marginTop:3}}>{g.done} / {g.total}일 완료</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{background:'#fff',borderRadius:14,border:'1px solid var(--border2)',padding:16}}>
+            <div style={{fontSize:13,fontWeight:700,color:'var(--text)',marginBottom:12}}>📊 미션 유형 분포</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={ROUTINE_CATS} cx="50%" cy="50%" outerRadius={72} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={9}>
+                  {ROUTINE_CATS.map((c,i)=><Cell key={i} fill={c.color}/>)}
+                </Pie>
+                <Tooltip/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChallengeView({joinedChallenge,setJoinedChallenge,openModal}) {
+  return (
+    <div>
+      <div className="stats-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+        {[
+          {label:'참여 중인 챌린지',value:'3개',sub:'이번 주 인증 2/3',icon:'🏆'},
+          {label:'총 인증 횟수',value:'47회',sub:'Bull Queue 처리 완료',icon:'✅'},
+          {label:'획득한 배지',value:'12개',sub:'이번 달 +3개',icon:'🎖️'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="challenge-layout">
+        <div>
+          <div className="section-header">
+            <div className="section-title">🏆 참여 중인 챌린지</div>
+            <button className="btn btn-pink btn-sm" onClick={()=>openModal('challenge')}>+ 인증 등록</button>
+          </div>
+          {CHALLENGES.map((c,i)=>(
+            <div key={i} className="challenge-card">
+              <div className="challenge-header">
+                <div className="challenge-thumb" style={{background:c.bg}}>{c.emoji}</div>
+                <div style={{flex:1}}>
+                  <div className="challenge-title">{c.title}</div>
+                  <div className="challenge-meta">{c.host} · 참여자 {c.participants}명</div>
+                </div>
+                <span className={`badge ${c.tagColor}`}>{c.tag}</span>
+              </div>
+              <div className="challenge-prog">
+                <div className="challenge-fill" style={{width:`${(c.progress/c.total)*100}%`,background:'linear-gradient(90deg,var(--primary),var(--secondary))'}}/>
+              </div>
+              <div className="challenge-footer">
+                <span style={{fontSize:11.5,color:'var(--text3)'}}>진행 {c.progress}/{c.total}일 · 완료 {c.completed}명</span>
+                <button className="btn btn-outline btn-sm" style={{fontSize:11}}
+                  onClick={()=>setJoinedChallenge(joinedChallenge===i?null:i)}>
+                  {joinedChallenge===i?'챌린지 탈퇴':'인증하기'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <div className="leaderboard-card">
+            <div className="lb-header">
+              <div className="lb-title">🏅 30일 아침 루틴 리더보드</div>
+              <span style={{fontSize:10.5,color:'var(--text3)'}}>Redis Sorted Set</span>
+            </div>
+            {LEADERBOARD.map((l,i)=>(
+              <div key={i} className="lb-item" style={i===4?{background:'var(--primary-light)'}:{}}>
+                <div className="lb-rank" style={{color:i<3?'#F59E0B':'var(--text3)'}}>{l.rank}</div>
+                <div className="lb-avatar" style={{background:l.color}}>{l.name[0]}</div>
+                <div className="lb-name" style={i===4?{fontWeight:700,color:'var(--primary)'}:{}}>{l.name}{i===4?' (나)':''}</div>
+                <div className="lb-score">{l.score}</div>
+              </div>
+            ))}
+            <div style={{padding:'12px 14px',borderTop:'1px solid var(--border2)'}}>
+              <div style={{background:'var(--primary-light)',borderRadius:8,padding:'8px 12px',fontSize:11,color:'var(--primary-dark)',lineHeight:1.5}}>
+                🏅 챌린지 완료 시 배지 자동 지급<br/>NestJS EventEmitter 기반 파이프라인
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContentView({tagFilter,setTagFilter,contentPage,setContentPage,openModal}) {
+  const tags = ['전체','아티클','명상 가이드','루틴 템플릿'];
+  const filtered = tagFilter==='전체'?CONTENTS:CONTENTS.filter(c=>c.tag===tagFilter);
+  const PER=6; const total=Math.ceil(filtered.length/PER);
+  const items=filtered.slice((contentPage-1)*PER,contentPage*PER);
+
+  return (
+    <div>
+      <div className="upload-zone" onClick={()=>openModal('upload')}>
+        <div style={{fontSize:24,marginBottom:8}}>📤</div>
+        <div style={{fontSize:14,fontWeight:700,color:'var(--primary)',marginBottom:4}}>새 콘텐츠 업로드</div>
+        <div style={{fontSize:12,color:'var(--text3)'}}>아티클, 명상 가이드, 루틴 템플릿을 등록하세요 · AWS S3 Presigned URL 업로드</div>
+      </div>
+
+      <div className="content-toolbar">
+        {tags.map(t=>(
+          <button key={t} className={`tag-btn${tagFilter===t?' active':''}`} onClick={()=>{setTagFilter(t);setContentPage(1);}}>{t}</button>
+        ))}
+        <div style={{marginLeft:'auto',fontSize:12,color:'var(--text3)'}}>전체 {filtered.length}개</div>
+      </div>
+
+      <div className="content-grid">
+        {items.map((c,i)=>(
+          <div key={i} className="content-card">
+            <div className="content-cover" style={{background:c.bg}}>{c.emoji}</div>
+            <div className="content-body">
+              <div className="content-tag-row">
+                <span className={`badge ${c.tagColor}`}>{c.tag}</span>
+              </div>
+              <div className="content-title">{c.title}</div>
+              <div className="content-desc">{c.desc}</div>
+              <div className="content-footer">
+                <span className="content-plan" style={{color:c.planColor,background:c.plan==='PRO'?'var(--primary-light)':'var(--green-bg)',padding:'2px 8px',borderRadius:6}}>
+                  {c.plan}
+                </span>
+                <span className="content-date">{c.date}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="pagination">
+        <button className="page-btn" onClick={()=>setContentPage(p=>Math.max(1,p-1))}>‹</button>
+        {Array.from({length:total},(_,i)=>i+1).map(n=>(
+          <button key={n} className={`page-btn${contentPage===n?' active':''}`} onClick={()=>setContentPage(n)}>{n}</button>
+        ))}
+        <button className="page-btn" onClick={()=>setContentPage(p=>Math.min(total,p+1))}>›</button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

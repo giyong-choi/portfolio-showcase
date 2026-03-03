@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웰핏 워크 — B2B HR 번아웃 진단·AI 코칭 SaaS</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#F0F6FF;color:#0F172A;word-break:keep-all;overflow-wrap:break-word}
+:root{
+  --primary:#2563EB;--primary-dark:#1D4ED8;--primary-light:#DBEAFE;
+  --secondary:#60A5FA;--accent:#0EA5E9;
+  --bg:#F0F6FF;--surface:#FFFFFF;
+  --text:#0F172A;--text2:#475569;--text3:#94A3B8;
+  --border:#CBD5E1;--border2:#E2E8F0;
+  --green:#059669;--green-bg:#D1FAE5;
+  --red:#DC2626;--red-bg:#FEE2E2;
+  --yellow:#D97706;--yellow-bg:#FEF3C7;
+  --orange:#EA580C;--orange-bg:#FED7AA;
+}
+.app{min-height:100vh;display:flex;flex-direction:column}
+
+/* Topnav */
+.topnav{background:#fff;border-bottom:1px solid var(--border2);height:60px;display:flex;align-items:center;padding:0 32px;gap:0;flex-shrink:0;position:sticky;top:0;z-index:100}
+.nav-logo{display:flex;align-items:center;gap:10px;margin-right:40px;flex-shrink:0}
+.nav-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--primary),var(--accent));border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+.nav-logo-text{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px}
+.nav-logo-sub{font-size:10px;color:var(--text3);font-weight:500}
+.nav-tabs{display:flex;gap:2px;flex:1}
+.nav-tab{padding:8px 18px;border-radius:8px;border:none;background:none;font-size:13.5px;font-weight:500;color:var(--text2);cursor:pointer;font-family:inherit;transition:all 0.12s;white-space:nowrap}
+.nav-tab:hover{background:var(--primary-light);color:var(--primary-dark)}
+.nav-tab.active{background:var(--primary);color:#fff;font-weight:700}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+.nav-user{display:flex;align-items:center;gap:8px}
+.nav-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700}
+.nav-user-name{font-size:13px;font-weight:600;color:var(--text)}
+.nav-user-role{font-size:10px;color:var(--text3)}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border2);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--text2)}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,var(--primary),#1D4ED8,var(--accent));padding:36px 32px;color:#fff;flex-shrink:0}
+.hero-breadcrumb{font-size:12px;opacity:0.7;margin-bottom:10px}
+.hero-title{font-size:26px;font-weight:800;margin-bottom:6px;letter-spacing:-0.5px}
+.hero-sub{font-size:14px;opacity:0.85;margin-bottom:20px;line-height:1.5}
+.hero-tags{display:flex;gap:8px;flex-wrap:wrap}
+.hero-tag{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3)}
+
+/* Content */
+.page-content{flex:1;padding:28px 32px;overflow-y:auto}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,#E2E8F0 25%,#CBD5E1 50%,#E2E8F0 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stats-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:20px;border:1px solid var(--border2);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--accent))}
+.stat-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.12}
+.stat-label{font-size:11.5px;color:var(--text2);font-weight:500;margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:-1px}
+.stat-sub{font-size:11px;color:var(--text3)}
+.risk-badge{display:inline-flex;padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:700;margin-top:4px}
+
+/* Buttons */
+.btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:none;transition:all 0.15s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-outline{background:#fff;color:var(--text2);border:1px solid var(--border2)}
+.btn-outline:hover{background:var(--bg)}
+.btn-sm{padding:6px 12px;font-size:12px}
+
+/* Section */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:14.5px;font-weight:700;color:var(--text)}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.badge-green{background:var(--green-bg);color:#065F46}
+.badge-blue{background:var(--primary-light);color:var(--primary-dark)}
+.badge-red{background:var(--red-bg);color:#991B1B}
+.badge-yellow{background:var(--yellow-bg);color:#92400E}
+.badge-orange{background:var(--orange-bg);color:var(--orange)}
+.badge-gray{background:#F1F5F9;color:#64748B}
+
+/* Diagnosis Card */
+.diag-layout{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;margin-bottom:24px}
+.diag-main{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:24px}
+.diag-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px}
+.diag-sub{font-size:12.5px;color:var(--text3);margin-bottom:20px}
+.diag-radar-wrap{display:flex;gap:24px;align-items:center}
+.diag-legend{display:flex;flex-direction:column;gap:10px;min-width:160px}
+.diag-legend-item{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.diag-legend-label{font-size:12.5px;color:var(--text2)}
+.diag-legend-score{font-size:13px;font-weight:700;color:var(--text)}
+.diag-bar{height:6px;border-radius:3px;margin-top:4px}
+.risk-panel{background:#fff;border-radius:14px;border:1px solid var(--border2);overflow:hidden}
+.risk-panel-header{padding:16px 18px;border-bottom:1px solid var(--border2);background:linear-gradient(135deg,#FEF2F2,#FEE2E2)}
+.risk-panel-title{font-size:13px;font-weight:700;color:#991B1B}
+.risk-panel-sub{font-size:11px;color:#B91C1C;margin-top:2px}
+.risk-user{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background 0.12s}
+.risk-user:hover{background:var(--bg)}
+.risk-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;flex-shrink:0}
+.risk-name{font-size:13px;font-weight:600;color:var(--text)}
+.risk-dept{font-size:11px;color:var(--text3)}
+.risk-score-bar{flex:1;height:6px;background:#E2E8F0;border-radius:3px;overflow:hidden;margin:0 8px}
+.risk-score-fill{height:100%;border-radius:3px}
+
+/* Chat (AI Coaching for P2) */
+.chat-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;height:560px}
+.chat-main{background:#fff;border-radius:14px;border:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden}
+.chat-header{padding:16px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:12px}
+.chat-messages{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.msg-bubble{max-width:78%;padding:11px 15px;border-radius:12px;font-size:13.5px;line-height:1.6}
+.msg-ai .msg-bubble{background:#F8FAFC;border:1px solid var(--border2);border-top-left-radius:4px;color:var(--text)}
+.msg-user .msg-bubble{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-top-right-radius:4px}
+.rag-card{margin-top:8px;background:var(--primary-light);border-radius:8px;padding:9px 12px;border-left:3px solid var(--primary)}
+.rag-label{font-size:10px;font-weight:700;color:var(--primary-dark);margin-bottom:3px}
+.rag-text{font-size:11.5px;color:var(--primary-dark);line-height:1.5}
+.chat-input-row{display:flex;gap:8px;padding:14px 16px;border-top:1px solid var(--border2)}
+.chat-input{flex:1;padding:9px 14px;border-radius:9px;border:1.5px solid var(--border2);font-size:13.5px;font-family:inherit;color:var(--text);outline:none}
+.chat-input:focus{border-color:var(--primary)}
+.send-btn{width:36px;height:36px;border-radius:9px;background:var(--primary);border:none;color:#fff;font-size:15px;cursor:pointer}
+.session-panel{background:#fff;border-radius:14px;border:1px solid var(--border2);overflow:hidden}
+.session-header{padding:14px 16px;border-bottom:1px solid var(--border2)}
+.session-title{font-size:13px;font-weight:700;color:var(--text)}
+.session-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border2);cursor:pointer;transition:background 0.12s}
+.session-item:hover{background:var(--bg)}
+.session-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.session-text{font-size:12.5px;color:var(--text);flex:1;line-height:1.4}
+.session-date{font-size:10.5px;color:var(--text3);white-space:nowrap}
+
+/* Team Wellness */
+.team-layout{display:grid;grid-template-columns:1fr 320px;gap:20px}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-tag{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border2);background:#fff;color:var(--text2);font-family:inherit;transition:all 0.12s}
+.filter-tag.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.table-wrap{background:#fff;border-radius:12px;border:1px solid var(--border2);overflow:hidden;margin-bottom:16px}
+.table-header{padding:14px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.table-title{font-size:13.5px;font-weight:700;color:var(--text)}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding:10px 18px;background:#F8FAFC;text-align:left;white-space:nowrap}
+td{font-size:13px;color:var(--text);padding:12px 18px;border-bottom:1px solid var(--border2)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#F8FAFC}
+.score-bar{display:flex;align-items:center;gap:8px}
+.score-track{width:80px;height:6px;background:#E2E8F0;border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px}
+.dept-chart-panel{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:18px;margin-bottom:14px}
+.chart-card{background:#fff;border-radius:14px;border:1px solid var(--border2);padding:18px}
+.chart-title{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:4px}
+.chart-sub{font-size:11.5px;color:var(--text3);margin-bottom:14px}
+
+/* Subscription P2 */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:22px}
+.plan-card{background:#fff;border-radius:14px;border:2px solid var(--border2);padding:22px;position:relative}
+.plan-card.current{border-color:var(--primary)}
+.plan-card.current::before{content:'이용중';position:absolute;top:14px;right:14px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px}
+.plan-name{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:7px}
+.plan-price{font-size:28px;font-weight:800;color:var(--text);margin-bottom:3px;letter-spacing:-1px}
+.plan-price span{font-size:13px;font-weight:500;color:var(--text3)}
+.plan-per{font-size:11.5px;color:var(--text3);margin-bottom:14px}
+.plan-features{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}
+.plan-feature{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;color:var(--text);line-height:1.4}
+.plan-btn{width:100%;padding:10px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.invoice-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.invoice-card{background:#fff;border-radius:12px;border:1px solid var(--border2);padding:18px}
+.invoice-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.invoice-info{display:flex;flex-direction:column;gap:8px}
+.invoice-item{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--border2)}
+.invoice-item:last-child{border-bottom:none}
+.invoice-key{color:var(--text2)}
+.invoice-val{font-weight:600;color:var(--text)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000}
+.modal{background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);animation:fadeInScale 0.2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:18px}
+.form-group{margin-bottom:12px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px}
+.form-group input,.form-group select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border2);font-size:13px;font-family:inherit;color:var(--text);outline:none}
+.form-group input:focus,.form-group select:focus{border-color:var(--primary)}
+.modal-btns{display:flex;gap:8px;margin-top:14px}
+.modal-btn-cancel{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border2);background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)}
+.modal-btn-confirm{flex:1;padding:10px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:5px;padding:14px 0}
+.page-btn{width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:#fff;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;color:var(--text2);transition:all 0.12s}
+.page-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+.page-btn:hover:not(.active){background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {RadarChart,Radar,PolarGrid,PolarAngleAxis,BarChart,Bar,LineChart,Line,AreaChart,Area,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Cell} = Recharts;
+
+// ─── 더미 데이터 ───
+const RADAR_DATA = [
+  {subject:'소진',A:68},{subject:'냉소',A:74},{subject:'효능감',A:42},
+  {subject:'몰입',A:55},{subject:'관계',A:61},{subject:'자기효능',A:48},
+];
+const RISK_USERS = [
+  {name:'박준혁',dept:'개발팀',score:82,color:'#DC2626'},
+  {name:'이서연',dept:'디자인팀',score:76,color:'#EA580C'},
+  {name:'김민준',dept:'마케팅팀',score:71,color:'#D97706'},
+  {name:'최지우',dept:'기획팀',score:65,color:'#CA8A04'},
+];
+const CHAT_MSGS = [
+  {id:1,role:'ai',text:'안녕하세요! 웰핏 AI 코치입니다. 직장에서 느끼는 번아웃 수준이 높게 나타났어요. 오늘 어떤 상황이 가장 힘드셨나요?',rag:null,time:'10:02'},
+  {id:2,role:'user',text:'팀 프로젝트 마감이 연속으로 겹쳐서 지난 3주간 거의 매일 야근했어요. 이제 업무 의욕이 완전히 없어졌어요.',rag:null,time:'10:03'},
+  {id:3,role:'ai',text:'3주간의 연속 야근으로 소진 상태가 왔군요. 이건 의지의 문제가 아니라 자원이 고갈된 생리적 반응입니다.\n\n지금 당장 실행할 수 있는 "에너지 회복 프로토콜"을 알려드릴게요.',rag:{label:'RAG 참조 — 유사도 0.91',text:'만성 과부하 환경에서 번아웃을 예방하는 핵심은 "회복 시간 확보"와 "경계 설정"의 병행이다.'},time:'10:03'},
+];
+const SESSION_LIST = [
+  {dot:'#10B981',text:'업무 과부하 → 에너지 회복 전략',date:'오늘'},
+  {dot:'#2563EB',text:'팀 갈등 상황 처리 방법',date:'2일 전'},
+  {dot:'#7C3AED',text:'완벽주의 패턴 인식과 조절',date:'1주 전'},
+  {dot:'#F59E0B',text:'신규 프로젝트 불안 대처법',date:'2주 전'},
+];
+const TEAM_TABLE = [
+  {name:'박준혁',dept:'개발팀',score:82,trend:'↑',diagnosis:'2025.02.20',risk:'위험'},
+  {name:'이서연',dept:'디자인팀',score:76,trend:'↑',diagnosis:'2025.02.18',risk:'주의'},
+  {name:'김민준',dept:'마케팅팀',score:71,trend:'→',diagnosis:'2025.02.21',risk:'주의'},
+  {name:'최지우',dept:'기획팀',score:65,trend:'↓',diagnosis:'2025.02.19',risk:'보통'},
+  {name:'정수현',dept:'개발팀',score:58,trend:'↓',diagnosis:'2025.02.17',risk:'보통'},
+  {name:'오하늘',dept:'디자인팀',score:44,trend:'↓',diagnosis:'2025.02.22',risk:'양호'},
+  {name:'임채원',dept:'마케팅팀',score:38,trend:'↓',diagnosis:'2025.02.16',risk:'양호'},
+  {name:'한지훈',dept:'기획팀',score:29,trend:'↓',diagnosis:'2025.02.20',risk:'양호'},
+];
+const DEPT_DATA = [
+  {dept:'개발팀',avg:68,count:12},{dept:'디자인팀',avg:55,count:8},{dept:'마케팅팀',avg:51,count:10},{dept:'기획팀',avg:44,count:7},
+];
+const TREND_DATA = [
+  {month:'11월',개발팀:72,디자인팀:60,마케팅팀:58},{month:'12월',개발팀:69,디자인팀:57,마케팅팀:55},
+  {month:'1월',개발팀:74,디자인팀:58,마케팅팀:53},{month:'2월',개발팀:68,디자인팀:55,마케팅팀:51},
+];
+const scoreColor = s => s>=70?'#DC2626':s>=55?'#EA580C':s>=40?'#D97706':'#10B981';
+const riskColor = r => r==='위험'?'badge-red':r==='주의'?'badge-orange':r==='보통'?'badge-yellow':'badge-green';
+
+function App() {
+  const [tab, setTab] = useState('main');
+  const [loading, setLoading] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [messages, setMessages] = useState(CHAT_MSGS);
+  const [deptFilter, setDeptFilter] = useState('전체');
+  const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(()=>{
+    setLoading(true);
+    const t = setTimeout(()=>setLoading(false),1500);
+    return ()=>clearTimeout(t);
+  },[tab]);
+
+  const tabs = [
+    {key:'main',label:'번아웃 진단'},
+    {key:'ai-coaching',label:'AI 코칭'},
+    {key:'team-wellness',label:'팀 현황'},
+    {key:'subscription',label:'구독 관리'},
+  ];
+
+  const heroInfo = {
+    main:{bc:'번아웃 진단',title:'내 번아웃 지수 분석',sub:'MBI 기반 3축 번아웃 진단 — 소진·냉소·효능감 점수 시각화',tags:['MBI 기반 진단','RadarChart 시각화','주간 추이 분석']},
+    'ai-coaching':{bc:'AI 코칭',title:'AI 스트레스 코칭 챗봇',sub:'직장 스트레스 상황을 입력하면 RAG 검색 기반 맞춤 코칭을 제공합니다',tags:['RAG 검색 증강','GPT-4o 스트리밍','Redis 세션 컨텍스트']},
+    'team-wellness':{bc:'팀 현황',title:'팀원 웰니스 모니터링',sub:'부서별 번아웃 지수 분포·진단 참여 현황·위험 등급 인원을 한눈에',tags:['부서별 집계','복합 필터','위험 등급 분류']},
+    subscription:{bc:'구독 관리',title:'플랜 및 구독 관리',sub:'Free / Pro / Enterprise 플랜별 기능 접근 제어 및 시트 기반 요금 관리',tags:['시트 기반 요금','정기결제 연동','인보이스 자동 발행']},
+  };
+  const hi = heroInfo[tab]||heroInfo.main;
+  const pageTitle = tabs.find(t=>t.key===tab)?.label||'';
+
+  const sendMsg = ()=>{
+    if(!chatInput.trim()) return;
+    setMessages(prev=>[...prev,{id:Date.now(),role:'user',text:chatInput,rag:null,time:'지금'}]);
+    setChatInput('');
+    setTimeout(()=>{
+      setMessages(prev=>[...prev,{id:Date.now()+1,role:'ai',text:'감사해요. 그 상황을 들으니 많이 지치셨겠어요. 오늘 퇴근 후 딱 10분, 아무것도 하지 않는 시간을 가져보는 건 어떨까요?',rag:{label:'RAG 참조 — 유사도 0.88',text:'번아웃 초기 단계에서 가장 효과적인 회복법은 "능동적 휴식"으로, 의도적으로 아무것도 하지 않는 시간을 배치하는 것이다.'},time:'지금'}]);
+    },900);
+  };
+
+  return (
+    <div className="app">
+      <nav className="topnav">
+        <div className="nav-logo">
+          <div className="nav-logo-icon">W</div>
+          <div>
+            <div className="nav-logo-text">웰핏 워크</div>
+            <div className="nav-logo-sub">B2B HR 웰니스 SaaS</div>
+          </div>
+        </div>
+        <div className="nav-tabs">
+          {tabs.map(t=>(
+            <button key={t.key} className={`nav-tab${tab===t.key?' active':''}`} onClick={()=>setTab(t.key)}>{t.label}</button>
+          ))}
+        </div>
+        <div className="nav-right">
+          <button className="icon-btn">🔔</button>
+          <button className="icon-btn">⚙️</button>
+          <div className="nav-user">
+            <div className="nav-avatar">김</div>
+            <div>
+              <div className="nav-user-name">김성민</div>
+              <div className="nav-user-role">HR 관리자</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="hero">
+        <div className="hero-breadcrumb">웰핏 워크 / {hi.bc}</div>
+        <div className="hero-title">{hi.title}</div>
+        <div className="hero-sub">{hi.sub}</div>
+        <div className="hero-tags">{hi.tags.map((t,i)=><div key={i} className="hero-tag">{t}</div>)}</div>
+      </div>
+
+      <div className="page-content">
+        {loading ? <SkelView/> : (
+          <>
+            {tab==='main' && <DiagView/>}
+            {tab==='ai-coaching' && <CoachView messages={messages} chatInput={chatInput} setChatInput={setChatInput} sendMsg={sendMsg}/>}
+            {tab==='team-wellness' && <TeamView deptFilter={deptFilter} setDeptFilter={setDeptFilter} page={page} setPage={setPage}/>}
+            {tab==='subscription' && <SubView setModalOpen={setModalOpen}/>}
+          </>
+        )}
+      </div>
+
+      {modalOpen && (
+        <div className="modal-overlay" onClick={()=>setModalOpen(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">Enterprise 문의</div>
+            <div className="modal-sub">30명 이상 팀 전용 커스텀 플랜 상담</div>
+            <div className="form-group">
+              <label>회사명</label>
+              <input type="text" defaultValue="테크스타트업 주식회사"/>
+            </div>
+            <div className="form-group">
+              <label>팀 규모</label>
+              <select><option>30~50명</option><option>50~100명</option><option>100명 이상</option></select>
+            </div>
+            <div className="form-group">
+              <label>담당자 이메일</label>
+              <input type="email" defaultValue="hr@techstartup.co.kr"/>
+            </div>
+            <div className="modal-btns">
+              <button className="modal-btn-cancel" onClick={()=>setModalOpen(false)}>취소</button>
+              <button className="modal-btn-confirm" onClick={()=>setModalOpen(false)}>상담 신청</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkelView() {
+  return (
+    <div style={{display:'grid',gridTemplateColumns:'1fr 340px',gap:20}}>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+          {[1,2,3].map(i=><div key={i} className="skel" style={{height:90}}/>)}
+        </div>
+        <div className="skel" style={{height:320}}/>
+      </div>
+      <div className="skel" style={{height:420}}/>
+    </div>
+  );
+}
+
+function DiagView() {
+  return (
+    <>
+      <div className="stats-row">
+        {[
+          {label:'소진 지수',value:'68',sub:'감정·체력 고갈 수준',icon:'🔥',color:'#DC2626'},
+          {label:'냉소 지수',value:'74',sub:'직무 심리적 거리감',icon:'🧊',color:'#EA580C'},
+          {label:'효능감 지수',value:'42',sub:'직무 자기 효능감',icon:'💪',color:'#D97706'},
+          {label:'종합 번아웃',value:'위험',sub:'즉각 코칭 필요',icon:'⚠️',color:'#DC2626'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value" style={{color:s.color}}>{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="diag-layout">
+        <div className="diag-main">
+          <div className="diag-title">MBI 번아웃 진단 결과</div>
+          <div className="diag-sub">소진·냉소·효능감 3개 축 레이더 차트 분석</div>
+          <div className="diag-radar-wrap">
+            <ResponsiveContainer width={280} height={260}>
+              <RadarChart data={RADAR_DATA} cx="50%" cy="50%" outerRadius={100}>
+                <PolarGrid stroke="#E2E8F0"/>
+                <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'#475569'}}/>
+                <Radar name="점수" dataKey="A" stroke="#2563EB" fill="#2563EB" fillOpacity={0.2} strokeWidth={2}/>
+              </RadarChart>
+            </ResponsiveContainer>
+            <div className="diag-legend">
+              {RADAR_DATA.map((d,i)=>(
+                <div key={i} className="diag-legend-item">
+                  <div>
+                    <div className="diag-legend-label">{d.subject}</div>
+                    <div className="diag-bar" style={{width:100,background:`linear-gradient(90deg,${scoreColor(d.A)} ${d.A}%,#E2E8F0 ${d.A}%)`}}/>
+                  </div>
+                  <div className="diag-legend-score" style={{color:scoreColor(d.A)}}>{d.A}</div>
+                </div>
+              ))}
+              <div style={{marginTop:8,padding:'10px 12px',background:'#FEF2F2',borderRadius:8,border:'1px solid #FECACA'}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#991B1B',marginBottom:3}}>⚠️ 진단 요약</div>
+                <div style={{fontSize:11,color:'#B91C1C',lineHeight:1.5}}>냉소·소진 지수가 위험 수준 → 즉각적인 코칭 개입 권장</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="risk-panel">
+          <div className="risk-panel-header">
+            <div className="risk-panel-title">⚠️ 위험 등급 팀원</div>
+            <div className="risk-panel-sub">번아웃 지수 65점 이상</div>
+          </div>
+          {RISK_USERS.map((u,i)=>(
+            <div key={i} className="risk-user">
+              <div className="risk-avatar" style={{background:u.color}}>{u.name[0]}</div>
+              <div style={{flex:1}}>
+                <div className="risk-name">{u.name}</div>
+                <div className="risk-dept">{u.dept}</div>
+                <div className="score-bar" style={{marginTop:4}}>
+                  <div className="score-track" style={{width:120}}>
+                    <div className="score-fill" style={{width:`${u.score}%`,background:u.color}}/>
+                  </div>
+                  <span style={{fontSize:11,fontWeight:700,color:u.color}}>{u.score}</span>
+                </div>
+              </div>
+              <button className="btn btn-sm" style={{background:'#FEE2E2',color:'#DC2626',border:'none',fontSize:11}}>코칭 배정</button>
+            </div>
+          ))}
+          <div style={{padding:'12px 16px'}}>
+            <div style={{fontSize:11.5,color:'#475569',lineHeight:1.6,background:'#F8FAFC',borderRadius:8,padding:'10px 12px'}}>
+              📊 팀 전체 평균 번아웃 지수: <strong style={{color:'#DC2626'}}>61.2점</strong><br/>
+              전월 대비 +4.8점 (악화)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{background:'#fff',borderRadius:14,border:'1px solid var(--border2)',padding:20}}>
+        <div className="chart-title">월별 번아웃 추이 (부서별)</div>
+        <div className="chart-sub">4개 부서 번아웃 지수 시계열 비교</div>
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={TREND_DATA}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="month" tick={{fontSize:11}}/>
+            <YAxis tick={{fontSize:11}} domain={[0,100]}/>
+            <Tooltip/>
+            <Line type="monotone" dataKey="개발팀" stroke="#2563EB" strokeWidth={2} dot={{r:3}}/>
+            <Line type="monotone" dataKey="디자인팀" stroke="#7C3AED" strokeWidth={2} dot={{r:3}}/>
+            <Line type="monotone" dataKey="마케팅팀" stroke="#059669" strokeWidth={2} dot={{r:3}}/>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
+
+function CoachView({messages,chatInput,setChatInput,sendMsg}) {
+  return (
+    <div className="chat-layout">
+      <div className="chat-main">
+        <div className="chat-header">
+          <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,#2563EB,#0EA5E9)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:17}}>🤖</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>웰핏 AI 코치</div>
+            <div style={{fontSize:11,color:'var(--text3)'}}>FastAPI RAG · pgvector 기반 번아웃 전문 코칭</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:5}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:'#10B981'}}/>
+            <span style={{fontSize:11,color:'#64748B'}}>온라인</span>
+          </div>
+        </div>
+        <div className="chat-messages">
+          {messages.map(m=>(
+            <div key={m.id} className={`msg ${m.role}`}>
+              <div className="msg-avatar" style={{background:m.role==='ai'?'linear-gradient(135deg,#2563EB,#0EA5E9)':'linear-gradient(135deg,#7C3AED,#6D28D9)',color:'#fff',fontSize:m.role==='ai'?'15px':'11px',fontWeight:700}}>
+                {m.role==='ai'?'🤖':'김'}
+              </div>
+              <div>
+                <div className={`msg-bubble ${m.role==='ai'?'msg-ai':'msg-user'}`}>
+                  {m.text.split('\n').map((l,i)=><div key={i}>{l}</div>)}
+                  {m.rag && (
+                    <div className="rag-card">
+                      <div className="rag-label">📚 {m.rag.label}</div>
+                      <div className="rag-text">"{m.rag.text}"</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{fontSize:10,color:'var(--text3)',marginTop:3,textAlign:m.role==='user'?'right':'left'}}>{m.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="chat-input-row">
+          <input className="chat-input" value={chatInput} onChange={e=>setChatInput(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&sendMsg()} placeholder="직장 스트레스 상황을 입력해 주세요..."/>
+          <button className="send-btn" onClick={sendMsg}>➤</button>
+        </div>
+      </div>
+
+      <div className="session-panel">
+        <div className="session-header">
+          <div className="session-title">📋 최근 코칭 세션</div>
+          <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>Redis 세션 컨텍스트 캐시</div>
+        </div>
+        {SESSION_LIST.map((s,i)=>(
+          <div key={i} className="session-item">
+            <div className="session-dot" style={{background:s.dot}}/>
+            <div className="session-text">{s.text}</div>
+            <div className="session-date">{s.date}</div>
+          </div>
+        ))}
+        <div style={{padding:'12px 14px',borderTop:'1px solid var(--border2)'}}>
+          <div style={{background:'var(--primary-light)',borderRadius:8,padding:'10px 12px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--primary-dark)',marginBottom:3}}>📊 코칭 통계</div>
+            <div style={{fontSize:11,color:'var(--primary)',lineHeight:1.6}}>총 세션 12회 · 평균 번아웃 지수 -8.2pt 개선<br/>RAG 참조 건수 47개</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamView({deptFilter,setDeptFilter,page,setPage}) {
+  const depts = ['전체','개발팀','디자인팀','마케팅팀','기획팀'];
+  const filtered = deptFilter==='전체'?TEAM_TABLE:TEAM_TABLE.filter(u=>u.dept===deptFilter);
+  const PER=5;const total=Math.ceil(filtered.length/PER);
+  const rows=filtered.slice((page-1)*PER,page*PER);
+
+  return (
+    <div className="team-layout">
+      <div>
+        <div className="stats-row-3" style={{marginBottom:16}}>
+          {[
+            {label:'전체 팀원',value:'37명',sub:'진단 참여 31명',icon:'👥'},
+            {label:'위험+주의 등급',value:'5명',sub:'즉각 코칭 개입 필요',icon:'⚠️'},
+            {label:'팀 평균 번아웃',value:'61.2',sub:'전월 +4.8pt',icon:'📊'},
+          ].map((s,i)=>(
+            <div key={i} className="stat-card">
+              <div className="stat-icon">{s.icon}</div>
+              <div className="stat-label">{s.label}</div>
+              <div className="stat-value">{s.value}</div>
+              <div className="stat-sub">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="table-wrap">
+          <div className="table-header">
+            <div className="table-title">팀원 번아웃 현황</div>
+            <button className="btn btn-outline btn-sm">CSV 내보내기</button>
+          </div>
+          <div style={{padding:'12px 18px 0'}}>
+            <div className="filter-bar">
+              {depts.map(d=>(
+                <button key={d} className={`filter-tag${deptFilter===d?' active':''}`} onClick={()=>{setDeptFilter(d);setPage(1);}}>{d}</button>
+              ))}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>이름</th><th>부서</th><th>번아웃 지수</th><th>추이</th><th>최근 진단</th><th>등급</th><th>관리</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((u,i)=>(
+                <tr key={i}>
+                  <td style={{fontWeight:600}}>{u.name}</td>
+                  <td><span className="badge badge-gray">{u.dept}</span></td>
+                  <td>
+                    <div className="score-bar">
+                      <div className="score-track">
+                        <div className="score-fill" style={{width:`${u.score}%`,background:scoreColor(u.score)}}/>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:700,color:scoreColor(u.score)}}>{u.score}</span>
+                    </div>
+                  </td>
+                  <td style={{fontSize:14,color:u.trend==='↑'?'#DC2626':u.trend==='↓'?'#10B981':'#94A3B8',fontWeight:700}}>{u.trend}</td>
+                  <td style={{fontSize:12,color:'var(--text3)'}}>{u.diagnosis}</td>
+                  <td><span className={`badge ${riskColor(u.risk)}`}>{u.risk}</span></td>
+                  <td><button className="btn btn-sm btn-outline" style={{fontSize:11}}>코칭 배정</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="pagination">
+            <button className="page-btn" onClick={()=>setPage(p=>Math.max(1,p-1))}>‹</button>
+            {Array.from({length:total},(_,i)=>i+1).map(n=>(
+              <button key={n} className={`page-btn${page===n?' active':''}`} onClick={()=>setPage(n)}>{n}</button>
+            ))}
+            <button className="page-btn" onClick={()=>setPage(p=>Math.min(total,p+1))}>›</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="dept-chart-panel" style={{marginBottom:14}}>
+          <div className="chart-title">부서별 평균 번아웃</div>
+          <div className="chart-sub">SQLAlchemy 윈도우 함수 집계</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={DEPT_DATA} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false}/>
+              <XAxis type="number" tick={{fontSize:10}} domain={[0,100]}/>
+              <YAxis type="category" dataKey="dept" tick={{fontSize:11}} width={60}/>
+              <Tooltip formatter={v=>[v,'번아웃 지수']}/>
+              <Bar dataKey="avg" radius={[0,4,4,0]}>
+                {DEPT_DATA.map((d,i)=><Cell key={i} fill={scoreColor(d.avg)}/>)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-card">
+          <div className="chart-title">위험 등급 분포</div>
+          <div className="chart-sub">전체 37명 기준</div>
+          {[
+            {label:'위험 (70+)',count:2,color:'#DC2626'},
+            {label:'주의 (55~69)',count:3,color:'#EA580C'},
+            {label:'보통 (40~54)',count:8,color:'#D97706'},
+            {label:'양호 (40 미만)',count:18,color:'#10B981'},
+            {label:'미진단',count:6,color:'#94A3B8'},
+          ].map((r,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+              <div style={{width:10,height:10,borderRadius:'50%',background:r.color,flexShrink:0}}/>
+              <div style={{flex:1,fontSize:12,color:'var(--text2)'}}>{r.label}</div>
+              <div style={{width:80,height:6,background:'#E2E8F0',borderRadius:3,overflow:'hidden'}}>
+                <div style={{width:`${(r.count/37)*100}%`,height:'100%',background:r.color,borderRadius:3}}/>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:r.color,minWidth:24}}>{r.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubView({setModalOpen}) {
+  return (
+    <div>
+      <div className="plan-grid">
+        {[
+          {name:'Free',price:'₩0',per:'팀원당/월',desc:'소규모 팀 번아웃 진단',features:['번아웃 진단 1회/월','기본 레이더 차트','AI 코칭 3회/월'],btn:'현재 요금제',current:false,btnStyle:{border:'1.5px solid var(--border2)',background:'#fff',color:'var(--text2)'}},
+          {name:'Pro',price:'₩4,900',per:'팀원당/월',desc:'성장하는 팀을 위한 풀 기능',features:['번아웃 진단 무제한','AI 코칭 무제한 (RAG)','팀 웰니스 모니터링','월간 리포트','인보이스 자동 발행'],btn:'이용 중',current:true,btnStyle:{background:'var(--primary)',color:'#fff',border:'none'}},
+          {name:'Enterprise',price:'협의',per:'30명+ 팀 커스텀',desc:'대규모 조직을 위한 맞춤 플랜',features:['모든 Pro 기능 포함','전담 HR 컨설턴트','커스텀 진단 문항','SSO 연동','전용 인프라 옵션'],btn:'문의하기',current:false,btnStyle:{background:'#0F172A',color:'#fff',border:'none'}},
+        ].map((p,i)=>(
+          <div key={i} className={`plan-card${p.current?' current':''}`}>
+            <div className="plan-name">{p.name}</div>
+            <div className="plan-price">{p.price} <span>/{p.per}</span></div>
+            <div className="plan-per" style={{marginTop:-2,marginBottom:14,fontSize:11.5,color:'var(--text3)'}}>{p.desc}</div>
+            <div className="plan-features">
+              {p.features.map((f,j)=>(
+                <div key={j} className="plan-feature">
+                  <span style={{color:p.current?'var(--primary)':'var(--green)',fontWeight:700}}>✓</span>{f}
+                </div>
+              ))}
+            </div>
+            <button className="plan-btn" style={p.btnStyle} onClick={p.name==='Enterprise'?()=>setModalOpen(true):undefined}>{p.btn}</button>
+          </div>
+        ))}
+      </div>
+
+      <div className="invoice-row">
+        <div className="invoice-card">
+          <div className="invoice-title">📋 현재 구독 정보</div>
+          <div className="invoice-info">
+            {[
+              {k:'구독 플랜',v:'웰핏 Pro'},
+              {k:'팀 규모',v:'12명'},
+              {k:'월 결제액',v:'₩58,800'},
+              {k:'다음 결제일',v:'2025.04.01'},
+              {k:'자동 갱신',v:'활성화'},
+            ].map((r,i)=>(
+              <div key={i} className="invoice-item">
+                <span className="invoice-key">{r.k}</span>
+                <span className="invoice-val" style={r.k==='자동 갱신'?{color:'var(--green)'}:{}}>{r.v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="invoice-card">
+          <div className="invoice-title">🧾 최근 인보이스</div>
+          <div className="invoice-info">
+            {[
+              {k:'INV-2025-03',v:'₩58,800'},
+              {k:'INV-2025-02',v:'₩49,000'},
+              {k:'INV-2025-01',v:'₩49,000'},
+              {k:'INV-2024-12',v:'₩49,000'},
+            ].map((r,i)=>(
+              <div key={i} className="invoice-item">
+                <span className="invoice-key" style={{fontSize:12,fontFamily:'monospace'}}>{r.k}</span>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span className="invoice-val">{r.v}</span>
+                  <span className="badge badge-green">발행</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="btn btn-outline btn-sm" style={{marginTop:12,width:'100%'}}>전체 인보이스 다운로드</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
