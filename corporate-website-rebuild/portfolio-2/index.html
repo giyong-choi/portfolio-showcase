@@ -151,16 +151,16 @@ function Drawer({item,onClose,showToast}){
 }
 
 function Modal({title,onClose,children,width=580}){
-  return <>
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:500,animation:'fadeIn 200ms ease'}}/>
-    <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+  return <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxHeight:'85vh',background:C.surface,borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
         <h3 style={{fontSize:18,fontWeight:800}}>{title}</h3>
         <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
       </div>
       <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
     </div>
-  </>;
+  </div>;
 }
 
 function Badge({label,color}){
@@ -218,10 +218,62 @@ function HomePage(){
   </div>;
 }
 
+/* ═══ Content Drawer ═══ */
+function ContentDrawer({item,onClose,showToast}){
+  if(!item) return null;
+  const typeColors={'관광지':C.primary,'패키지':C.accent,'객실':C.success};
+  const details=[
+    {label:'유형',value:item.type},{label:'지역',value:item.region},
+    {label:'테마',value:item.theme},{label:'상태',value:item.status},
+    {label:'조회수',value:item.views.toLocaleString()+'회'},{label:'가격',value:item.price},
+  ];
+  return <>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'fixed',top:0,right:0,bottom:0,width:520,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',zIndex:201,overflowY:'auto',animation:'slideInRight 200ms ease',display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>콘텐츠 상세</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{height:180,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:72}}>{item.image}</div>
+      <div style={{padding:24,flex:1}}>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <Badge label={item.type} color={typeColors[item.type]||C.primary}/>
+          <Badge label={item.status} color={item.status==='게시'?C.success:C.textLight}/>
+        </div>
+        <h2 style={{fontSize:20,fontWeight:800,marginBottom:16}}>{item.title}</h2>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+          {details.map(d=><div key={d.label} style={{padding:12,background:'#F8FAFC',borderRadius:10}}>
+            <div style={{fontSize:11,color:C.textLight,marginBottom:2}}>{d.label}</div>
+            <div style={{fontSize:14,fontWeight:600}}>{d.value}</div>
+          </div>)}
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:6}}>콘텐츠 설명</div>
+          <div style={{padding:14,background:'#F8FAFC',borderRadius:10,fontSize:14,lineHeight:1.7}}>
+            {item.type==='관광지'?`${item.region} 지역의 대표 ${item.theme} 관광지입니다. 방문객들에게 특별한 경험을 제공하며, 사계절 내내 다양한 즐길거리가 준비되어 있습니다.`
+            :item.type==='패키지'?`${item.region} ${item.theme} 테마의 인기 여행 패키지입니다. 숙박, 교통, 관광이 모두 포함된 올인원 상품으로, 편리한 여행을 보장합니다.`
+            :`${item.region} 지역 ${item.theme} 테마의 프리미엄 숙박 시설입니다. 쾌적한 환경과 최상의 서비스로 잊지 못할 휴식을 선사합니다.`}
+          </div>
+        </div>
+        <div>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:6}}>관리자 메모</div>
+          <textarea rows={3} placeholder="내부 메모를 입력하세요..." style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none',resize:'vertical'}}/>
+        </div>
+      </div>
+      <div style={{padding:'16px 24px',borderTop:`1px solid ${C.border}`,display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <button onClick={onClose} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>닫기</button>
+        <button onClick={()=>{onClose();showToast(item.status==='게시'?'콘텐츠가 비게시 처리되었습니다':'콘텐츠가 게시되었습니다')}} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:item.status==='게시'?C.warning:C.success,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>{item.status==='게시'?'비게시':'게시'}</button>
+        <button onClick={()=>{onClose();showToast('콘텐츠가 수정되었습니다')}} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>수정</button>
+      </div>
+    </div>
+  </>;
+}
+
 /* ═══ Content Management ═══ */
 function ContentPage({showToast}){
   const [filter,setFilter]=useState('전체');
   const [modal,setModal]=useState(null);
+  const [selected,setSelected]=useState(null);
   const filters=['전체','관광지','패키지','객실'];
   const filtered=filter==='전체'?CONTENT_DATA:CONTENT_DATA.filter(c=>c.type===filter);
 
@@ -233,7 +285,7 @@ function ContentPage({showToast}){
       <button onClick={()=>setModal('create')} style={{padding:'8px 20px',borderRadius:12,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>+ 콘텐츠 등록</button>
     </div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
-      {filtered.map((c,i)=><div key={c.id} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms',cursor:'pointer'}}
+      {filtered.map((c,i)=><div key={c.id} onClick={()=>setSelected(c)} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms',cursor:'pointer'}}
         onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
         onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
         <div style={{height:140,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>{c.image}</div>
@@ -251,6 +303,7 @@ function ContentPage({showToast}){
         </div>
       </div>)}
     </div>
+    <ContentDrawer item={selected} onClose={()=>setSelected(null)} showToast={showToast}/>
 
     {modal==='create'&&<Modal title="콘텐츠 등록" onClose={()=>setModal(null)} width={620}>
       <div style={{marginBottom:16}}>

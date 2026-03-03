@@ -90,16 +90,16 @@ function Toast({message,onClose}){
 }
 
 function Modal({title,onClose,children,width=580}){
-  return <>
-    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:500,animation:'fadeIn 200ms ease'}}/>
-    <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:20,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+  return <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxHeight:'85vh',background:C.surface,borderRadius:20,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'18px 24px',borderBottom:`1px solid ${C.border}`}}>
         <h3 style={{fontSize:16,fontWeight:700}}>{title}</h3>
         <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
       </div>
       <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
     </div>
-  </>;
+  </div>;
 }
 
 function Badge({label,color}){
