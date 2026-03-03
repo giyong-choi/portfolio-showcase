@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>크립토레이더 — 멀티체인 아비트리지 분석 플랫폼</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Pretendard', -apple-system, sans-serif; background: #F8FAFC; color: #0F172A; word-break: keep-all; }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: translate(-50%,-50%) scale(0.95); }
+      to   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    }
+    @keyframes shimmer { 0%{background-position:-200% 0}100%{background-position:200% 0} }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+    .skeleton {
+      background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px;
+    }
+    .badge-hi  { background:#cffafe; color:#0e7490; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+    .badge-md  { background:#fef9c3; color:#a16207; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:700; }
+    .badge-lo  { background:#f1f5f9; color:#64748b; padding:2px 8px; border-radius:6px; font-size:12px; font-weight:600; }
+    .live-dot  { width:8px; height:8px; border-radius:50%; background:#22c55e; animation:blink 1.5s infinite; display:inline-block; }
+    ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:#f1f5f9; } ::-webkit-scrollbar-thumb { background:#94a3b8; border-radius:3px; }
+    tr:hover { background:#f8fafc !important; }
+    .nav-item { transition: all 0.12s; }
+    .nav-item:hover { background: #f1f5f9 !important; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+const { LineChart, Line, BarChart, Bar, ComposedChart, Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } = Recharts;
+
+/* ── 데이터 ── */
+const RADAR_DATA = [
+  {id:1,coin:'ETH', buyAt:'빗썸', sellAt:'Bybit',  net:'ERC-20',  gas:0.006, gasFee:31200, rawSpread:4.87,effSpread:4.24,level:'high',updated:'방금'},
+  {id:2,coin:'SOL', buyAt:'업비트',sellAt:'Binance',net:'SOL',    gas:0.002, gasFee:310,   rawSpread:3.56,effSpread:3.55,level:'high',updated:'2초'},
+  {id:3,coin:'MATIC',buyAt:'빗썸',sellAt:'Gate',   net:'Polygon', gas:0.003, gasFee:4200,  rawSpread:3.12,effSpread:2.98,level:'high',updated:'3초'},
+  {id:4,coin:'BTC', buyAt:'업비트',sellAt:'Binance',net:'BTC',    gas:0.0002,gasFee:19600, rawSpread:2.14,effSpread:1.96,level:'mid', updated:'1초'},
+  {id:5,coin:'AVAX',buyAt:'업비트',sellAt:'Bybit',  net:'AVAX-C', gas:0.01,  gasFee:7200,  rawSpread:1.42,effSpread:1.35,level:'mid', updated:'5초'},
+  {id:6,coin:'ADA', buyAt:'빗썸', sellAt:'Gate',   net:'ADA',    gas:0.25,  gasFee:1200,  rawSpread:1.23,effSpread:1.22,level:'mid', updated:'4초'},
+  {id:7,coin:'LINK',buyAt:'업비트',sellAt:'Binance',net:'ERC-20', gas:0.006, gasFee:3100,  rawSpread:1.08,effSpread:0.95,level:'lo',  updated:'6초'},
+];
+const HISTORY_DATA = [
+  {id:1,ts:'14:23:41',coin:'ETH', pair:'빗썸→Bybit',   net:'ERC-20', raw:'4.87%',eff:'4.24%',dur:'3분 12초',status:'종료'},
+  {id:2,ts:'13:58:07',coin:'SOL', pair:'업비트→Binance',net:'SOL',   raw:'3.56%',eff:'3.55%',dur:'1분 48초',status:'종료'},
+  {id:3,ts:'13:31:22',coin:'MATIC',pair:'빗썸→Gate',   net:'Polygon',raw:'3.12%',eff:'2.98%',dur:'2분 05초',status:'종료'},
+  {id:4,ts:'12:47:55',coin:'BTC', pair:'업비트→Binance',net:'BTC',   raw:'2.14%',eff:'1.96%',dur:'45초',   status:'종료'},
+  {id:5,ts:'11:52:18',coin:'ETH', pair:'빗썸→Gate',    net:'ERC-20', raw:'5.21%',eff:'4.58%',dur:'4분 12초',status:'종료'},
+  {id:6,ts:'11:29:04',coin:'SOL', pair:'빗썸→Bybit',   net:'SOL',    raw:'2.87%',eff:'2.86%',dur:'58초',   status:'종료'},
+  {id:7,ts:'10:44:33',coin:'AVAX',pair:'업비트→Bybit', net:'AVAX-C', raw:'1.98%',eff:'1.91%',dur:'2분 15초',status:'종료'},
+  {id:8,ts:'09:58:11',coin:'BTC', pair:'빗썸→Binance', net:'BTC',    raw:'2.35%',eff:'2.17%',dur:'1분 03초',status:'종료'},
+];
+const ANALYTICS_DATA = [
+  {time:'09:00',cnt:3,avg:2.1},{time:'09:30',cnt:2,avg:1.8},{time:'10:00',cnt:4,avg:2.6},
+  {time:'10:30',cnt:3,avg:2.3},{time:'11:00',cnt:5,avg:3.2},{time:'11:30',cnt:4,avg:2.9},
+  {time:'12:00',cnt:3,avg:2.4},{time:'12:30',cnt:2,avg:2.0},{time:'13:00',cnt:4,avg:2.8},
+  {time:'13:30',cnt:3,avg:2.5},{time:'14:00',cnt:5,avg:3.4},
+];
+const COIN_STATS = [
+  {coin:'ETH',cnt:12,avgEff:3.82,best:4.87},{coin:'SOL',cnt:8,avgEff:3.21,best:3.56},
+  {coin:'MATIC',cnt:6,avgEff:2.74,best:3.12},{coin:'BTC',cnt:5,avgEff:2.06,best:2.35},
+  {coin:'AVAX',cnt:4,avgEff:1.63,best:1.98},{coin:'ADA',cnt:3,avgEff:1.22,best:1.23},
+];
+const CHAIN_GAS = [
+  {chain:'ERC-20 (ETH)',fee:'$4.82',trend:'상승',gwei:38,updated:'12초',risk:'high'},
+  {chain:'BSC (BEP-20)',fee:'$0.21',trend:'안정',gwei:5, updated:'8초', risk:'lo'},
+  {chain:'Polygon',     fee:'$0.004',trend:'안정',gwei:120,updated:'6초',risk:'lo'},
+  {chain:'SOL',         fee:'$0.0005',trend:'안정',tps:2100,updated:'4초',risk:'lo'},
+  {chain:'AVAX-C',      fee:'$0.55',trend:'상승',gwei:28,updated:'10초',risk:'mid'},
+  {chain:'ADA',         fee:'$0.17',trend:'안정',tps:'-',updated:'15초',risk:'lo'},
+];
+const STRAT_RULES = [
+  {id:1,name:'ETH 고수익 감시', coins:['ETH'],exPairs:['빗썸↔Bybit','업비트↔Binance'],chains:['ERC-20'],minEff:3.0,ch:'Telegram+소리',on:true},
+  {id:2,name:'SOL 스프레드',   coins:['SOL'],exPairs:['업비트↔Binance','빗썸↔Bybit'],chains:['SOL'],minEff:2.0,ch:'Telegram',on:true},
+  {id:3,name:'멀티코인 기회',  coins:['BTC','MATIC','AVAX'],exPairs:['모든 쌍'],chains:['모든 체인'],minEff:2.5,ch:'소리',on:false},
+];
+
+function App() {
+  const [menu, setMenu] = useState('radar');
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+
+  useEffect(()=>{ setTimeout(()=>setLoading(false),1500); },[]);
+  const switchMenu = (id) => {
+    if (id===menu) return;
+    setLoading(true); setMenu(id);
+    setTimeout(()=>setLoading(false),1500);
+  };
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null),2500); };
+
+  const MENUS = [
+    {id:'radar',              icon:'📡', label:'스프레드 탐지'},
+    {id:'opportunity-history',icon:'🗂️', label:'기회 히스토리'},
+    {id:'profit-analytics',   icon:'📈', label:'수익률 분석'},
+    {id:'alert-strategy',     icon:'⚡', label:'알림 전략'},
+    {id:'chain-status',       icon:'🔗', label:'체인 현황'},
+  ];
+
+  return (
+    <div style={{display:'flex',height:'100vh',overflow:'hidden',background:'#F8FAFC'}}>
+      {/* ── 밝은 사이드바 ── */}
+      <aside style={{width:240,background:'#fff',borderRight:'1px solid #E2E8F0',display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'20px 18px 14px',borderBottom:'1px solid #F1F5F9'}}>
+          <div style={{fontWeight:900,fontSize:18,color:'#0F172A',letterSpacing:'-0.5px'}}>🛰️ 크립토레이더</div>
+          <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>Multi-chain Arbitrage Monitor</div>
+        </div>
+        <div style={{padding:'10px 14px',borderBottom:'1px solid #F1F5F9',display:'flex',alignItems:'center',gap:8}}>
+          <span className="live-dot"></span>
+          <span style={{fontSize:12,color:'#0e7490',fontWeight:700}}>LIVE</span>
+          <span style={{fontSize:11,color:'#94a3b8'}}>WebSocket × 5</span>
+        </div>
+        <nav style={{padding:'8px 10px',flex:1}}>
+          {MENUS.map(m=>(
+            <button key={m.id} onClick={()=>switchMenu(m.id)} className="nav-item" style={{
+              width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
+              borderRadius:8,border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',
+              fontFamily:'Pretendard',fontSize:14,
+              background: menu===m.id?'#F0FDFF':'transparent',
+              color: menu===m.id?'#0e7490':'#64748b',
+              fontWeight: menu===m.id?700:500,
+              borderLeft: menu===m.id?'3px solid #06B6D4':'3px solid transparent',
+            }}>
+              <span style={{fontSize:16}}>{m.icon}</span>{m.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'14px 18px',borderTop:'1px solid #F1F5F9'}}>
+          <div style={{background:'#F0FDFF',border:'1px solid #A5F3FC',borderRadius:8,padding:'10px 12px'}}>
+            <p style={{fontSize:11,color:'#0e7490',fontWeight:700}}>오늘 탐지</p>
+            <p style={{fontSize:20,fontWeight:900,color:'#0F172A'}}>37건</p>
+            <p style={{fontSize:11,color:'#94a3b8'}}>평균 실효 스프레드 2.87%</p>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── 메인 ── */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <header style={{height:56,background:'#fff',borderBottom:'1px solid #E2E8F0',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',flexShrink:0}}>
+          <h1 style={{fontSize:15,fontWeight:700,color:'#0F172A'}}>{MENUS.find(m=>m.id===menu)?.icon} {MENUS.find(m=>m.id===menu)?.label}</h1>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{background:'#F0FDFF',color:'#0e7490',padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700,border:'1px solid #A5F3FC'}}>Gas: ETH $4.82</span>
+            <span style={{background:'#F0FDF4',color:'#16a34a',padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>활성 전략 2개</span>
+          </div>
+        </header>
+        <main style={{flex:1,overflowY:'auto',padding:22}}>
+          {loading ? <Skeleton/> : <Content menu={menu} showToast={showToast}/>}
+        </main>
+      </div>
+
+      {toast&&(
+        <div style={{position:'fixed',bottom:24,right:24,background:'#0F172A',color:'#fff',padding:'12px 20px',borderRadius:10,fontSize:14,boxShadow:'0 4px 16px rgba(15,23,42,0.25)',zIndex:9999}}>
+          ✅ {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {[1,2,3,4].map(i=>(
+          <div key={i} style={{background:'#fff',borderRadius:12,padding:18,border:'1px solid #E2E8F0'}}>
+            <div className="skeleton" style={{height:12,width:'55%',marginBottom:12}}></div>
+            <div className="skeleton" style={{height:26,width:'72%',marginBottom:8}}></div>
+            <div className="skeleton" style={{height:10,width:'40%'}}></div>
+          </div>
+        ))}
+      </div>
+      {[1,2,3,4,5].map(i=>(
+        <div key={i} className="skeleton" style={{height:42,marginBottom:8,borderRadius:8}}></div>
+      ))}
+    </div>
+  );
+}
+
+function Content({menu,showToast}) {
+  if (menu==='radar')               return <Radar showToast={showToast}/>;
+  if (menu==='opportunity-history') return <OpportunityHistory showToast={showToast}/>;
+  if (menu==='profit-analytics')    return <ProfitAnalytics showToast={showToast}/>;
+  if (menu==='alert-strategy')      return <AlertStrategy showToast={showToast}/>;
+  if (menu==='chain-status')        return <ChainStatus showToast={showToast}/>;
+  return null;
+}
+
+/* ── 스프레드 탐지 ── */
+function Radar({showToast}) {
+  const KPI = [
+    {label:'실효 기회',  val:'7건',    sub:'2.0% 이상',      color:'#06B6D4'},
+    {label:'최고 실효',  val:'4.24%',  sub:'ETH | Gas 차감', color:'#16a34a'},
+    {label:'평균 Gas',   val:'$1.43',  sub:'ERC-20 기준',    color:'#d97706'},
+    {label:'탐지 빈도',  val:'23/시',  sub:'오늘 평균',       color:'#7c3aed'},
+  ];
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:18}}>
+        {KPI.map((k,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:12,padding:'16px 18px',border:'1px solid #E2E8F0',borderTop:`3px solid ${k.color}`}}>
+            <p style={{fontSize:12,color:'#64748b',marginBottom:6}}>{k.label}</p>
+            <p style={{fontSize:22,fontWeight:900,color:k.color}}>{k.val}</p>
+            <p style={{fontSize:11,color:'#94a3b8',marginTop:3}}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid #F1F5F9',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span className="live-dot"></span>
+            <span style={{fontWeight:700,fontSize:14}}>실효 스프레드 실시간 탐지 (Gas Fee 차감 후)</span>
+          </div>
+          <span style={{fontSize:12,color:'#94a3b8'}}>방금 갱신</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFBFC'}}>
+              {['코인','매수','매도','네트워크','Gas Fee','원시 스프레드','실효 스프레드',''].map(h=>(
+                <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #F1F5F9'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {RADAR_DATA.map(r=>(
+              <tr key={r.id} style={{borderBottom:'1px solid #F8FAFC'}}>
+                <td style={{padding:'12px 14px',fontWeight:800,fontSize:14}}>{r.coin}</td>
+                <td style={{padding:'12px 14px',fontSize:12}}><span style={{background:'#F0FDFF',color:'#0e7490',padding:'2px 8px',borderRadius:4,fontWeight:600}}>{r.buyAt}</span></td>
+                <td style={{padding:'12px 14px',fontSize:12}}><span style={{background:'#F0FDF4',color:'#16a34a',padding:'2px 8px',borderRadius:4,fontWeight:600}}>{r.sellAt}</span></td>
+                <td style={{padding:'12px 14px',fontSize:12,color:'#64748b'}}>{r.net}</td>
+                <td style={{padding:'12px 14px',fontSize:12,color:'#d97706',fontWeight:600}}>~{(r.gasFee/10000).toFixed(1)}만원</td>
+                <td style={{padding:'12px 14px',fontSize:13,color:'#94a3b8'}}>+{r.rawSpread}%</td>
+                <td style={{padding:'12px 14px'}}>
+                  <span style={{fontWeight:900,fontSize:16,color:r.effSpread>=4?'#16a34a':r.effSpread>=2?'#d97706':'#94a3b8'}}>+{r.effSpread}%</span>
+                  <span className={r.level==='high'?'badge-hi':r.level==='mid'?'badge-md':'badge-lo'} style={{marginLeft:8}}>
+                    {r.level==='high'?'고수익':r.level==='mid'?'수익':'낮음'}
+                  </span>
+                </td>
+                <td style={{padding:'12px 14px'}}>
+                  <button onClick={()=>showToast(`${r.coin} 알림 전략에 추가됐습니다`)} style={{background:'#06B6D4',color:'#fff',border:'none',padding:'4px 10px',borderRadius:6,fontSize:11,cursor:'pointer',fontFamily:'Pretendard',fontWeight:700}}>추적</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── 기회 히스토리 ── */
+function OpportunityHistory({showToast}) {
+  const [filter, setFilter] = useState('전체');
+  const [page, setPage] = useState(1);
+  const PER = 5;
+  const COINS = ['전체','ETH','SOL','MATIC','BTC','AVAX','ADA'];
+  const filtered = filter==='전체' ? HISTORY_DATA : HISTORY_DATA.filter(d=>d.coin===filter);
+  const pages = Math.ceil(filtered.length/PER);
+  const rows = filtered.slice((page-1)*PER, page*PER);
+
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        {COINS.map(c=>(
+          <button key={c} onClick={()=>{setFilter(c);setPage(1);}} style={{padding:'6px 14px',borderRadius:20,border:`1.5px solid ${filter===c?'#06B6D4':'#E2E8F0'}`,background:filter===c?'#06B6D4':'#fff',color:filter===c?'#fff':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:filter===c?700:500}}>{c}</button>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden',marginBottom:14}}>
+        <div style={{padding:'13px 20px',borderBottom:'1px solid #F1F5F9',display:'flex',justifyContent:'space-between'}}>
+          <span style={{fontWeight:700,fontSize:14}}>아비트리지 기회 발생 이력</span>
+          <span style={{fontSize:12,color:'#94a3b8'}}>총 {filtered.length}건</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFBFC'}}>
+              {['발생 시각','코인','거래소 경로','네트워크','원시 스프레드','실효 스프레드','지속 시간','상태'].map(h=>(
+                <th key={h} style={{padding:'9px 16px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #F1F5F9'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r=>(
+              <tr key={r.id} style={{borderBottom:'1px solid #F8FAFC'}}>
+                <td style={{padding:'12px 16px',fontSize:13,color:'#64748b'}}>{r.ts}</td>
+                <td style={{padding:'12px 16px',fontWeight:800,fontSize:14}}>{r.coin}</td>
+                <td style={{padding:'12px 16px',fontSize:13}}>
+                  <span style={{color:'#0e7490',fontWeight:600}}>{r.pair.split('→')[0]}</span>
+                  <span style={{color:'#94a3b8',margin:'0 4px'}}>→</span>
+                  <span style={{color:'#16a34a',fontWeight:600}}>{r.pair.split('→')[1]}</span>
+                </td>
+                <td style={{padding:'12px 16px',fontSize:12,color:'#64748b'}}>{r.net}</td>
+                <td style={{padding:'12px 16px',fontSize:13,color:'#94a3b8'}}>{r.raw}</td>
+                <td style={{padding:'12px 16px',fontWeight:800,fontSize:14,color:'#06B6D4'}}>{r.eff}</td>
+                <td style={{padding:'12px 16px',fontSize:13,color:'#64748b'}}>{r.dur}</td>
+                <td style={{padding:'12px 16px'}}><span style={{background:'#F1F5F9',color:'#64748b',padding:'2px 8px',borderRadius:4,fontSize:12}}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'flex',justifyContent:'center',gap:6}}>
+        <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'7px 14px',border:'1px solid #E2E8F0',borderRadius:8,background:page===1?'#F8FAFC':'#fff',color:page===1?'#CBD5E1':'#334155',cursor:page===1?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>← 이전</button>
+        {Array.from({length:Math.max(1,pages)},(_,i)=>i+1).map(p=>(
+          <button key={p} onClick={()=>setPage(p)} style={{padding:'7px 13px',border:`1px solid ${page===p?'#06B6D4':'#E2E8F0'}`,borderRadius:8,background:page===p?'#06B6D4':'#fff',color:page===p?'#fff':'#334155',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:page===p?700:400}}>{p}</button>
+        ))}
+        <button onClick={()=>setPage(p=>Math.min(Math.max(1,pages),p+1))} disabled={page===Math.max(1,pages)} style={{padding:'7px 14px',border:'1px solid #E2E8F0',borderRadius:8,background:page===Math.max(1,pages)?'#F8FAFC':'#fff',color:page===Math.max(1,pages)?'#CBD5E1':'#334155',cursor:page===Math.max(1,pages)?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 수익률 분석 ── */
+function ProfitAnalytics({showToast}) {
+  const [range, setRange] = useState('오늘');
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {['오늘','이번주','이번달'].map(r=>(
+          <button key={r} onClick={()=>setRange(r)} style={{padding:'7px 16px',borderRadius:20,border:`1.5px solid ${range===r?'#06B6D4':'#E2E8F0'}`,background:range===r?'#06B6D4':'#fff',color:range===r?'#fff':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:range===r?700:500}}>{r}</button>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        {/* 시간대별 기회 발생 수 + 평균 실효 스프레드 */}
+        <div style={{background:'#fff',borderRadius:12,padding:20,border:'1px solid #E2E8F0'}}>
+          <p style={{fontWeight:700,fontSize:14,marginBottom:14,color:'#0F172A'}}>시간대별 기회 발생 횟수 & 평균 실효 스프레드</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={ANALYTICS_DATA} margin={{top:4,right:4,left:-20,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
+              <XAxis dataKey="time" tick={{fontSize:10,fill:'#94a3b8'}}/>
+              <YAxis yAxisId="left" tick={{fontSize:10,fill:'#94a3b8'}} domain={[0,8]}/>
+              <YAxis yAxisId="right" orientation="right" tick={{fontSize:10,fill:'#94a3b8'}} domain={[0,5]}/>
+              <Tooltip contentStyle={{fontSize:12,borderRadius:8}}/>
+              <Bar yAxisId="left" dataKey="cnt" fill="#A5F3FC" name="기회 횟수" radius={[4,4,0,0]}/>
+              <Line yAxisId="right" type="monotone" dataKey="avg" stroke="#06B6D4" strokeWidth={2.5} dot={false} name="평균 실효(%)"/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 코인별 기회 분포 */}
+        <div style={{background:'#fff',borderRadius:12,padding:20,border:'1px solid #E2E8F0'}}>
+          <p style={{fontWeight:700,fontSize:14,marginBottom:14,color:'#0F172A'}}>코인별 기회 분포 & 평균 실효 스프레드</p>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={COIN_STATS} layout="vertical" margin={{top:0,right:16,left:10,bottom:0}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false}/>
+              <XAxis type="number" tick={{fontSize:10,fill:'#94a3b8'}} domain={[0,5]}/>
+              <YAxis type="category" dataKey="coin" tick={{fontSize:12,fill:'#334155',fontWeight:600}} width={40}/>
+              <Tooltip contentStyle={{fontSize:12,borderRadius:8}} formatter={(v,n)=>n==='평균 실효(%)'?`${v}%`:v}/>
+              <Bar dataKey="avgEff" name="평균 실효(%)" fill="#06B6D4" radius={[0,4,4,0]} barSize={14}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* 코인별 통계 요약 */}
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+        <div style={{padding:'13px 20px',borderBottom:'1px solid #F1F5F9',fontWeight:700,fontSize:14}}>코인별 기회 상세 통계</div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFBFC'}}>
+              {['코인','기회 횟수','평균 실효 스프레드','최고 실효','상태'].map(h=>(
+                <th key={h} style={{padding:'9px 20px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #F1F5F9'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COIN_STATS.map((c,i)=>(
+              <tr key={i} style={{borderBottom:'1px solid #F8FAFC'}}>
+                <td style={{padding:'12px 20px',fontWeight:800,fontSize:14}}>{c.coin}</td>
+                <td style={{padding:'12px 20px',fontWeight:700,color:'#0e7490'}}>{c.cnt}건</td>
+                <td style={{padding:'12px 20px',fontWeight:700,fontSize:15,color:'#06B6D4'}}>{c.avgEff}%</td>
+                <td style={{padding:'12px 20px',fontWeight:700,color:'#16a34a'}}>{c.best}%</td>
+                <td style={{padding:'12px 20px'}}>
+                  <span className={c.avgEff>=3?'badge-hi':c.avgEff>=2?'badge-md':'badge-lo'}>
+                    {c.avgEff>=3?'고수익':c.avgEff>=2?'안정':'낮음'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── 알림 전략 ── */
+function AlertStrategy({showToast}) {
+  const [rules, setRules] = useState(STRAT_RULES);
+  const [modal, setModal] = useState(false);
+  const toggle = (id) => setRules(prev=>prev.map(r=>r.id===id?{...r,on:!r.on}:r));
+  return (
+    <div style={{maxWidth:900}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <p style={{fontSize:14,color:'#64748b'}}><span style={{fontWeight:700,color:'#06B6D4'}}>{rules.filter(r=>r.on).length}개</span> 전략 활성화</p>
+        <button onClick={()=>setModal(true)} style={{padding:'9px 20px',background:'#06B6D4',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14,fontWeight:700}}>+ 전략 추가</button>
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {rules.map(r=>(
+          <div key={r.id} style={{background:'#fff',borderRadius:12,padding:'20px 22px',border:'1px solid #E2E8F0',opacity:r.on?1:0.55}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                  <span style={{fontWeight:800,fontSize:15,color:'#0F172A'}}>{r.name}</span>
+                  {r.on?<span className="badge-hi">활성</span>:<span className="badge-lo">비활성</span>}
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {r.coins.map(c=><span key={c} style={{background:'#F0FDFF',color:'#0e7490',padding:'2px 8px',borderRadius:4,fontSize:12,fontWeight:600}}>{c}</span>)}
+                </div>
+              </div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <button onClick={()=>toggle(r.id)} style={{width:48,height:26,borderRadius:13,border:'none',cursor:'pointer',background:r.on?'#06B6D4':'#CBD5E1',position:'relative',outline:'none'}}>
+                  <span style={{position:'absolute',top:3,left:r.on?25:3,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}></span>
+                </button>
+                <button onClick={()=>showToast(`${r.name} 전략이 수정됐습니다`)} style={{background:'none',border:'1px solid #E2E8F0',borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',color:'#64748b',fontFamily:'Pretendard'}}>수정</button>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+              {[
+                {label:'거래소 쌍',val:r.exPairs.join(', ')},
+                {label:'대상 체인',val:r.chains.join(', ')},
+                {label:'최소 실효 스프레드',val:`${r.minEff}%`},
+                {label:'알림 채널',val:r.ch},
+              ].map((i,idx)=>(
+                <div key={idx} style={{background:'#F8FAFC',borderRadius:8,padding:'8px 12px',border:'1px solid #F1F5F9'}}>
+                  <p style={{fontSize:10,color:'#94a3b8',marginBottom:2}}>{i.label}</p>
+                  <p style={{fontSize:12,fontWeight:600,color:'#334155'}}>{i.val}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(15,23,42,0.5)',zIndex:1000}} onClick={()=>setModal(false)}>
+          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:16,padding:28,width:440,maxWidth:'90vw',boxShadow:'0 20px 60px rgba(15,23,42,0.2)',animation:'fadeInScale 0.2s ease'}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{fontWeight:800,fontSize:17,marginBottom:20,color:'#0F172A'}}>알림 전략 추가</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:22}}>
+              <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>전략명</label>
+                <input placeholder="예: ETH 고수익 탐지" style={{width:'100%',padding:'9px 12px',border:'1px solid #E2E8F0',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none'}}/>
+              </div>
+              <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>대상 코인 (복수 선택)</label>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {['BTC','ETH','SOL','MATIC','AVAX','ADA'].map(c=>(
+                    <button key={c} style={{padding:'5px 12px',borderRadius:6,border:'1px solid #E2E8F0',background:'#F8FAFC',color:'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13}}>{c}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>최소 실효 스프레드</label>
+                  <input type="number" defaultValue={2.0} step={0.1} style={{width:'100%',padding:'9px 12px',border:'1px solid #E2E8F0',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none'}}/>
+                </div>
+                <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>알림 채널</label>
+                  <select style={{width:'100%',padding:'9px 12px',border:'1px solid #E2E8F0',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none',background:'#fff'}}>
+                    <option>Telegram</option><option>소리</option><option>Telegram+소리</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>{showToast('알림 전략이 추가됐습니다');setModal(false);}} style={{flex:1,padding:'11px',background:'#06B6D4',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14,fontWeight:700}}>추가</button>
+              <button onClick={()=>setModal(false)} style={{flex:1,padding:'11px',background:'#fff',color:'#64748b',border:'1px solid #E2E8F0',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14}}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 체인 현황 ── */
+function ChainStatus({showToast}) {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:18}}>
+        {[
+          {label:'가장 저렴한 체인',val:'Polygon',sub:'Gas $0.004',color:'#16a34a'},
+          {label:'가장 빠른 체인', val:'SOL',    sub:'TPS 2,100',color:'#06B6D4'},
+          {label:'주의 체인',      val:'ERC-20', sub:'Gas $4.82 (상승)',color:'#d97706'},
+        ].map((k,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:12,padding:'16px 18px',border:'1px solid #E2E8F0',borderLeft:`4px solid ${k.color}`}}>
+            <p style={{fontSize:12,color:'#64748b',marginBottom:6}}>{k.label}</p>
+            <p style={{fontSize:22,fontWeight:900,color:k.color}}>{k.val}</p>
+            <p style={{fontSize:11,color:'#94a3b8',marginTop:3}}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden',marginBottom:14}}>
+        <div style={{padding:'13px 20px',borderBottom:'1px solid #F1F5F9',display:'flex',justifyContent:'space-between'}}>
+          <span style={{fontWeight:700,fontSize:14}}>체인별 Gas Fee 현황</span>
+          <span style={{fontSize:12,color:'#94a3b8'}}>Bull Queue 주기 조회 (1분)</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFBFC'}}>
+              {['체인','현재 Gas Fee','추세','속도','갱신','실효 스프레드 영향'].map(h=>(
+                <th key={h} style={{padding:'9px 18px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #F1F5F9'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {CHAIN_GAS.map((r,i)=>(
+              <tr key={i} style={{borderBottom:'1px solid #F8FAFC'}}>
+                <td style={{padding:'13px 18px',fontWeight:700,fontSize:14}}>{r.chain}</td>
+                <td style={{padding:'13px 18px',fontWeight:800,fontSize:15,color:r.risk==='high'?'#d97706':r.risk==='mid'?'#ca8a04':'#16a34a'}}>{r.fee}</td>
+                <td style={{padding:'13px 18px'}}>
+                  <span className={r.risk==='hi'?'badge-md':r.risk==='high'?'badge-md':'badge-hi'}>
+                    {r.trend==='상승'?'⬆ 상승':'→ 안정'}
+                  </span>
+                </td>
+                <td style={{padding:'13px 18px',fontSize:13,color:'#64748b'}}>{r.gwei?`${r.gwei} Gwei`:r.tps?`${r.tps} TPS`:'-'}</td>
+                <td style={{padding:'13px 18px',fontSize:12,color:'#94a3b8'}}>{r.updated} 전</td>
+                <td style={{padding:'13px 18px'}}>
+                  <span style={{fontSize:13,fontWeight:600,color:r.risk==='high'?'#d97706':'#16a34a'}}>
+                    {r.risk==='high'?'스프레드 -0.5~0.7% 차감':'영향 미미'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{background:'#F0FDFF',border:'1px solid #A5F3FC',borderRadius:10,padding:'14px 18px'}}>
+        <p style={{fontSize:13,color:'#0e7490',fontWeight:700,marginBottom:3}}>💡 실효 스프레드 계산 기준</p>
+        <p style={{fontSize:12,color:'#0284c7'}}>실효 스프레드 = 원시 스프레드 - (출금 Gas Fee / 거래금액). Gas Fee는 Bull Queue Worker가 1분마다 조회하여 Redis에 캐시합니다.</p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

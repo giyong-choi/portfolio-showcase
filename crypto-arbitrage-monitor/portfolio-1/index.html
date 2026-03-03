@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아비웨이 — 아비트리지 모니터링</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Pretendard', -apple-system, sans-serif; background: #F0F9FF; color: #1A1A2E; word-break: keep-all; }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: translate(-50%,-50%) scale(0.95); }
+      to   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position:  200% 0; }
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .skeleton {
+      background: linear-gradient(90deg,#e0f2fe 25%,#bae6fd 50%,#e0f2fe 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px;
+    }
+    .badge-ok   { background:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+    .badge-warn { background:#fef9c3; color:#ca8a04; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+    .badge-err  { background:#fee2e2; color:#dc2626; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:600; }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; animation:blink 1.5s infinite; display:inline-block; }
+    ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:#e0f2fe; } ::-webkit-scrollbar-thumb { background:#7dd3fc; border-radius:3px; }
+    tr:hover { background:#f8faff !important; }
+    button:hover { opacity:0.9; }
+    .nav-btn { transition: all 0.15s; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+const { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } = Recharts;
+
+/* ── 데이터 ── */
+const SPREAD_DATA = [
+  { id:1, coin:'ETH',  buy:'빗썸',  sell:'Bybit',   buyP:'5,124,000',   sellP:'3,542',  spread:4.87, net:'ERC-20',  updated:'방금', alert:true  },
+  { id:2, coin:'SOL',  buy:'업비트', sell:'Binance', buyP:'218,500',     sellP:'150.2',  spread:3.56, net:'SOL',     updated:'2초',  alert:false },
+  { id:3, coin:'BTC',  buy:'업비트', sell:'Binance', buyP:'97,850,000',  sellP:'67,450', spread:2.14, net:'BTC',     updated:'1초',  alert:false },
+  { id:4, coin:'ADA',  buy:'빗썸',  sell:'Gate',    buyP:'782',         sellP:'0.539',  spread:1.89, net:'ADA',     updated:'3초',  alert:false },
+  { id:5, coin:'AVAX', buy:'업비트', sell:'Bybit',   buyP:'54,200',      sellP:'37.3',   spread:1.42, net:'AVAX-C',  updated:'5초',  alert:false },
+  { id:6, coin:'XRP',  buy:'빗썸',  sell:'Gate',    buyP:'3,420',       sellP:'2.351',  spread:1.23, net:'XRP',     updated:'2초',  alert:false },
+  { id:7, coin:'LINK', buy:'업비트', sell:'Binance', buyP:'20,150',      sellP:'13.86',  spread:1.08, net:'ERC-20',  updated:'4초',  alert:false },
+  { id:8, coin:'MATIC',buy:'빗썸',  sell:'Bybit',   buyP:'1,250',       sellP:'0.862',  spread:0.87, net:'Polygon', updated:'6초',  alert:false },
+];
+const EX_STATUS = {
+  '빗썸':  [{coin:'BTC',dep:true,wit:true,net:'BTC',fee:'0.0005 BTC'},{coin:'ETH',dep:true,wit:true,net:'ERC-20',fee:'0.01 ETH'},{coin:'XRP',dep:true,wit:true,net:'XRP',fee:'0.25 XRP'},{coin:'SOL',dep:true,wit:false,net:'SOL',fee:'0.01 SOL'},{coin:'ADA',dep:true,wit:true,net:'ADA',fee:'1 ADA'},{coin:'MATIC',dep:true,wit:true,net:'Polygon',fee:'0.1 MATIC'},{coin:'AVAX',dep:true,wit:true,net:'AVAX-C',fee:'0.01 AVAX'}],
+  '업비트': [{coin:'BTC',dep:true,wit:true,net:'BTC',fee:'0.0005 BTC'},{coin:'ETH',dep:true,wit:true,net:'ERC-20',fee:'0.005 ETH'},{coin:'XRP',dep:true,wit:true,net:'XRP',fee:'1 XRP'},{coin:'SOL',dep:true,wit:true,net:'SOL',fee:'0.005 SOL'},{coin:'ADA',dep:false,wit:false,net:'ADA',fee:'-'},{coin:'MATIC',dep:true,wit:true,net:'Polygon',fee:'0.5 MATIC'},{coin:'AVAX',dep:true,wit:true,net:'AVAX-C',fee:'0.02 AVAX'}],
+  'Gate':  [{coin:'BTC',dep:true,wit:true,net:'BTC',fee:'0.0001 BTC'},{coin:'ETH',dep:true,wit:true,net:'ERC-20',fee:'0.004 ETH'},{coin:'XRP',dep:true,wit:true,net:'XRP',fee:'0.1 XRP'},{coin:'SOL',dep:true,wit:true,net:'SOL',fee:'0.008 SOL'},{coin:'ADA',dep:true,wit:true,net:'ADA',fee:'0.5 ADA'},{coin:'MATIC',dep:true,wit:true,net:'Polygon',fee:'0.08 MATIC'},{coin:'AVAX',dep:true,wit:true,net:'AVAX-C',fee:'0.005 AVAX'}],
+  'Binance':[{coin:'BTC',dep:true,wit:true,net:'BTC',fee:'0.0002 BTC'},{coin:'ETH',dep:true,wit:true,net:'ERC-20',fee:'0.003 ETH'},{coin:'XRP',dep:true,wit:true,net:'XRP',fee:'0.2 XRP'},{coin:'SOL',dep:true,wit:true,net:'SOL',fee:'0.002 SOL'},{coin:'ADA',dep:true,wit:true,net:'ADA',fee:'0.8 ADA'},{coin:'MATIC',dep:false,wit:false,net:'Polygon',fee:'-'},{coin:'AVAX',dep:true,wit:true,net:'AVAX-C',fee:'0.01 AVAX'}],
+  'Bybit': [{coin:'BTC',dep:true,wit:true,net:'BTC',fee:'0.0005 BTC'},{coin:'ETH',dep:true,wit:true,net:'ERC-20',fee:'0.006 ETH'},{coin:'XRP',dep:true,wit:true,net:'XRP',fee:'0.25 XRP'},{coin:'SOL',dep:true,wit:true,net:'SOL',fee:'0.004 SOL'},{coin:'ADA',dep:true,wit:true,net:'ADA',fee:'1.2 ADA'},{coin:'MATIC',dep:true,wit:true,net:'Polygon',fee:'0.2 MATIC'},{coin:'AVAX',dep:true,wit:true,net:'AVAX-C',fee:'0.015 AVAX'}],
+};
+const HISTORY = [
+  {id:1,time:'14:23:41',coin:'ETH',pair:'빗썸→Bybit',spread:'4.87%',dur:'3분 12초',base:'100만원 기준 +4.87만원'},
+  {id:2,time:'13:58:07',coin:'SOL',pair:'업비트→Binance',spread:'3.56%',dur:'1분 48초',base:'+3.56만원'},
+  {id:3,time:'13:31:22',coin:'BTC',pair:'업비트→Binance',spread:'2.14%',dur:'45초',base:'+2.14만원'},
+  {id:4,time:'12:47:55',coin:'ADA',pair:'빗썸→Gate',spread:'1.89%',dur:'2분 03초',base:'+1.89만원'},
+  {id:5,time:'11:52:18',coin:'XRP',pair:'빗썸→Gate',spread:'2.31%',dur:'1분 22초',base:'+2.31만원'},
+  {id:6,time:'11:29:04',coin:'ETH',pair:'업비트→Binance',spread:'3.12%',dur:'4분 37초',base:'+3.12만원'},
+  {id:7,time:'10:44:33',coin:'SOL',pair:'빗썸→Bybit',spread:'2.87%',dur:'58초',base:'+2.87만원'},
+  {id:8,time:'09:58:11',coin:'AVAX',pair:'업비트→Bybit',spread:'1.98%',dur:'2분 15초',base:'+1.98만원'},
+];
+const CHART_DATA = [
+  {time:'09:00',eth:3.2,sol:2.1,btc:1.5},{time:'10:00',eth:2.8,sol:2.8,btc:1.8},
+  {time:'11:00',eth:4.1,sol:3.1,btc:2.2},{time:'12:00',eth:3.7,sol:2.4,btc:1.9},
+  {time:'13:00',eth:4.9,sol:3.6,btc:2.4},{time:'14:00',eth:4.87,sol:3.56,btc:2.14},
+];
+const COIN_LIST = [
+  {coin:'BTC',on:true,pairs:4,best:'2.14%',gate_lend:true},{coin:'ETH',on:true,pairs:5,best:'4.87%',gate_lend:true},
+  {coin:'XRP',on:true,pairs:3,best:'1.23%',gate_lend:false},{coin:'SOL',on:true,pairs:4,best:'3.56%',gate_lend:true},
+  {coin:'ADA',on:true,pairs:3,best:'1.89%',gate_lend:false},{coin:'MATIC',on:false,pairs:2,best:'-',gate_lend:true},
+  {coin:'DOGE',on:false,pairs:3,best:'-',gate_lend:false},{coin:'AVAX',on:true,pairs:3,best:'1.42%',gate_lend:true},
+  {coin:'LINK',on:true,pairs:3,best:'1.08%',gate_lend:false},{coin:'DOT',on:false,pairs:2,best:'-',gate_lend:true},
+];
+
+/* ── 앱 ── */
+function App() {
+  const [menu, setMenu] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+
+  const switchMenu = (id) => {
+    if (id === menu) return;
+    setLoading(true); setMenu(id);
+    setTimeout(() => setLoading(false), 1500);
+  };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  const MENUS = [
+    {id:'dashboard',    label:'스프레드 대시보드', icon:'📊'},
+    {id:'exchange-status', label:'거래소 상태',  icon:'🏦'},
+    {id:'alert-settings',  label:'알림 설정',    icon:'🔔'},
+    {id:'coin-filter',     label:'코인 필터',    icon:'🪙'},
+    {id:'history',         label:'거래 기록',    icon:'📋'},
+  ];
+
+  return (
+    <div style={{display:'flex',height:'100vh',overflow:'hidden'}}>
+      {/* ── 사이드바 ── */}
+      <aside style={{width:260,background:'#1A365D',display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'22px 20px 16px',borderBottom:'1px solid rgba(255,255,255,0.1)'}}>
+          <div style={{color:'#38BDF8',fontWeight:800,fontSize:20,letterSpacing:'-0.5px'}}>📡 아비웨이</div>
+          <div style={{color:'rgba(255,255,255,0.45)',fontSize:12,marginTop:2}}>Arbitrage Monitor v2.4</div>
+        </div>
+        <div style={{padding:'10px 16px 10px',borderBottom:'1px solid rgba(255,255,255,0.1)',display:'flex',alignItems:'center',gap:8}}>
+          <span className="live-dot"></span>
+          <span style={{color:'#22c55e',fontSize:12,fontWeight:700}}>LIVE</span>
+          <span style={{color:'rgba(255,255,255,0.35)',fontSize:11}}>5개 거래소 연결 중</span>
+        </div>
+        <nav style={{padding:'10px 10px',flex:1,overflowY:'auto'}}>
+          {MENUS.map(m => (
+            <button key={m.id} onClick={() => switchMenu(m.id)} className="nav-btn" style={{
+              width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
+              borderRadius:8,border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',
+              fontFamily:'Pretendard',fontSize:14,fontWeight:menu===m.id?700:400,
+              background: menu===m.id ? 'rgba(56,189,248,0.15)' : 'transparent',
+              borderLeft: menu===m.id ? '3px solid #38BDF8' : '3px solid transparent',
+              color: menu===m.id ? '#38BDF8' : 'rgba(255,255,255,0.65)',
+            }}>
+              <span style={{fontSize:16}}>{m.icon}</span>{m.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'14px 20px',borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+          <div style={{color:'rgba(255,255,255,0.35)',fontSize:11}}>
+            마지막 갱신: 방금 전<br/>WebSocket 지연: 42ms
+          </div>
+        </div>
+      </aside>
+
+      {/* ── 메인 ── */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <header style={{height:58,background:'#fff',borderBottom:'1px solid #E2E8F0',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',flexShrink:0}}>
+          <h1 style={{fontSize:16,fontWeight:700,color:'#1A365D'}}>{MENUS.find(m=>m.id===menu)?.label}</h1>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:13,color:'#64748b'}}>최소 수익률</span>
+            <span style={{background:'#0066CC',color:'#fff',padding:'4px 14px',borderRadius:20,fontSize:13,fontWeight:800}}>1.0%</span>
+            <span style={{background:'#fee2e2',color:'#dc2626',padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:700}}>🔔 알림 3건</span>
+          </div>
+        </header>
+        <main style={{flex:1,overflowY:'auto',padding:24,background:'#F0F9FF'}}>
+          {loading ? <Skeleton /> : <Content menu={menu} showToast={showToast} />}
+        </main>
+      </div>
+
+      {toast && (
+        <div style={{position:'fixed',bottom:24,right:24,background:'#1A365D',color:'#fff',padding:'12px 20px',borderRadius:10,fontSize:14,boxShadow:'0 4px 16px rgba(0,0,0,0.2)',zIndex:9999}}>
+          ✅ {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 4px rgba(0,102,204,0.08)'}}>
+            <div className="skeleton" style={{height:13,width:'55%',marginBottom:12}}></div>
+            <div className="skeleton" style={{height:28,width:'75%',marginBottom:8}}></div>
+            <div className="skeleton" style={{height:11,width:'45%'}}></div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 4px rgba(0,102,204,0.08)'}}>
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="skeleton" style={{height:38,marginBottom:8,borderRadius:6}}></div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Content({menu, showToast}) {
+  if (menu==='dashboard')      return <Dashboard showToast={showToast} />;
+  if (menu==='exchange-status') return <ExchangeStatus showToast={showToast} />;
+  if (menu==='alert-settings')  return <AlertSettings showToast={showToast} />;
+  if (menu==='coin-filter')     return <CoinFilter showToast={showToast} />;
+  if (menu==='history')         return <History showToast={showToast} />;
+  return null;
+}
+
+/* ── 대시보드 ── */
+function Dashboard({showToast}) {
+  const [tick, setTick] = useState(0);
+  useEffect(()=>{ const t=setInterval(()=>setTick(p=>p+1),1000); return()=>clearInterval(t); },[]);
+  const now = new Date(); const ts = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+  const KPI = [
+    {label:'현재 기회',  val:'8건',   sub:'1.0% 이상 스프레드', icon:'📈', color:'#0066CC'},
+    {label:'최고 스프레드', val:'4.87%', sub:'ETH 빗썸→Bybit',  icon:'🔝', color:'#16a34a'},
+    {label:'모니터링 코인',  val:'8개',  sub:'5거래소 × 8코인',   icon:'🪙', color:'#7c3aed'},
+    {label:'오늘 알림',   val:'12건',  sub:'발생한 알림 총합',   icon:'🔔', color:'#ea580c'},
+  ];
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
+        {KPI.map((k,i) => (
+          <div key={i} style={{background:'#fff',borderRadius:12,padding:'18px 20px',boxShadow:'0 1px 4px rgba(0,102,204,0.08)',borderLeft:`4px solid ${k.color}`}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <p style={{fontSize:12,color:'#64748b',marginBottom:6}}>{k.label}</p>
+                <p style={{fontSize:24,fontWeight:800,color:k.color,lineHeight:1}}>{k.val}</p>
+                <p style={{fontSize:11,color:'#94a3b8',marginTop:4}}>{k.sub}</p>
+              </div>
+              <span style={{fontSize:26}}>{k.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 310px',gap:16}}>
+        {/* 스프레드 테이블 */}
+        <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',overflow:'hidden'}}>
+          <div style={{padding:'14px 20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span className="live-dot"></span>
+              <span style={{fontWeight:700,fontSize:14}}>실시간 스프레드 현황</span>
+            </div>
+            <span style={{fontSize:12,color:'#94a3b8'}}>갱신: {ts}</span>
+          </div>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead>
+              <tr style={{background:'#F8FAFC'}}>
+                {['코인','매수 거래소','매도 거래소','스프레드','네트워크','갱신',''].map(h=>(
+                  <th key={h} style={{padding:'9px 14px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #E2E8F0'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {SPREAD_DATA.map(r=>(
+                <tr key={r.id} style={{borderBottom:'1px solid #F1F5F9'}}>
+                  <td style={{padding:'11px 14px'}}>
+                    <span style={{fontWeight:700,fontSize:14}}>{r.coin}</span>
+                    {r.alert && <span style={{marginLeft:6,background:'#fef3c7',color:'#d97706',padding:'1px 5px',borderRadius:4,fontSize:10,fontWeight:700}}>🔔</span>}
+                  </td>
+                  <td style={{padding:'11px 14px'}}><span style={{background:'#EFF6FF',color:'#0066CC',padding:'2px 8px',borderRadius:4,fontSize:12,fontWeight:600}}>{r.buy}</span></td>
+                  <td style={{padding:'11px 14px'}}><span style={{background:'#F0FDF4',color:'#16a34a',padding:'2px 8px',borderRadius:4,fontSize:12,fontWeight:600}}>{r.sell}</span></td>
+                  <td style={{padding:'11px 14px'}}>
+                    <span style={{fontWeight:800,fontSize:15,color: r.spread>=4?'#16a34a':r.spread>=2?'#d97706':'#94a3b8'}}>+{r.spread}%</span>
+                  </td>
+                  <td style={{padding:'11px 14px',fontSize:12,color:'#64748b'}}>{r.net}</td>
+                  <td style={{padding:'11px 14px',fontSize:12,color:'#94a3b8'}}>{r.updated} 전</td>
+                  <td style={{padding:'11px 14px'}}>
+                    <button onClick={()=>showToast(`${r.coin} 알림이 등록됐습니다`)} style={{background:'#0066CC',color:'#fff',border:'none',padding:'4px 10px',borderRadius:6,fontSize:11,cursor:'pointer',fontFamily:'Pretendard',fontWeight:600}}>알림</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 오른쪽 패널 */}
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div style={{background:'#fff',borderRadius:12,padding:16,boxShadow:'0 1px 4px rgba(0,102,204,0.08)'}}>
+            <p style={{fontWeight:700,fontSize:13,marginBottom:12,color:'#1A365D'}}>시간대별 스프레드 추이</p>
+            <ResponsiveContainer width="100%" height={155}>
+              <LineChart data={CHART_DATA} margin={{top:4,right:4,left:-20,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f6ff"/>
+                <XAxis dataKey="time" tick={{fontSize:10,fill:'#94a3b8'}}/>
+                <YAxis tick={{fontSize:10,fill:'#94a3b8'}} domain={[0,6]}/>
+                <Tooltip contentStyle={{fontSize:12,borderRadius:8}}/>
+                <Line type="monotone" dataKey="eth" stroke="#0066CC" dot={false} name="ETH" strokeWidth={2.5}/>
+                <Line type="monotone" dataKey="sol" stroke="#38BDF8" dot={false} name="SOL" strokeWidth={2}/>
+                <Line type="monotone" dataKey="btc" stroke="#94a3b8" dot={false} name="BTC" strokeWidth={1.5}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{background:'#fff',borderRadius:12,padding:16,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',flex:1}}>
+            <p style={{fontWeight:700,fontSize:13,marginBottom:12,color:'#1A365D'}}>🔔 최근 알림</p>
+            {[
+              {time:'14:23',msg:'ETH 빗썸→Bybit +4.87%',level:'high'},
+              {time:'13:58',msg:'SOL 업비트→Binance +3.56%',level:'mid'},
+              {time:'13:31',msg:'BTC 업비트→Binance +2.14%',level:'mid'},
+              {time:'12:47',msg:'ADA 빗썸→Gate +1.89%',level:'low'},
+            ].map((a,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<3?'1px solid #F1F5F9':'none'}}>
+                <div style={{width:7,height:7,borderRadius:'50%',background:a.level==='high'?'#16a34a':a.level==='mid'?'#f59e0b':'#94a3b8',flexShrink:0}}></div>
+                <p style={{fontSize:12,color:'#334155',flex:1}}>{a.msg}</p>
+                <span style={{fontSize:11,color:'#94a3b8',whiteSpace:'nowrap'}}>{a.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 거래소 상태 ── */
+function ExchangeStatus({showToast}) {
+  const [ex, setEx] = useState('빗썸');
+  const data = EX_STATUS[ex] || [];
+  const blocked = data.filter(d=>!d.wit).map(d=>d.coin);
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:18,flexWrap:'wrap'}}>
+        {Object.keys(EX_STATUS).map(e=>(
+          <button key={e} onClick={()=>setEx(e)} style={{padding:'8px 18px',borderRadius:20,border:'none',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700,background:ex===e?'#0066CC':'#fff',color:ex===e?'#fff':'#64748b',boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
+            {e}
+          </button>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',overflow:'hidden',marginBottom:14}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontWeight:700,fontSize:14}}>{ex} 코인별 입출금 상태</span>
+          <span style={{fontSize:12,color:'#94a3b8'}}>30초 주기 자동 갱신</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {['코인','입금','출금','네트워크','출금 수수료','종합'].map(h=>(
+                <th key={h} style={{padding:'9px 20px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #E2E8F0'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((r,i)=>(
+              <tr key={i} style={{borderBottom:'1px solid #F1F5F9'}}>
+                <td style={{padding:'13px 20px',fontWeight:700,fontSize:14}}>{r.coin}</td>
+                <td style={{padding:'13px 20px'}}><span className={r.dep?'badge-ok':'badge-err'}>{r.dep?'가능':'중단'}</span></td>
+                <td style={{padding:'13px 20px'}}><span className={r.wit?'badge-ok':'badge-err'}>{r.wit?'가능':'중단'}</span></td>
+                <td style={{padding:'13px 20px',fontSize:13,color:'#334155'}}>{r.net}</td>
+                <td style={{padding:'13px 20px',fontSize:13,color:'#64748b'}}>{r.fee}</td>
+                <td style={{padding:'13px 20px'}}>
+                  {r.dep&&r.wit ? <span className="badge-ok">정상</span> : <span className="badge-err">거래소 주의</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{background:'#EFF6FF',border:'1px solid #BAE6FD',borderRadius:10,padding:'13px 18px'}}>
+        <p style={{fontSize:13,color:'#0369a1',fontWeight:700,marginBottom:3}}>⚠️ 스프레드 계산 자동 제외 안내</p>
+        <p style={{fontSize:12,color:'#0284c7'}}>{ex} 기준 출금 불가 코인: <strong>{blocked.length>0?blocked.join(', '):'없음 (모두 정상)'}</strong> — 해당 코인은 모니터링에서 자동 제외됩니다.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── 알림 설정 ── */
+function AlertSettings({showToast}) {
+  const [rate, setRate] = useState(1.0);
+  const [sound, setSound] = useState(true);
+  const [tg, setTg] = useState(true);
+  const [token, setToken] = useState('7234819XXXX:AAH_abcdefgh');
+  const [chatId, setChatId] = useState('@arbiway_alerts');
+  return (
+    <div style={{maxWidth:700}}>
+      <div style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',marginBottom:16}}>
+        <h3 style={{fontWeight:700,fontSize:15,color:'#1A365D',marginBottom:20}}>📊 스프레드 임계값 설정</h3>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,alignItems:'center'}}>
+          <label style={{fontSize:14,fontWeight:600,color:'#334155'}}>최소 수익률 임계값</label>
+          <span style={{background:'#0066CC',color:'#fff',padding:'5px 18px',borderRadius:20,fontWeight:800,fontSize:18}}>{rate.toFixed(1)}%</span>
+        </div>
+        <input type="range" min="0.5" max="5.0" step="0.1" value={rate} onChange={e=>setRate(parseFloat(e.target.value))} style={{width:'100%',accentColor:'#0066CC',height:6,marginBottom:6}}/>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#94a3b8',marginBottom:16}}>
+          <span>0.5% (민감)</span><span>2.5% (기본)</span><span>5.0% (보수)</span>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          {[0.5,1.0,2.0,3.0].map(v=>(
+            <button key={v} onClick={()=>setRate(v)} style={{padding:'6px 16px',borderRadius:20,border:`1.5px solid ${rate===v?'#0066CC':'#E2E8F0'}`,background:rate===v?'#EFF6FF':'#fff',color:rate===v?'#0066CC':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700}}>{v.toFixed(1)}%</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',marginBottom:16}}>
+        <h3 style={{fontWeight:700,fontSize:15,color:'#1A365D',marginBottom:20}}>🔔 알림 채널 설정</h3>
+        {/* 소리 */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 0',borderBottom:'1px solid #F1F5F9'}}>
+          <div>
+            <p style={{fontWeight:600,fontSize:14}}>🔊 소리 알림</p>
+            <p style={{fontSize:12,color:'#64748b',marginTop:2}}>임계값 초과 시 비프음 재생 (Web Audio API)</p>
+          </div>
+          <button onClick={()=>setSound(!sound)} style={{width:48,height:26,borderRadius:13,border:'none',cursor:'pointer',background:sound?'#0066CC':'#CBD5E1',position:'relative',transition:'background 0.2s',outline:'none'}}>
+            <span style={{position:'absolute',top:3,left:sound?25:3,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}></span>
+          </button>
+        </div>
+        {/* 텔레그램 */}
+        <div style={{padding:'14px 0'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div>
+              <p style={{fontWeight:600,fontSize:14}}>📨 텔레그램 알림</p>
+              <p style={{fontSize:12,color:'#64748b',marginTop:2}}>Telegram Bot API 웹훅 연동</p>
+            </div>
+            <button onClick={()=>setTg(!tg)} style={{width:48,height:26,borderRadius:13,border:'none',cursor:'pointer',background:tg?'#0066CC':'#CBD5E1',position:'relative',transition:'background 0.2s',outline:'none'}}>
+              <span style={{position:'absolute',top:3,left:tg?25:3,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}></span>
+            </button>
+          </div>
+          {tg && (
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              <div>
+                <label style={{fontSize:13,fontWeight:600,color:'#334155',display:'block',marginBottom:5}}>Bot Token</label>
+                <input value={token} onChange={e=>setToken(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #E2E8F0',borderRadius:8,fontSize:13,fontFamily:'Pretendard',outline:'none'}}/>
+              </div>
+              <div>
+                <label style={{fontSize:13,fontWeight:600,color:'#334155',display:'block',marginBottom:5}}>Chat ID / 채널명</label>
+                <input value={chatId} onChange={e=>setChatId(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #E2E8F0',borderRadius:8,fontSize:13,fontFamily:'Pretendard',outline:'none'}}/>
+              </div>
+              <button onClick={()=>showToast('테스트 알림을 발송했습니다')} style={{padding:'8px 18px',background:'#F0F9FF',border:'1px solid #BAE6FD',color:'#0066CC',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700,alignSelf:'flex-start'}}>📤 테스트 발송</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{display:'flex',gap:10}}>
+        <button onClick={()=>showToast('알림 설정이 저장됐습니다')} style={{padding:'12px 28px',background:'#0066CC',color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'Pretendard'}}>설정 저장</button>
+        <button onClick={()=>showToast('설정이 초기화됐습니다')} style={{padding:'12px 24px',background:'#fff',color:'#64748b',border:'1px solid #E2E8F0',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'Pretendard'}}>초기화</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 코인 필터 ── */
+function CoinFilter({showToast}) {
+  const [coins, setCoins] = useState(COIN_LIST);
+  const toggle = (c) => setCoins(prev=>prev.map(x=>x.coin===c?{...x,on:!x.on}:x));
+  const activeCount = coins.filter(c=>c.on).length;
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+        <p style={{fontSize:14,color:'#64748b'}}><span style={{fontWeight:700,color:'#0066CC',fontSize:16}}>{activeCount}개</span> 코인 모니터링 활성화</p>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>setCoins(prev=>prev.map(c=>({...c,on:true})))} style={{padding:'6px 14px',border:'1px solid #E2E8F0',borderRadius:6,background:'#fff',color:'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13}}>전체 선택</button>
+          <button onClick={()=>setCoins(prev=>prev.map(c=>({...c,on:false})))} style={{padding:'6px 14px',border:'1px solid #E2E8F0',borderRadius:6,background:'#fff',color:'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13}}>전체 해제</button>
+        </div>
+      </div>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',overflow:'hidden',marginBottom:14}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {['활성','코인','거래소 쌍','최고 스프레드','Gate 대출',''].map(h=>(
+                <th key={h} style={{padding:'9px 20px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #E2E8F0'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {coins.map((c,i)=>(
+              <tr key={c.coin} style={{borderBottom:'1px solid #F1F5F9',opacity:c.on?1:0.45}}>
+                <td style={{padding:'13px 20px'}}>
+                  <input type="checkbox" checked={c.on} onChange={()=>toggle(c.coin)} style={{accentColor:'#0066CC',width:16,height:16,cursor:'pointer'}}/>
+                </td>
+                <td style={{padding:'13px 20px',fontWeight:700,fontSize:14}}>{c.coin}</td>
+                <td style={{padding:'13px 20px',fontSize:13,color:'#64748b'}}>{c.pairs}개</td>
+                <td style={{padding:'13px 20px',fontWeight:700,color:c.best!=='-'?'#16a34a':'#94a3b8',fontSize:14}}>{c.best}</td>
+                <td style={{padding:'13px 20px'}}><span className={c.gate_lend?'badge-ok':'badge-warn'}>{c.gate_lend?'가능':'불가'}</span></td>
+                <td style={{padding:'13px 20px'}}>
+                  <button onClick={()=>showToast(`${c.coin} 상세 정보를 불러옵니다`)} style={{background:'none',border:'1px solid #E2E8F0',color:'#64748b',padding:'4px 10px',borderRadius:6,fontSize:12,cursor:'pointer',fontFamily:'Pretendard'}}>상세</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <button onClick={()=>showToast('코인 필터 설정이 저장됐습니다')} style={{padding:'10px 24px',background:'#0066CC',color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'Pretendard'}}>저장</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 거래 기록 ── */
+function History({showToast}) {
+  const [page, setPage] = useState(1);
+  const PER = 5;
+  const total = HISTORY.length;
+  const pages = Math.ceil(total/PER);
+  const rows = HISTORY.slice((page-1)*PER, page*PER);
+
+  return (
+    <div>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,102,204,0.08)',overflow:'hidden',marginBottom:14}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid #E2E8F0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontWeight:700,fontSize:14}}>오늘 아비트리지 기회 이력</span>
+          <span style={{fontSize:12,color:'#94a3b8'}}>총 {total}건</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {['발생 시각','코인','거래소 경로','스프레드','지속 시간','예상 수익 (100만원 기준)'].map(h=>(
+                <th key={h} style={{padding:'9px 20px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #E2E8F0'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r=>(
+              <tr key={r.id} style={{borderBottom:'1px solid #F1F5F9'}}>
+                <td style={{padding:'12px 20px',fontSize:13,color:'#64748b'}}>{r.time}</td>
+                <td style={{padding:'12px 20px',fontWeight:700}}>{r.coin}</td>
+                <td style={{padding:'12px 20px',fontSize:13}}>
+                  <span style={{color:'#0066CC',fontWeight:600}}>{r.pair.split('→')[0]}</span>
+                  <span style={{color:'#94a3b8',margin:'0 4px'}}>→</span>
+                  <span style={{color:'#16a34a',fontWeight:600}}>{r.pair.split('→')[1]}</span>
+                </td>
+                <td style={{padding:'12px 20px',fontWeight:800,color:'#16a34a',fontSize:15}}>{r.spread}</td>
+                <td style={{padding:'12px 20px',fontSize:13,color:'#64748b'}}>{r.dur}</td>
+                <td style={{padding:'12px 20px',fontSize:13,color:'#0066CC',fontWeight:600}}>{r.base}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'flex',justifyContent:'center',gap:6}}>
+        <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'7px 14px',border:'1px solid #E2E8F0',borderRadius:8,background:page===1?'#F8FAFC':'#fff',color:page===1?'#CBD5E1':'#334155',cursor:page===1?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>← 이전</button>
+        {Array.from({length:pages},(_,i)=>i+1).map(p=>(
+          <button key={p} onClick={()=>setPage(p)} style={{padding:'7px 13px',border:`1px solid ${page===p?'#0066CC':'#E2E8F0'}`,borderRadius:8,background:page===p?'#0066CC':'#fff',color:page===p?'#fff':'#334155',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:page===p?700:400}}>{p}</button>
+        ))}
+        <button onClick={()=>setPage(p=>Math.min(pages,p+1))} disabled={page===pages} style={{padding:'7px 14px',border:'1px solid #E2E8F0',borderRadius:8,background:page===pages?'#F8FAFC':'#fff',color:page===pages?'#CBD5E1':'#334155',cursor:page===pages?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

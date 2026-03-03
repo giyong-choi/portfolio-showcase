@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마켓렌즈 — 국내외 주식 호가 비교 플랫폼</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Pretendard', -apple-system, sans-serif; background: #FAF5FF; color: #1A1A2E; word-break: keep-all; }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: translate(-50%,-50%) scale(0.95); }
+      to   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    }
+    @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    .skeleton {
+      background: linear-gradient(90deg,#ede9fe 25%,#ddd6fe 50%,#ede9fe 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px;
+    }
+    .badge-pos { background:#dcfce7; color:#16a34a; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+    .badge-neg { background:#fee2e2; color:#dc2626; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+    .badge-neu { background:#f1f5f9; color:#64748b; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; animation:blink 1.5s infinite; display:inline-block; }
+    ::-webkit-scrollbar { width:5px; } ::-webkit-scrollbar-track { background:#f3f0ff; } ::-webkit-scrollbar-thumb { background:#c4b5fd; border-radius:3px; }
+    tr:hover { background:#faf8ff !important; }
+    .tab-btn { transition: all 0.15s; border-bottom: 3px solid transparent; }
+    .tab-btn:hover { color: #7C3AED !important; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+const { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart } = Recharts;
+
+/* ── 데이터 ── */
+const COMPARE_DATA = [
+  {id:1,name:'KB금융',      symbol:'KB금융',   krx:92000,  adr:'$47.52',  adr_w:91940, gap:0.065, mkt:'KRX/NYSE',  star:true,  sector:'금융'},
+  {id:2,name:'POSCO홀딩스', symbol:'POSCO',    krx:280500, adr:'$64.80',  adr_w:272112,gap:3.09,  mkt:'KRX/NYSE',  star:true,  sector:'철강'},
+  {id:3,name:'LG디스플레이',symbol:'LGD',      krx:10800,  adr:'$3.61',   adr_w:10470, gap:3.15,  mkt:'KRX/NYSE',  star:false, sector:'IT'},
+  {id:4,name:'한국전력',    symbol:'KEP',      krx:24350,  adr:'$5.12',   adr_w:23552, gap:3.39,  mkt:'KRX/NYSE',  star:false, sector:'에너지'},
+  {id:5,name:'SK텔레콤',   symbol:'SKM',      krx:54200,  adr:'$26.45',  adr_w:53284, gap:1.72,  mkt:'KRX/NYSE',  star:true,  sector:'통신'},
+  {id:6,name:'신한금융',    symbol:'SHG',      krx:56200,  adr:'$27.12',  adr_w:55680, gap:0.93,  mkt:'KRX/NYSE',  star:false, sector:'금융'},
+  {id:7,name:'KT',         symbol:'KT',       krx:42800,  adr:'$10.35',  adr_w:42435, gap:0.86,  mkt:'KRX/NYSE',  star:false, sector:'통신'},
+  {id:8,name:'한국조선해양',symbol:'KSHY',     krx:168500, adr:'$40.72',  adr_w:162880,gap:3.45,  mkt:'KRX/OTC',   star:true,  sector:'조선'},
+];
+const SPREAD_HIST = [
+  {time:'09:00',kb:0.12,posco:2.80,lgd:2.90},{time:'09:30',kb:0.08,posco:2.95,lgd:3.10},
+  {time:'10:00',kb:0.15,posco:3.05,lgd:3.05},{time:'10:30',kb:0.09,posco:3.12,lgd:3.20},
+  {time:'11:00',kb:0.07,posco:3.01,lgd:2.98},{time:'11:30',kb:0.10,posco:3.18,lgd:3.08},
+  {time:'12:00',kb:0.06,posco:3.09,lgd:3.15},{time:'13:00',kb:0.065,posco:3.09,lgd:3.15},
+];
+const STOCK_TABLE = [
+  {name:'삼성전자',krx:80400,nyse:'-',change:'+1.2%',vol:'2,843만',sector:'반도체',exch:'KRX'},
+  {name:'SK하이닉스',krx:201500,nyse:'-',change:'+2.4%',vol:'892만',sector:'반도체',exch:'KRX'},
+  {name:'NAVER',krx:224000,nyse:'-',change:'-0.8%',vol:'134만',sector:'IT',exch:'KRX'},
+  {name:'KB금융',krx:92000,nyse:'$47.52',change:'+0.5%',vol:'345만',sector:'금융',exch:'KRX/NYSE'},
+  {name:'POSCO홀딩스',krx:280500,nyse:'$64.80',change:'+1.1%',vol:'58만',sector:'철강',exch:'KRX/NYSE'},
+  {name:'LG화학',krx:312000,nyse:'-',change:'-1.3%',vol:'24만',sector:'화학',exch:'KRX'},
+  {name:'현대차',krx:248000,nyse:'-',change:'+0.7%',vol:'156만',sector:'자동차',exch:'KRX'},
+  {name:'셀트리온',krx:183500,nyse:'-',change:'-0.5%',vol:'72만',sector:'바이오',exch:'KRX'},
+  {name:'LG디스플레이',krx:10800,nyse:'$3.61',change:'-2.1%',vol:'214만',sector:'IT',exch:'KRX/NYSE'},
+  {name:'한국전력',krx:24350,nyse:'$5.12',change:'+0.3%',vol:'423만',sector:'에너지',exch:'KRX/NYSE'},
+];
+const ALERTS = [
+  {id:1,name:'POSCO홀딩스',pair:'KRX/NYSE',threshold:3.0,current:3.09,on:true,ch:'이메일+슬랙'},
+  {id:2,name:'LG디스플레이',pair:'KRX/NYSE',threshold:3.0,current:3.15,on:true,ch:'이메일'},
+  {id:3,name:'한국전력',pair:'KRX/NYSE',threshold:3.0,current:3.39,on:false,ch:'슬랙'},
+  {id:4,name:'KB금융',pair:'KRX/NYSE',threshold:1.0,current:0.065,on:true,ch:'이메일+슬랙'},
+];
+
+function App() {
+  const [tab, setTab] = useState('compare');
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+
+  useEffect(()=>{ setTimeout(()=>setLoading(false),1500); },[]);
+
+  const switchTab = (id) => {
+    if (id===tab) return;
+    setLoading(true); setTab(id);
+    setTimeout(()=>setLoading(false),1500);
+  };
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null),2600); };
+
+  const TABS = [
+    {id:'compare',      label:'실시간 호가 비교'},
+    {id:'spread-tracker', label:'스프레드 추적'},
+    {id:'exchange-table', label:'시세 테이블'},
+    {id:'alert-manager',  label:'알림 관리'},
+    {id:'watchlist',      label:'관심 종목'},
+  ];
+  const HERO = {
+    compare:       {bg:'linear-gradient(135deg,#1E1B4B 0%,#4C1D95 60%,#7C3AED 100%)', title:'실시간 국내외 주식 호가 비교', sub:'KRX와 NYSE/OTC 시장의 동일 종목 가격 괴리율을 실시간으로 분석합니다.'},
+    'spread-tracker':{bg:'linear-gradient(135deg,#2e1065 0%,#6d28d9 60%,#a78bfa 100%)', title:'종목별 스프레드 추이 분석', sub:'시간대별 괴리율 변화를 차트로 추적하고 이상 구간을 자동으로 감지합니다.'},
+    'exchange-table':{bg:'linear-gradient(135deg,#1E1B4B 0%,#5b21b6 60%,#8b5cf6 100%)', title:'거래소별 통합 시세 테이블', sub:'KRX·NYSE·NASDAQ의 현재가, 등락률, 거래량을 한 곳에서 확인합니다.'},
+    'alert-manager': {bg:'linear-gradient(135deg,#312e81 0%,#7c3aed 60%,#c4b5fd 100%)', title:'괴리율 알림 규칙 관리', sub:'임계값 도달 시 이메일·Slack으로 즉시 알림을 받아보세요.'},
+    watchlist:      {bg:'linear-gradient(135deg,#1E1B4B 0%,#4C1D95 60%,#7C3AED 100%)', title:'관심 종목 모아보기', sub:'즐겨찾기로 등록한 종목의 실시간 괴리율을 한눈에 확인합니다.'},
+  };
+  const hero = HERO[tab] || HERO.compare;
+
+  return (
+    <div style={{minHeight:'100vh',background:'#FAF5FF',display:'flex',flexDirection:'column'}}>
+      {/* ── 상단 네비게이션 ── */}
+      <header style={{background:'#fff',borderBottom:'1px solid #EDE9FE',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 8px rgba(124,58,237,0.06)'}}>
+        <div style={{maxWidth:1280,margin:'0 auto',display:'flex',alignItems:'center',height:58,padding:'0 24px'}}>
+          <div style={{fontWeight:900,fontSize:20,color:'#7C3AED',marginRight:40,letterSpacing:'-0.5px',whiteSpace:'nowrap'}}>
+            🔭 마켓렌즈
+          </div>
+          <nav style={{display:'flex',gap:2,flex:1,overflow:'auto'}}>
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>switchTab(t.id)} className="tab-btn" style={{
+                padding:'18px 18px 15px',border:'none',background:'none',cursor:'pointer',
+                fontFamily:'Pretendard',fontSize:14,fontWeight:tab===t.id?700:500,
+                color:tab===t.id?'#7C3AED':'#64748b',
+                borderBottom:tab===t.id?'3px solid #7C3AED':'3px solid transparent',
+                whiteSpace:'nowrap'
+              }}>{t.label}</button>
+            ))}
+          </nav>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:20,flexShrink:0}}>
+            <span className="live-dot"></span>
+            <span style={{fontSize:12,color:'#7C3AED',fontWeight:700}}>LIVE</span>
+            <span style={{fontSize:12,color:'#94a3b8'}}>환율 1,320원/달러</span>
+          </div>
+        </div>
+      </header>
+
+      {/* ── 히어로 ── */}
+      <div style={{background:hero.bg,padding:'28px 0',marginBottom:0}}>
+        <div style={{maxWidth:1280,margin:'0 auto',padding:'0 24px'}}>
+          <h2 style={{color:'#fff',fontSize:22,fontWeight:800,marginBottom:6}}>{hero.title}</h2>
+          <p style={{color:'rgba(255,255,255,0.7)',fontSize:14}}>{hero.sub}</p>
+          <div style={{display:'flex',gap:10,marginTop:14}}>
+            {tab==='compare'&&[
+              {label:'괴리 종목', val:'8개', bg:'rgba(255,255,255,0.15)'},
+              {label:'최대 괴리율', val:'3.45%', bg:'rgba(255,255,255,0.15)'},
+              {label:'평균 괴리율', val:'2.11%', bg:'rgba(255,255,255,0.15)'},
+            ].map((b,i)=>(
+              <div key={i} style={{background:b.bg,borderRadius:8,padding:'8px 16px',border:'1px solid rgba(255,255,255,0.2)'}}>
+                <p style={{fontSize:11,color:'rgba(255,255,255,0.7)',marginBottom:2}}>{b.label}</p>
+                <p style={{fontSize:16,fontWeight:800,color:'#fff'}}>{b.val}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 콘텐츠 ── */}
+      <main style={{maxWidth:1280,margin:'0 auto',width:'100%',padding:'24px 24px 40px',flex:1}}>
+        {loading ? <SkeletonView/> : <Content tab={tab} showToast={showToast}/>}
+      </main>
+
+      {toast&&(
+        <div style={{position:'fixed',bottom:24,right:24,background:'#1E1B4B',color:'#fff',padding:'12px 20px',borderRadius:10,fontSize:14,boxShadow:'0 4px 16px rgba(124,58,237,0.3)',zIndex:9999}}>
+          ✅ {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonView() {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+        {[1,2,3].map(i=>(
+          <div key={i} style={{background:'#fff',borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(124,58,237,0.08)'}}>
+            <div className="skeleton" style={{height:14,width:'50%',marginBottom:14}}></div>
+            <div className="skeleton" style={{height:30,width:'70%',marginBottom:10}}></div>
+            <div className="skeleton" style={{height:12,width:'40%'}}></div>
+          </div>
+        ))}
+      </div>
+      {[1,2,3,4,5].map(i=>(
+        <div key={i} className="skeleton" style={{height:48,marginBottom:10,borderRadius:10}}></div>
+      ))}
+    </div>
+  );
+}
+
+function Content({tab,showToast}) {
+  if (tab==='compare')       return <Compare showToast={showToast}/>;
+  if (tab==='spread-tracker') return <SpreadTracker showToast={showToast}/>;
+  if (tab==='exchange-table') return <ExchangeTable showToast={showToast}/>;
+  if (tab==='alert-manager')  return <AlertManager showToast={showToast}/>;
+  if (tab==='watchlist')      return <Watchlist showToast={showToast}/>;
+  return null;
+}
+
+/* ── 실시간 호가 비교 ── */
+function Compare({showToast}) {
+  const [sort, setSort] = useState('gap');
+  const sorted = [...COMPARE_DATA].sort((a,b)=>sort==='gap'?b.gap-a.gap:a.name.localeCompare(b.name));
+  const [tick,setTick]=useState(0);
+  useEffect(()=>{const t=setInterval(()=>setTick(p=>p+1),2000);return()=>clearInterval(t);},[]);
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}}>
+        {[
+          {label:'1% 이상 괴리 종목',val:'6개',sub:'실시간 모니터링 중',color:'#7C3AED'},
+          {label:'최대 괴리율',val:'3.45%',sub:'한국조선해양 KRX/OTC',color:'#dc2626'},
+          {label:'현재 환율',val:'1,320원',sub:'USD/KRW 기준',color:'#0284c7'},
+        ].map((k,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:16,padding:'20px 22px',boxShadow:'0 2px 8px rgba(124,58,237,0.08)',borderTop:`4px solid ${k.color}`}}>
+            <p style={{fontSize:12,color:'#64748b',marginBottom:8}}>{k.label}</p>
+            <p style={{fontSize:26,fontWeight:800,color:k.color}}>{k.val}</p>
+            <p style={{fontSize:11,color:'#94a3b8',marginTop:4}}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:'#fff',borderRadius:16,boxShadow:'0 2px 8px rgba(124,58,237,0.08)',overflow:'hidden'}}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #EDE9FE',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span className="live-dot"></span>
+            <span style={{fontWeight:700,fontSize:14}}>국내외 동일 종목 실시간 괴리율</span>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <span style={{fontSize:12,color:'#94a3b8',marginRight:6}}>정렬:</span>
+            {[{id:'gap',label:'괴리율순'},{id:'name',label:'종목명순'}].map(s=>(
+              <button key={s.id} onClick={()=>setSort(s.id)} style={{padding:'4px 12px',borderRadius:20,border:`1px solid ${sort===s.id?'#7C3AED':'#E2E8F0'}`,background:sort===s.id?'#7C3AED':'#fff',color:sort===s.id?'#fff':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:12,fontWeight:600}}>{s.label}</button>
+            ))}
+          </div>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFAFA'}}>
+              {['종목명','KRX 현재가','NYSE/OTC 환산가','괴리율','시장','섹터','관심'].map(h=>(
+                <th key={h} style={{padding:'10px 18px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #EDE9FE'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(r=>(
+              <tr key={r.id} style={{borderBottom:'1px solid #F5F3FF'}}>
+                <td style={{padding:'13px 18px',fontWeight:700,fontSize:14}}>{r.name}</td>
+                <td style={{padding:'13px 18px',fontSize:13,fontWeight:600}}>{r.krx.toLocaleString()}원</td>
+                <td style={{padding:'13px 18px',fontSize:13}}>
+                  <span style={{fontWeight:600}}>{r.adr_w.toLocaleString()}원</span>
+                  <span style={{fontSize:11,color:'#94a3b8',marginLeft:6}}>({r.adr})</span>
+                </td>
+                <td style={{padding:'13px 18px'}}>
+                  <span style={{fontWeight:800,fontSize:15,color:r.gap>=3?'#dc2626':r.gap>=1?'#d97706':'#64748b'}}>
+                    {r.gap>0?'+':''}{r.gap.toFixed(2)}%
+                  </span>
+                </td>
+                <td style={{padding:'13px 18px',fontSize:12}}><span style={{background:'#F5F3FF',color:'#7C3AED',padding:'2px 8px',borderRadius:4,fontWeight:600}}>{r.mkt}</span></td>
+                <td style={{padding:'13px 18px',fontSize:12,color:'#64748b'}}>{r.sector}</td>
+                <td style={{padding:'13px 18px'}}>
+                  <button onClick={()=>showToast(`${r.name} 관심 종목에 추가됐습니다`)} style={{background:'none',border:'1px solid #EDE9FE',borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',color:'#7C3AED',fontFamily:'Pretendard',fontWeight:600}}>⭐</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── 스프레드 추적 ── */
+function SpreadTracker({showToast}) {
+  const [sel, setSel] = useState('POSCO홀딩스');
+  const options = ['KB금융','POSCO홀딩스','LG디스플레이','한국전력','SK텔레콤'];
+  const info = COMPARE_DATA.find(d=>d.name===sel);
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:18,flexWrap:'wrap'}}>
+        {options.map(n=>(
+          <button key={n} onClick={()=>setSel(n)} style={{padding:'8px 16px',borderRadius:20,border:`1.5px solid ${sel===n?'#7C3AED':'#EDE9FE'}`,background:sel===n?'#7C3AED':'#fff',color:sel===n?'#fff':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700}}>{n}</button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div style={{background:'#fff',borderRadius:16,padding:22,boxShadow:'0 2px 8px rgba(124,58,237,0.08)'}}>
+          <p style={{fontSize:13,color:'#64748b',marginBottom:4}}>현재 괴리율</p>
+          <p style={{fontSize:32,fontWeight:900,color:info&&info.gap>=3?'#dc2626':info&&info.gap>=1?'#d97706':'#64748b'}}>+{info?info.gap.toFixed(2):0}%</p>
+        </div>
+        <div style={{background:'#fff',borderRadius:16,padding:22,boxShadow:'0 2px 8px rgba(124,58,237,0.08)'}}>
+          <p style={{fontSize:13,color:'#64748b',marginBottom:4}}>KRX 현재가</p>
+          <p style={{fontSize:32,fontWeight:900,color:'#7C3AED'}}>{info?(info.krx).toLocaleString():'—'}원</p>
+        </div>
+      </div>
+      <div style={{background:'#fff',borderRadius:16,padding:22,boxShadow:'0 2px 8px rgba(124,58,237,0.08)',marginBottom:16}}>
+        <p style={{fontWeight:700,fontSize:14,marginBottom:16,color:'#1E1B4B'}}>오늘 시간대별 괴리율 추이</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={SPREAD_HIST} margin={{top:4,right:8,left:-16,bottom:0}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f0ff"/>
+            <XAxis dataKey="time" tick={{fontSize:11,fill:'#94a3b8'}}/>
+            <YAxis tick={{fontSize:11,fill:'#94a3b8'}} domain={[0,4.5]}/>
+            <Tooltip contentStyle={{fontSize:12,borderRadius:10,border:'1px solid #EDE9FE'}}/>
+            <Area type="monotone" dataKey="posco" fill="#EDE9FE" stroke="#7C3AED" strokeWidth={2.5} name="POSCO홀딩스" fillOpacity={0.5}/>
+            <Line type="monotone" dataKey="lgd" stroke="#A78BFA" strokeWidth={2} dot={false} name="LG디스플레이"/>
+            <Line type="monotone" dataKey="kb" stroke="#c4b5fd" strokeWidth={1.5} dot={false} name="KB금융"/>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:'#F5F3FF',border:'1px solid #EDE9FE',borderRadius:12,padding:'14px 18px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div>
+          <p style={{fontSize:13,color:'#7C3AED',fontWeight:700}}>⚡ 이상 구간 자동 감지</p>
+          <p style={{fontSize:12,color:'#64748b',marginTop:2}}>괴리율 3% 이상 구간 — 오늘 2회 감지됨</p>
+        </div>
+        <button onClick={()=>showToast('알림 규칙 페이지로 이동합니다')} style={{padding:'8px 18px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700}}>알림 설정</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 시세 테이블 ── */
+function ExchangeTable({showToast}) {
+  const [filter, setFilter] = useState('전체');
+  const [page, setPage] = useState(1);
+  const PER = 6;
+  const SECTORS = ['전체','반도체','금융','IT','에너지','통신','철강'];
+  const filtered = filter==='전체' ? STOCK_TABLE : STOCK_TABLE.filter(s=>s.sector===filter);
+  const pages = Math.ceil(filtered.length/PER);
+  const rows = filtered.slice((page-1)*PER, page*PER);
+  return (
+    <div>
+      <div style={{display:'flex',gap:8,marginBottom:18,flexWrap:'wrap'}}>
+        {SECTORS.map(s=>(
+          <button key={s} onClick={()=>{setFilter(s);setPage(1);}} style={{padding:'6px 14px',borderRadius:20,border:`1.5px solid ${filter===s?'#7C3AED':'#EDE9FE'}`,background:filter===s?'#7C3AED':'#fff',color:filter===s?'#fff':'#64748b',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:filter===s?700:500}}>{s}</button>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:16,boxShadow:'0 2px 8px rgba(124,58,237,0.08)',overflow:'hidden',marginBottom:14}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F9F8FF'}}>
+              {['종목명','KRX 현재가','등락률','거래량','섹터','시장','즐겨찾기'].map(h=>(
+                <th key={h} style={{padding:'10px 18px',textAlign:'left',fontSize:11,color:'#64748b',fontWeight:600,borderBottom:'1px solid #EDE9FE'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r,i)=>(
+              <tr key={i} style={{borderBottom:'1px solid #F5F3FF'}}>
+                <td style={{padding:'13px 18px',fontWeight:700,fontSize:14}}>{r.name}</td>
+                <td style={{padding:'13px 18px',fontSize:13,fontWeight:600}}>{r.krx.toLocaleString()}원</td>
+                <td style={{padding:'13px 18px'}}>
+                  <span className={r.change.startsWith('+')?'badge-pos':r.change.startsWith('-')?'badge-neg':'badge-neu'}>{r.change}</span>
+                </td>
+                <td style={{padding:'13px 18px',fontSize:13,color:'#64748b'}}>{r.vol}</td>
+                <td style={{padding:'13px 18px',fontSize:12,color:'#7C3AED',fontWeight:600}}>{r.sector}</td>
+                <td style={{padding:'13px 18px',fontSize:12}}>{r.exch.includes('NYSE')?<span style={{background:'#F5F3FF',color:'#7C3AED',padding:'2px 8px',borderRadius:4,fontWeight:700}}>{r.exch}</span>:r.exch}</td>
+                <td style={{padding:'13px 18px'}}>
+                  <button onClick={()=>showToast(`${r.name} 관심 종목 추가`)} style={{background:'none',border:'none',cursor:'pointer',fontSize:16}}>⭐</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'flex',justifyContent:'center',gap:6}}>
+        <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'7px 14px',border:'1px solid #EDE9FE',borderRadius:8,background:page===1?'#F9F8FF':'#fff',color:page===1?'#CBD5E1':'#334155',cursor:page===1?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>← 이전</button>
+        {Array.from({length:Math.max(1,pages)},(_,i)=>i+1).map(p=>(
+          <button key={p} onClick={()=>setPage(p)} style={{padding:'7px 13px',border:`1px solid ${page===p?'#7C3AED':'#EDE9FE'}`,borderRadius:8,background:page===p?'#7C3AED':'#fff',color:page===p?'#fff':'#334155',cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:page===p?700:400}}>{p}</button>
+        ))}
+        <button onClick={()=>setPage(p=>Math.min(Math.max(1,pages),p+1))} disabled={page===Math.max(1,pages)} style={{padding:'7px 14px',border:'1px solid #EDE9FE',borderRadius:8,background:page===Math.max(1,pages)?'#F9F8FF':'#fff',color:page===Math.max(1,pages)?'#CBD5E1':'#334155',cursor:page===Math.max(1,pages)?'default':'pointer',fontFamily:'Pretendard',fontSize:13}}>다음 →</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 알림 관리 ── */
+function AlertManager({showToast}) {
+  const [alerts, setAlerts] = useState(ALERTS);
+  const [modal, setModal] = useState(false);
+  const toggle = (id) => setAlerts(prev=>prev.map(a=>a.id===id?{...a,on:!a.on}:a));
+  return (
+    <div style={{maxWidth:900}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
+        <p style={{fontSize:14,color:'#64748b'}}><span style={{fontWeight:700,color:'#7C3AED'}}>{alerts.filter(a=>a.on).length}개</span> 알림 활성화</p>
+        <button onClick={()=>setModal(true)} style={{padding:'9px 20px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14,fontWeight:700}}>+ 알림 추가</button>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {alerts.map(a=>(
+          <div key={a.id} style={{background:'#fff',borderRadius:14,padding:'18px 22px',boxShadow:'0 2px 8px rgba(124,58,237,0.08)',display:'flex',alignItems:'center',gap:16,opacity:a.on?1:0.55}}>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                <span style={{fontWeight:700,fontSize:15}}>{a.name}</span>
+                <span style={{background:'#F5F3FF',color:'#7C3AED',padding:'2px 8px',borderRadius:4,fontSize:12,fontWeight:600}}>{a.pair}</span>
+              </div>
+              <div style={{display:'flex',gap:16,fontSize:13}}>
+                <span style={{color:'#64748b'}}>임계값 <strong style={{color:'#7C3AED'}}>{a.threshold}%</strong></span>
+                <span style={{color:'#64748b'}}>현재 <strong style={{color:a.current>=a.threshold?'#dc2626':'#16a34a'}}>{a.current}%</strong></span>
+                <span style={{color:'#64748b'}}>채널: <strong>{a.ch}</strong></span>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10,alignItems:'center'}}>
+              {a.on&&a.current>=a.threshold&&<span style={{background:'#fee2e2',color:'#dc2626',padding:'3px 10px',borderRadius:6,fontSize:12,fontWeight:700}}>🔴 초과</span>}
+              <button onClick={()=>toggle(a.id)} style={{width:48,height:26,borderRadius:13,border:'none',cursor:'pointer',background:a.on?'#7C3AED':'#CBD5E1',position:'relative',outline:'none'}}>
+                <span style={{position:'absolute',top:3,left:a.on?25:3,width:20,height:20,borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}></span>
+              </button>
+              <button onClick={()=>showToast(`${a.name} 알림이 수정됐습니다`)} style={{background:'none',border:'1px solid #EDE9FE',borderRadius:6,padding:'4px 10px',fontSize:12,cursor:'pointer',color:'#64748b',fontFamily:'Pretendard'}}>수정</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(30,27,75,0.5)',zIndex:1000}} onClick={()=>setModal(false)}>
+          <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:16,padding:28,width:400,maxWidth:'90vw',boxShadow:'0 20px 60px rgba(124,58,237,0.2)',animation:'fadeInScale 0.2s ease'}} onClick={e=>e.stopPropagation()}>
+            <h3 style={{fontWeight:800,fontSize:17,marginBottom:20,color:'#1E1B4B'}}>알림 규칙 추가</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:20}}>
+              <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>종목명</label>
+                <select style={{width:'100%',padding:'9px 12px',border:'1px solid #EDE9FE',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none',background:'#fff'}}>
+                  {COMPARE_DATA.map(d=><option key={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>임계값 (%)</label>
+                <input type="number" defaultValue={2.0} step={0.1} style={{width:'100%',padding:'9px 12px',border:'1px solid #EDE9FE',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none'}}/>
+              </div>
+              <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:5,color:'#334155'}}>알림 채널</label>
+                <select style={{width:'100%',padding:'9px 12px',border:'1px solid #EDE9FE',borderRadius:8,fontFamily:'Pretendard',fontSize:13,outline:'none',background:'#fff'}}>
+                  <option>이메일</option><option>슬랙</option><option>이메일+슬랙</option>
+                </select>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>{showToast('알림 규칙이 추가됐습니다');setModal(false);}} style={{flex:1,padding:'11px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14,fontWeight:700}}>추가</button>
+              <button onClick={()=>setModal(false)} style={{flex:1,padding:'11px',background:'#fff',color:'#64748b',border:'1px solid #EDE9FE',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:14}}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 관심 종목 ── */
+function Watchlist({showToast}) {
+  const stars = COMPARE_DATA.filter(d=>d.star);
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14}}>
+        {stars.map(s=>(
+          <div key={s.id} style={{background:'#fff',borderRadius:16,padding:20,boxShadow:'0 2px 8px rgba(124,58,237,0.08)',borderLeft:`4px solid ${s.gap>=3?'#dc2626':s.gap>=1?'#d97706':'#7C3AED'}`}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+              <div>
+                <p style={{fontWeight:800,fontSize:16}}>{s.name}</p>
+                <p style={{fontSize:12,color:'#64748b',marginTop:2}}>{s.sector} | {s.mkt}</p>
+              </div>
+              <span style={{background:s.gap>=3?'#fee2e2':s.gap>=1?'#fef3c7':'#F5F3FF',color:s.gap>=3?'#dc2626':s.gap>=1?'#d97706':'#7C3AED',padding:'4px 12px',borderRadius:20,fontSize:14,fontWeight:800}}>+{s.gap.toFixed(2)}%</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <div style={{background:'#F9F8FF',borderRadius:8,padding:'8px 12px'}}>
+                <p style={{fontSize:11,color:'#94a3b8',marginBottom:2}}>KRX</p>
+                <p style={{fontWeight:700,fontSize:13}}>{s.krx.toLocaleString()}원</p>
+              </div>
+              <div style={{background:'#F9F8FF',borderRadius:8,padding:'8px 12px'}}>
+                <p style={{fontSize:11,color:'#94a3b8',marginBottom:2}}>NYSE 환산</p>
+                <p style={{fontWeight:700,fontSize:13}}>{s.adr_w.toLocaleString()}원</p>
+              </div>
+            </div>
+            <div style={{marginTop:12,display:'flex',gap:8}}>
+              <button onClick={()=>showToast(`${s.name} 상세 분석 페이지`)} style={{flex:1,padding:'7px',background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:13,fontWeight:700}}>추이 보기</button>
+              <button onClick={()=>showToast(`${s.name} 관심 종목에서 제거됐습니다`)} style={{padding:'7px 14px',background:'#fff',color:'#94a3b8',border:'1px solid #EDE9FE',borderRadius:8,cursor:'pointer',fontFamily:'Pretendard',fontSize:13}}>⭐</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {stars.length===0&&<div style={{textAlign:'center',padding:60,color:'#94a3b8'}}>관심 종목이 없습니다. 종목 목록에서 ⭐를 눌러 추가하세요.</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
