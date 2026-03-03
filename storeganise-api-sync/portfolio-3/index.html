@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OmniLink Commerce Hub — 다채널 API 통합 재고 동기화</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F8FAFC;color:#0F172A;word-break:keep-all;overflow-wrap:break-word}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area} = Recharts;
+
+const C={
+  primary:'#334155',secondary:'#0F172A',accent:'#06B6D4',
+  bg:'#F8FAFC',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#0F172A',textLight:'#64748B',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  cyan:'#06B6D4',teal:'#14B8A6',
+};
+
+/* ─── Data ─── */
+const CHANNELS=[
+  {id:'coupang',name:'쿠팡',icon:'🟠',status:'connected',todaySync:1834,errorRate:0.9,queueDepth:5,lastSync:'14:35:22',products:2456,skuSync:'98.2%'},
+  {id:'naver',name:'네이버 스마트스토어',icon:'🟢',status:'connected',todaySync:1256,errorRate:1.3,queueDepth:8,lastSync:'14:33:10',products:1892,skuSync:'97.8%'},
+  {id:'own',name:'자사몰',icon:'🔵',status:'connected',todaySync:678,errorRate:0.4,queueDepth:2,lastSync:'14:36:01',products:3120,skuSync:'99.1%'},
+];
+const SYNC_TIMELINE=Array.from({length:24},(_,i)=>({time:`${String(i).padStart(2,'0')}:00`,coupang:Math.floor(Math.random()*100+30),naver:Math.floor(Math.random()*70+20),own:Math.floor(Math.random()*40+10)}));
+const QUEUE_DATA=[{name:'쿠팡 동기화',queue:'channel-sync',jobs:142,failed:3,delayed:5,status:'active'},{name:'네이버 동기화',queue:'channel-sync',jobs:98,failed:1,delayed:3,status:'active'},{name:'자사몰 동기화',queue:'channel-sync',jobs:56,failed:0,delayed:1,status:'active'},{name:'재시도 큐',queue:'retry-queue',jobs:12,failed:0,delayed:0,status:'active'},{name:'DLQ (데드레터)',queue:'dlq',jobs:4,failed:4,delayed:0,status:'paused'},{name:'알림 큐',queue:'notification',jobs:8,failed:0,delayed:0,status:'active'}];
+const CHANNEL_CONFIGS=[
+  {id:'coupang',name:'쿠팡',endpoint:'https://api-gateway.coupang.com/v2',authType:'API Key + Secret',webhookUrl:'/webhook/coupang',rateLimit:'1000/min',retryPolicy:'지수 백오프 (최대 5회)',hmacAlgo:'HMAC-SHA256',status:'active',apiKey:'COUPANG-API-xxxx...xxxx',created:'2025-09-15',settings:{timeout:30000,batchSize:100,syncInterval:'3분'}},
+  {id:'naver',name:'네이버 스마트스토어',endpoint:'https://api.commerce.naver.com/external/v1',authType:'OAuth2',webhookUrl:'/webhook/naver',rateLimit:'500/min',retryPolicy:'지수 백오프 (최대 3회)',hmacAlgo:'HMAC-SHA256',status:'active',apiKey:'NAVER-OAUTH-xxxx...xxxx',created:'2025-10-01',settings:{timeout:45000,batchSize:50,syncInterval:'5분'}},
+  {id:'own',name:'자사몰',endpoint:'https://api.ownshop.co.kr/v1',authType:'JWT Bearer',webhookUrl:'/webhook/own',rateLimit:'무제한',retryPolicy:'즉시 재시도 (최대 3회)',hmacAlgo:'없음 (내부 시스템)',status:'active',apiKey:'JWT-BEARER-xxxx...xxxx',created:'2025-09-01',settings:{timeout:15000,batchSize:200,syncInterval:'1분'}},
+];
+const ETL_JOBS=Array.from({length:40},(_,i)=>{
+  const ch=CHANNELS[i%3];
+  const types=['inventory_sync','order_import','price_update','product_catalog','stock_alert'];
+  const statuses=['completed','completed','completed','completed','failed','completed','completed','delayed','completed','completed'];
+  return {id:9000-i,channel:ch.name,channelIcon:ch.icon,type:types[i%5],status:statuses[i%10],itemCount:Math.floor(Math.random()*500+10),duration:Math.floor(Math.random()*8000+200),timestamp:`2026-03-0${Math.min(3,Math.floor(i/14)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,hasConflict:i%8===0,conflictDetail:i%8===0?{product:`상품-${1000+i}`,localQty:Math.floor(Math.random()*50+10),remoteQty:Math.floor(Math.random()*50+10),resolved:'Last-Write-Wins',resolvedAt:`2026-03-03 14:${String(30+i%30).padStart(2,'0')}`}:null}
+});
+const typeLabels={inventory_sync:'재고 동기화',order_import:'주문 가져오기',price_update:'가격 업데이트',product_catalog:'상품 카탈로그',stock_alert:'재고 알림'};
+const LOG_ENTRIES=Array.from({length:50},(_,i)=>{
+  const ch=CHANNELS[i%3];
+  const endpoints=['/api/products/sync','/api/orders/import','/api/inventory/update','/api/prices/bulk','/api/webhook/receive','/api/stocks/check'];
+  const statuses=[200,200,200,201,400,200,500,200,200,200,200,200,200,200,200,200,200,200,200,200];
+  const s=statuses[i%20];
+  return {id:6000-i,channel:ch.name,channelIcon:ch.icon,endpoint:endpoints[i%6],status:s,duration:Math.floor(Math.random()*1500+100),timestamp:`2026-03-0${Math.min(3,Math.floor(i/17)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,errorType:s>=400?(s===400?'BAD_REQUEST':'SERVER_ERROR'):null,payload:JSON.stringify({product_ids:[`PRD-${1000+i}`,`PRD-${1001+i}`],action:'sync'})}
+});
+const CONFLICTS=Array.from({length:15},(_,i)=>{
+  const ch=CHANNELS[i%3];
+  return {id:4000-i,product:`상품-${2000+i}`,sku:`SKU-${3000+i}`,channel:ch.name,channelIcon:ch.icon,localQty:Math.floor(Math.random()*100+10),remoteQty:Math.floor(Math.random()*100+10),resolvedQty:Math.floor(Math.random()*100+10),strategy:'Last-Write-Wins',resolvedAt:`2026-03-0${Math.min(3,Math.floor(i/5)+1)} ${String(12+i%12).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,impact:i%3===0?'high':'low'}
+});
+
+/* ─── Shared ─── */
+function SkeletonLoader(){return <div style={{display:'flex',minHeight:'100vh'}}><div style={{width:240,background:'#fff',borderRight:'1px solid #E2E8F0'}}/><div style={{flex:1,padding:20}}>{[...Array(4)].map((_,i)=><div key={i} style={{height:i===0?60:100,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',marginBottom:12}}/>)}</div></div>;}
+function CountUp({end,duration=1200,suffix=''}){const[val,setVal]=useState(0);useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);return <span>{val.toLocaleString()}{suffix}</span>;}
+function Badge({text,color}){return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:6,fontSize:11,fontWeight:600,background:`${color}12`,color,border:`1px solid ${color}25`}}>{text}</span>;}
+function Toast({message,onClose}){useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;}
+function Modal({title,onClose,children,width=560}){
+  return <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxWidth:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px 20px',borderBottom:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:16,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:20,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </div>;
+}
+
+/* ─── Sidebar Nav ─── */
+const NAV=[
+  {id:'dashboard',label:'채널 통합 대시보드',icon:'📊'},
+  {id:'channel-integration',label:'채널 API 연동 관리',icon:'🔗'},
+  {id:'etl-pipeline',label:'재고 동기화 ETL 파이프라인',icon:'⚡'},
+  {id:'log-tracker',label:'API 로그 및 오류 추적',icon:'📋'},
+  {id:'conflict-history',label:'충돌 해결 이력',icon:'🔀'},
+];
+
+/* ─── Pages ─── */
+function DashboardPage({onSelect}){
+  const kpis=[
+    {label:'금일 동기화',value:3768,color:C.accent},
+    {label:'연동 채널',value:3,color:C.success},
+    {label:'BullMQ 큐',value:6,color:C.primary},
+    {label:'충돌 해결',value:15,color:C.warning},
+  ];
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+      {kpis.map((k,i)=><div key={i} style={{background:C.surface,borderRadius:16,padding:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)',animation:`slideUp 400ms ease ${i*80}ms both`}}>
+        <span style={{fontSize:11,color:C.textMuted,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k.label}</span>
+        <div style={{fontSize:24,fontWeight:700,color:k.color,marginTop:6}}><CountUp end={k.value}/></div>
+      </div>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:16,marginBottom:20}}>
+      <div style={{background:C.surface,borderRadius:16,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+        <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>채널별 동기화 처리량</h3>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={SYNC_TIMELINE}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="time" tick={{fontSize:10}} interval={3}/>
+            <YAxis tick={{fontSize:10}}/>
+            <Tooltip/>
+            <Area type="monotone" dataKey="coupang" name="쿠팡" stroke="#F97316" fill="#F9731620" stackId="a"/>
+            <Area type="monotone" dataKey="naver" name="네이버" stroke="#22C55E" fill="#22C55E20" stackId="a"/>
+            <Area type="monotone" dataKey="own" name="자사몰" stroke={C.accent} fill={`${C.accent}20`} stackId="a"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+        <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>BullMQ 큐 현황</h3>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {QUEUE_DATA.map((q,i)=><div key={i} onClick={()=>onSelect(q)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:10,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms'}} onMouseEnter={ev=>{ev.currentTarget.style.background=`${C.accent}08`;ev.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseLeave={ev=>{ev.currentTarget.style.background='transparent';ev.currentTarget.style.borderLeft=`1px solid ${C.border}`}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:q.status==='active'?C.success:C.warning,flexShrink:0}}/>
+            <span style={{fontSize:13,flex:1}}>{q.name}</span>
+            <span style={{fontSize:12,color:C.textMuted}}>{q.jobs}건</span>
+            {q.failed>0 && <Badge text={`${q.failed}실패`} color={C.danger}/>}
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+      <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>채널 연동 상태</h3>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+        {CHANNELS.map((ch,i)=><div key={ch.id} onClick={()=>onSelect(ch)} style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms'}} onMouseEnter={ev=>{ev.currentTarget.style.background=`${C.accent}06`;ev.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseLeave={ev=>{ev.currentTarget.style.background='transparent';ev.currentTarget.style.borderLeft=`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <span style={{fontSize:20}}>{ch.icon}</span>
+            <span style={{fontSize:14,fontWeight:600}}>{ch.name}</span>
+            <span style={{marginLeft:'auto',width:8,height:8,borderRadius:'50%',background:C.success}}/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:12}}>
+            <div><span style={{color:C.textMuted}}>동기화</span><div style={{fontWeight:600,marginTop:2}}>{ch.todaySync.toLocaleString()}건</div></div>
+            <div><span style={{color:C.textMuted}}>SKU 일치율</span><div style={{fontWeight:600,marginTop:2,color:C.success}}>{ch.skuSync}</div></div>
+          </div>
+        </div>)}
+      </div>
+    </div>
+  </div>;
+}
+
+function ChannelIntegrationPage({selected,onSelect}){
+  const [editModal,setEditModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  const list=CHANNEL_CONFIGS;
+  return <div style={{display:'flex',height:'100%',overflow:'hidden',animation:'fadeIn 300ms ease'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>연동 채널 {list.length}개</span>
+        <button onClick={()=>setEditModal({id:null,name:'',endpoint:'',authType:'API Key'})} style={{padding:'6px 14px',borderRadius:8,border:'none',background:C.accent,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 채널 추가</button>
+      </div>
+      {list.map((c,i)=><div key={c.id} onClick={()=>onSelect(c)} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===c.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===c.id?`3px solid ${C.accent}`:'3px solid transparent'}} onMouseEnter={ev=>{if(selected?.id!==c.id)ev.currentTarget.style.background=`${C.accent}04`}} onMouseLeave={ev=>{if(selected?.id!==c.id)ev.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+          <span style={{fontSize:18}}>{c.id==='coupang'?'🟠':c.id==='naver'?'🟢':'🔵'}</span>
+          <span style={{fontSize:14,fontWeight:600}}>{c.name}</span>
+          <span style={{marginLeft:'auto',width:8,height:8,borderRadius:'50%',background:C.success}}/>
+        </div>
+        <div style={{fontSize:12,color:C.textMuted}}>{c.endpoint.split('/').slice(0,3).join('/')}</div>
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected ? <div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:28}}>{selected.id==='coupang'?'🟠':selected.id==='naver'?'🟢':'🔵'}</span>
+            <div><h3 style={{fontSize:18,fontWeight:700}}>{selected.name}</h3><span style={{fontSize:12,color:C.textMuted}}>{selected.authType}</span></div>
+          </div>
+          <button onClick={()=>setEditModal(selected)} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${C.accent}`,background:'transparent',color:C.accent,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>편집</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted,fontWeight:600}}>API 엔드포인트</span><div style={{fontSize:13,fontFamily:'monospace',marginTop:6}}>{selected.endpoint}</div></div>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted,fontWeight:600}}>Webhook URL</span><div style={{fontSize:13,fontFamily:'monospace',marginTop:6}}>{selected.webhookUrl}</div></div>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted,fontWeight:600}}>Rate Limit</span><div style={{fontSize:14,fontWeight:600,marginTop:6}}>{selected.rateLimit}</div></div>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted,fontWeight:600}}>재시도 정책</span><div style={{fontSize:13,marginTop:6}}>{selected.retryPolicy}</div></div>
+        </div>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:12}}>동기화 설정</h4>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`,textAlign:'center'}}><span style={{fontSize:11,color:C.textMuted}}>타임아웃</span><div style={{fontSize:16,fontWeight:700,marginTop:4,color:C.accent}}>{selected.settings.timeout/1000}초</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`,textAlign:'center'}}><span style={{fontSize:11,color:C.textMuted}}>배치 사이즈</span><div style={{fontSize:16,fontWeight:700,marginTop:4,color:C.accent}}>{selected.settings.batchSize}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`,textAlign:'center'}}><span style={{fontSize:11,color:C.textMuted}}>동기화 주기</span><div style={{fontSize:16,fontWeight:700,marginTop:4,color:C.accent}}>{selected.settings.syncInterval}</div></div>
+        </div>
+        <div style={{marginTop:20}}>
+          <span style={{fontSize:12,color:C.textMuted}}>운영 메모</span>
+          <textarea placeholder="이 채널에 대한 운영 메모..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginTop:6}}/>
+        </div>
+      </div> : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측에서 채널을 선택하세요</div>}
+    </div>
+    {editModal && <Modal title={editModal.id?`${editModal.name} 설정 편집`:'새 채널 추가'} onClose={()=>setEditModal(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>채널 이름</label><input defaultValue={editModal.name} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>API 엔드포인트</label><input defaultValue={editModal.endpoint} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'monospace'}}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>인증 방식</label><select defaultValue={editModal.authType} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:'#fff'}}><option>API Key + Secret</option><option>OAuth2</option><option>JWT Bearer</option></select></div>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>Rate Limit</label><input defaultValue={editModal.rateLimit} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:8}}>
+          <button onClick={()=>setEditModal(null)} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{setEditModal(null);setToast('설정이 저장되었습니다.')}} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+function EtlPipelinePage({selected,onSelect}){
+  const [filter,setFilter]=useState('all');
+  const filtered=useMemo(()=>ETL_JOBS.filter(j=>{
+    if(filter==='failed'&&j.status!=='failed') return false;
+    if(filter==='conflict'&&!j.hasConflict) return false;
+    return true;
+  }),[filter]);
+  return <div style={{display:'flex',height:'100%',overflow:'hidden',animation:'fadeIn 300ms ease'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6}}>
+        {[{k:'all',l:'전체'},{k:'failed',l:'실패'},{k:'conflict',l:'충돌'}].map(f=>
+          <button key={f.k} onClick={()=>setFilter(f.k)} style={{padding:'4px 12px',borderRadius:6,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.accent:C.surface,color:filter===f.k?'#fff':C.text,fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:500}}>{f.l}</button>
+        )}
+      </div>
+      {filtered.slice(0,20).map((j,i)=><div key={j.id} onClick={()=>onSelect(j)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===j.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===j.id?`3px solid ${C.accent}`:'3px solid transparent'}} onMouseEnter={ev=>{if(selected?.id!==j.id)ev.currentTarget.style.background=`${C.accent}04`}} onMouseLeave={ev=>{if(selected?.id!==j.id)ev.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+          <span style={{fontSize:14}}>{j.channelIcon}</span>
+          <span style={{fontSize:13,fontWeight:600,flex:1}}>{typeLabels[j.type]}</span>
+          <Badge text={j.status==='completed'?'완료':j.status==='failed'?'실패':'지연'} color={j.status==='completed'?C.success:j.status==='failed'?C.danger:C.warning}/>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textMuted}}>
+          <span>{j.channel}</span>
+          <span>{j.itemCount}건 · {j.duration}ms</span>
+        </div>
+        {j.hasConflict && <div style={{marginTop:4}}><Badge text="충돌 발생" color={C.warning}/></div>}
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected ? <div>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{typeLabels[selected.type]} — #{selected.id}</h3>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>채널</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.channelIcon} {selected.channel}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>상태</span><div style={{marginTop:4}}><Badge text={selected.status==='completed'?'완료':selected.status==='failed'?'실패':'지연'} color={selected.status==='completed'?C.success:selected.status==='failed'?C.danger:C.warning}/></div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>처리 항목</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.itemCount}건</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>처리 시간</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.duration}ms</div></div>
+        </div>
+        {selected.hasConflict && selected.conflictDetail && <div style={{padding:16,borderRadius:14,border:`1px solid ${C.warning}30`,background:`${C.warning}08`,marginBottom:20}}>
+          <h4 style={{fontSize:14,fontWeight:700,color:C.warning,marginBottom:10}}>충돌 해결 상세</h4>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,fontSize:13}}>
+            <div><span style={{color:C.textMuted,fontSize:11}}>상품</span><div style={{marginTop:2}}>{selected.conflictDetail.product}</div></div>
+            <div><span style={{color:C.textMuted,fontSize:11}}>로컬 수량</span><div style={{marginTop:2,fontWeight:600}}>{selected.conflictDetail.localQty}</div></div>
+            <div><span style={{color:C.textMuted,fontSize:11}}>원격 수량</span><div style={{marginTop:2,fontWeight:600}}>{selected.conflictDetail.remoteQty}</div></div>
+          </div>
+          <div style={{marginTop:10,fontSize:13}}><Badge text={selected.conflictDetail.resolved} color={C.accent}/> <span style={{color:C.textMuted,fontSize:12,marginLeft:8}}>해결: {selected.conflictDetail.resolvedAt}</span></div>
+        </div>}
+        <div><span style={{fontSize:12,color:C.textMuted}}>운영 메모</span><textarea placeholder="이 작업에 대한 메모..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginTop:6}}/></div>
+      </div> : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측에서 작업을 선택하세요</div>}
+    </div>
+  </div>;
+}
+
+function LogTrackerPage({selected,onSelect}){
+  const [filter,setFilter]=useState('all');
+  const filtered=useMemo(()=>LOG_ENTRIES.filter(l=>{
+    if(filter==='error'&&l.status<400) return false;
+    const ch=filter==='coupang'||filter==='naver'||filter==='own';
+    if(ch&&!l.channel.includes(filter==='coupang'?'쿠팡':filter==='naver'?'네이버':'자사')) return false;
+    return true;
+  }),[filter]);
+  return <div style={{display:'flex',height:'100%',overflow:'hidden',animation:'fadeIn 300ms ease'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6,flexWrap:'wrap'}}>
+        {[{k:'all',l:'전체'},{k:'coupang',l:'쿠팡'},{k:'naver',l:'네이버'},{k:'own',l:'자사몰'},{k:'error',l:'오류'}].map(f=>
+          <button key={f.k} onClick={()=>setFilter(f.k)} style={{padding:'4px 10px',borderRadius:6,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.accent:C.surface,color:filter===f.k?'#fff':C.text,fontSize:11,cursor:'pointer',fontFamily:'inherit',fontWeight:500}}>{f.l}</button>
+        )}
+      </div>
+      {filtered.slice(0,25).map((l,i)=><div key={l.id} onClick={()=>onSelect(l)} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===l.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===l.id?`3px solid ${C.accent}`:'3px solid transparent'}} onMouseEnter={ev=>{if(selected?.id!==l.id)ev.currentTarget.style.background=`${C.accent}04`}} onMouseLeave={ev=>{if(selected?.id!==l.id)ev.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+          <span style={{fontSize:12}}>{l.channelIcon}</span>
+          <span style={{fontSize:12,fontFamily:'monospace',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.endpoint}</span>
+          <span style={{fontSize:12,fontWeight:700,color:l.status<400?C.success:C.danger}}>{l.status}</span>
+        </div>
+        <div style={{fontSize:11,color:C.textMuted}}>{l.timestamp} · {l.duration}ms</div>
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected ? <div>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>API 로그 #{selected.id}</h3>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>채널</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.channelIcon} {selected.channel}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>상태</span><div style={{fontSize:14,fontWeight:700,marginTop:4,color:selected.status<400?C.success:C.danger}}>{selected.status}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>엔드포인트</span><div style={{fontSize:13,fontFamily:'monospace',marginTop:4}}>{selected.endpoint}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>응답 시간</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.duration}ms</div></div>
+        </div>
+        {selected.errorType && <div style={{padding:14,borderRadius:12,border:`1px solid #FECACA`,background:'#FEF2F2',marginBottom:16}}>
+          <span style={{fontSize:12,color:C.danger,fontWeight:600}}>오류: {selected.errorType}</span>
+        </div>}
+        <div><span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>요청 페이로드</span><pre style={{background:'#F1F5F9',padding:14,borderRadius:10,fontSize:12,fontFamily:'monospace',marginTop:6,border:`1px solid ${C.border}`}}>{JSON.stringify(JSON.parse(selected.payload),null,2)}</pre></div>
+      </div> : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측에서 로그를 선택하세요</div>}
+    </div>
+  </div>;
+}
+
+function ConflictHistoryPage({selected,onSelect}){
+  return <div style={{display:'flex',height:'100%',overflow:'hidden',animation:'fadeIn 300ms ease'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>충돌 이력 {CONFLICTS.length}건</span>
+      </div>
+      {CONFLICTS.map((c,i)=><div key={c.id} onClick={()=>onSelect(c)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===c.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===c.id?`3px solid ${C.accent}`:'3px solid transparent'}} onMouseEnter={ev=>{if(selected?.id!==c.id)ev.currentTarget.style.background=`${C.accent}04`}} onMouseLeave={ev=>{if(selected?.id!==c.id)ev.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+          <span style={{fontSize:14}}>{c.channelIcon}</span>
+          <span style={{fontSize:13,fontWeight:600,flex:1}}>{c.product}</span>
+          <Badge text={c.impact==='high'?'심각':'경미'} color={c.impact==='high'?C.danger:C.warning}/>
+        </div>
+        <div style={{fontSize:11,color:C.textMuted}}>SKU: {c.sku} · {c.channel} · {c.resolvedAt}</div>
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected ? <div>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>충돌 상세 — {selected.product}</h3>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>채널</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{selected.channelIcon} {selected.channel}</div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>SKU</span><div style={{fontSize:14,fontFamily:'monospace',marginTop:4}}>{selected.sku}</div></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`,textAlign:'center'}}><span style={{fontSize:11,color:C.textMuted}}>로컬 수량</span><div style={{fontSize:22,fontWeight:700,color:C.primary,marginTop:4}}>{selected.localQty}</div></div>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`,textAlign:'center'}}><span style={{fontSize:11,color:C.textMuted}}>원격 수량</span><div style={{fontSize:22,fontWeight:700,color:C.warning,marginTop:4}}>{selected.remoteQty}</div></div>
+          <div style={{padding:16,borderRadius:14,border:`1px solid ${C.accent}30`,background:`${C.accent}08`,textAlign:'center'}}><span style={{fontSize:11,color:C.accent,fontWeight:600}}>해결 수량</span><div style={{fontSize:22,fontWeight:700,color:C.accent,marginTop:4}}>{selected.resolvedQty}</div></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>해결 전략</span><div style={{marginTop:4}}><Badge text={selected.strategy} color={C.accent}/></div></div>
+          <div style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`}}><span style={{fontSize:11,color:C.textMuted}}>영향도</span><div style={{marginTop:4}}><Badge text={selected.impact==='high'?'심각':'경미'} color={selected.impact==='high'?C.danger:C.warning}/></div></div>
+        </div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>운영 메모</span><textarea placeholder="이 충돌에 대한 메모..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginTop:6}}/></div>
+      </div> : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측에서 충돌을 선택하세요</div>}
+    </div>
+  </div>;
+}
+
+/* ─── Main App ─── */
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [section,setSection]=useState('dashboard');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  useEffect(()=>{setSelected(null);setTab(0)},[section]);
+  if(loading) return <SkeletonLoader/>;
+
+  const SECTION_TABS={
+    dashboard:[{label:'개요'},{label:'실시간 모니터링'}],
+    'channel-integration':[{label:'채널 관리'},{label:'Webhook 설정'}],
+    'etl-pipeline':[{label:'파이프라인 현황'},{label:'큐 관리'}],
+    'log-tracker':[{label:'API 로그'},{label:'오류 패턴'}],
+    'conflict-history':[{label:'충돌 이력'},{label:'해결 통계'}],
+  };
+
+  const renderPage=()=>{
+    switch(section){
+      case 'dashboard':return <DashboardPage onSelect={setSelected}/>;
+      case 'channel-integration':return <ChannelIntegrationPage selected={selected} onSelect={setSelected}/>;
+      case 'etl-pipeline':return <EtlPipelinePage selected={selected} onSelect={setSelected}/>;
+      case 'log-tracker':return <LogTrackerPage selected={selected} onSelect={setSelected}/>;
+      case 'conflict-history':return <ConflictHistoryPage selected={selected} onSelect={setSelected}/>;
+      default:return <DashboardPage onSelect={setSelected}/>;
+    }
+  };
+
+  return <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+    {/* Bright Sidebar 240px */}
+    <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',flexShrink:0,position:'sticky',top:0,height:'100vh'}}>
+      <div style={{padding:'16px 16px 20px',display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:30,height:30,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff',fontWeight:700}}>O</div>
+        <span style={{fontSize:15,fontWeight:700,color:C.secondary}}>OmniLink</span>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+        {NAV.map(n=><button key={n.id} onClick={()=>setSection(n.id)} title={n.label} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',background:section===n.id?`${C.accent}10`:'transparent',color:section===n.id?C.accent:C.textLight,borderLeft:section===n.id?`3px solid ${C.accent}`:'3px solid transparent',fontSize:13,fontWeight:section===n.id?600:400,fontFamily:'inherit',textAlign:'left',transition:'all 150ms'}}>
+          <span style={{fontSize:16}}>{n.icon}</span>
+          <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.label}</span>
+        </button>)}
+      </div>
+      <div style={{padding:12,borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:'50%',background:C.accent,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:600}}>박</div>
+          <div><div style={{fontSize:12,fontWeight:500}}>박서진</div><div style={{fontSize:10,color:C.textMuted}}>관리자</div></div>
+        </div>
+      </div>
+    </nav>
+    {/* Main Area */}
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+      {/* App Bar */}
+      <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+        <span style={{fontSize:12,color:C.textMuted}}>{NAV.find(n=>n.id===section)?.label}</span>
+        {SECTION_TABS[section]?.[tab] && <><span style={{color:C.textMuted,fontSize:12}}>›</span><span style={{fontSize:12,color:C.text,fontWeight:600}}>{SECTION_TABS[section][tab].label}</span></>}
+        <div style={{flex:1}}/>
+        <span style={{fontSize:14,cursor:'pointer'}}>🔍</span>
+        <span style={{fontSize:14,cursor:'pointer',position:'relative'}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:12,height:12,borderRadius:'50%',background:C.danger,color:'#fff',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center'}}>4</span></span>
+      </header>
+      {/* Tab Strip */}
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {(SECTION_TABS[section]||[]).map((t,i)=><button key={i} onClick={()=>{setTab(i);setSelected(null)}} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:tab===i?C.accent:C.textLight,fontWeight:tab===i?600:400,borderBottom:tab===i?`2px solid ${C.accent}`:'2px solid transparent',marginBottom:-1}}>{t.label}</button>)}
+      </div>
+      {/* Content */}
+      <div style={{flex:1,overflow:section==='dashboard'?'auto':'hidden',padding:section==='dashboard'?20:0}}>
+        {renderPage()}
+      </div>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

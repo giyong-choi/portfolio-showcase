@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ClipScope - 소셜 미디어 바이럴 모니터링</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F4FF;color:#111827;overflow:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback} = React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,Area,AreaChart} = Recharts;
+
+// ── Design Tokens (sidebar-classic / corporate-clean / Ocean Trust) ──
+const C = {
+  primary:'#1A56DB', secondary:'#3B82F6', accent:'#0EA5E9',
+  bg:'#F0F4FF', surface:'#FFFFFF', text:'#111827', textLight:'#4B5563',
+  border:'#E2E8F0', sidebar:'#0F1A2E', sidebarText:'#94A3B8',
+  sidebarActive:'#1A56DB', success:'#059669', warning:'#D97706', danger:'#DC2626',
+};
+const CARD = {borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24,border:'none'};
+const TYPO = {
+  pageTitle:{fontSize:24,fontWeight:700,letterSpacing:'-0.02em'},
+  sectionTitle:{fontSize:18,fontWeight:600},
+  body:{fontSize:14,lineHeight:1.7},
+  caption:{fontSize:12,color:'#6B7280'},
+};
+
+// ── Dummy Data ──
+const CHANNELS = [
+  {id:1,name:'트래블피플',platform:'YouTube',subscribers:820,status:'active',lastCrawl:'2025.01.28 14:30',videos:47,url:'youtube.com/@travelpeople'},
+  {id:2,name:'일상브이로그',platform:'Instagram',followers:650,status:'active',lastCrawl:'2025.01.28 14:25',videos:23,url:'instagram.com/daily_vlog'},
+  {id:3,name:'쿡방연구소',platform:'YouTube',subscribers:480,status:'active',lastCrawl:'2025.01.28 14:20',videos:31,url:'youtube.com/@cooklab'},
+  {id:4,name:'뷰티하울',platform:'Instagram',followers:920,status:'paused',lastCrawl:'2025.01.27 09:15',videos:18,url:'instagram.com/beauty_haul'},
+  {id:5,name:'댕댕이월드',platform:'YouTube',subscribers:310,status:'active',lastCrawl:'2025.01.28 14:28',videos:56,url:'youtube.com/@doggworld'},
+  {id:6,name:'미니멀라이프',platform:'YouTube',subscribers:740,status:'active',lastCrawl:'2025.01.28 14:22',videos:29,url:'youtube.com/@minimallife'},
+  {id:7,name:'카페투어러',platform:'Instagram',followers:580,status:'active',lastCrawl:'2025.01.28 14:18',videos:42,url:'instagram.com/cafe_tourer'},
+  {id:8,name:'게임실황TV',platform:'YouTube',subscribers:990,status:'error',lastCrawl:'2025.01.28 13:05',videos:67,url:'youtube.com/@gamelivetv'},
+];
+
+const RESULTS = [
+  {id:1,title:'혼자 떠난 제주 3박 4일 여행 브이로그',channel:'트래블피플',platform:'YouTube',subscribers:820,views:3420000,uploadDate:'2025.01.26',url:'#',thumbnail:'🎬'},
+  {id:2,title:'5분 완성 초간단 파스타 레시피',channel:'쿡방연구소',platform:'YouTube',subscribers:480,views:2890000,uploadDate:'2025.01.27',url:'#',thumbnail:'🍳'},
+  {id:3,title:'우리집 강아지의 하루 일과',channel:'댕댕이월드',platform:'YouTube',subscribers:310,views:5210000,uploadDate:'2025.01.25',url:'#',thumbnail:'🐕'},
+  {id:4,title:'카페 투어 서울 성수동 편',channel:'카페투어러',platform:'Instagram',followers:580,views:2150000,uploadDate:'2025.01.27',url:'#',thumbnail:'☕'},
+  {id:5,title:'미니멀 인테리어 룸투어',channel:'미니멀라이프',platform:'YouTube',subscribers:740,views:4780000,uploadDate:'2025.01.26',url:'#',thumbnail:'🏠'},
+  {id:6,title:'일상 브이로그 한강 피크닉',channel:'일상브이로그',platform:'Instagram',followers:650,views:2340000,uploadDate:'2025.01.28',url:'#',thumbnail:'🌅'},
+  {id:7,title:'1만원으로 꾸미는 홈카페',channel:'쿡방연구소',platform:'YouTube',subscribers:480,views:3670000,uploadDate:'2025.01.26',url:'#',thumbnail:'🧁'},
+  {id:8,title:'강아지와 함께하는 캠핑',channel:'댕댕이월드',platform:'YouTube',subscribers:310,views:2980000,uploadDate:'2025.01.27',url:'#',thumbnail:'⛺'},
+  {id:9,title:'이 가격에 이런 퀄리티? 디저트 카페 추천',channel:'카페투어러',platform:'Instagram',followers:580,views:4120000,uploadDate:'2025.01.25',url:'#',thumbnail:'🍰'},
+  {id:10,title:'퇴근 후 30분 요리 챌린지',channel:'쿡방연구소',platform:'YouTube',subscribers:480,views:2560000,uploadDate:'2025.01.28',url:'#',thumbnail:'👨‍🍳'},
+];
+
+const SCHEDULES = [
+  {id:1,channel:'트래블피플',interval:'5분',nextRun:'14:35',status:'running',successRate:98},
+  {id:2,channel:'일상브이로그',interval:'10분',nextRun:'14:35',status:'running',successRate:95},
+  {id:3,channel:'쿡방연구소',interval:'5분',nextRun:'14:35',status:'running',successRate:97},
+  {id:4,channel:'뷰티하울',interval:'15분',nextRun:'-',status:'paused',successRate:92},
+  {id:5,channel:'댕댕이월드',interval:'5분',nextRun:'14:33',status:'running',successRate:99},
+  {id:6,channel:'미니멀라이프',interval:'10분',nextRun:'14:32',status:'running',successRate:96},
+  {id:7,channel:'카페투어러',interval:'10분',nextRun:'14:38',status:'running',successRate:94},
+  {id:8,channel:'게임실황TV',interval:'5분',nextRun:'-',status:'error',successRate:78},
+];
+
+const HOURLY_DATA = [
+  {time:'00시',youtube:12,instagram:5},{time:'02시',youtube:8,instagram:3},{time:'04시',youtube:5,instagram:2},
+  {time:'06시',youtube:15,instagram:8},{time:'08시',youtube:28,instagram:14},{time:'10시',youtube:42,instagram:22},
+  {time:'12시',youtube:38,instagram:19},{time:'14시',youtube:52,instagram:28},{time:'16시',youtube:45,instagram:25},
+  {time:'18시',youtube:62,instagram:34},{time:'20시',youtube:58,instagram:31},{time:'22시',youtube:35,instagram:18},
+];
+
+const PLATFORM_DATA = [{name:'YouTube',value:65,color:C.primary},{name:'Instagram',value:35,color:C.accent}];
+
+// ── Utility Components ──
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:'#0F1A2E',color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Modal({title,onClose,children,width=560}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid #E2E8F0'}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#6B7280'}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Badge({children,color=C.primary}){
+  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:`${color}15`,color}}>{children}</span>;
+}
+
+function StatusDot({status}){
+  const colors={active:C.success,running:C.success,paused:C.warning,error:C.danger,completed:C.success};
+  return <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:colors[status]||'#9CA3AF',marginRight:6}}/>;
+}
+
+function InputField({label,value,onChange,type='text',placeholder=''}){
+  return(
+    <div style={{marginBottom:16}}>
+      <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>{label}</label>
+      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+        style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #D1D5DB',fontSize:14,fontFamily:'inherit',outline:'none',transition:'border 150ms'}}
+        onFocus={e=>e.target.style.borderColor=C.primary} onBlur={e=>e.target.style.borderColor='#D1D5DB'}/>
+    </div>
+  );
+}
+
+function SelectField({label,value,onChange,options}){
+  return(
+    <div style={{marginBottom:16}}>
+      <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>{label}</label>
+      <select value={value} onChange={e=>onChange(e.target.value)}
+        style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #D1D5DB',fontSize:14,fontFamily:'inherit',outline:'none',background:'#fff'}}>
+        {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function Btn({children,onClick,variant='primary',size='md',icon,style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600,borderRadius:8,display:'inline-flex',alignItems:'center',gap:6,transition:'all 150ms'};
+  const sizes={sm:{padding:'6px 12px',fontSize:12},md:{padding:'8px 16px',fontSize:13},lg:{padding:'10px 20px',fontSize:14}};
+  const variants={
+    primary:{background:C.primary,color:'#fff'},
+    secondary:{background:`${C.primary}10`,color:C.primary},
+    danger:{background:'#FEE2E2',color:C.danger},
+    ghost:{background:'transparent',color:C.textLight},
+  };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant],...s}}
+    onMouseEnter={e=>{if(variant==='primary')e.currentTarget.style.filter='brightness(1.1)';else e.currentTarget.style.background=variant==='ghost'?'#F3F4F6':`${C.primary}18`}}
+    onMouseLeave={e=>{if(variant==='primary')e.currentTarget.style.filter='none';else e.currentTarget.style.background=variants[variant].background}}>
+    {icon&&<span>{icon}</span>}{children}
+  </button>;
+}
+
+// ── Skeleton ──
+function Skeleton(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:260,background:'#0F1A2E',flexShrink:0}}/>
+      <div style={{flex:1,padding:24,display:'flex',flexDirection:'column',gap:16}}>
+        {[...Array(4)].map((_,i)=><div key={i} style={{height:i===0?48:180,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+}
+
+// ── Pages ──
+function DashboardPage({setModal}){
+  const kpis=[
+    {label:'수집 영상',value:347,suffix:'개',icon:'📹',color:C.primary},
+    {label:'모니터링 채널',value:8,suffix:'개',icon:'📡',color:C.accent},
+    {label:'오늘 수집',value:52,suffix:'건',icon:'📊',color:C.success},
+    {label:'알림 발생',value:7,suffix:'건',icon:'🔔',color:C.warning},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:24}}>
+        {kpis.map((k,i)=>(
+          <div key={k.label} onClick={()=>setModal({type:'kpi-detail',data:k})} style={{...CARD,background:C.surface,cursor:'pointer',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=CARD.boxShadow}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:13,color:C.textLight,marginBottom:8}}>{k.label}</div>
+                <div style={{fontSize:28,fontWeight:800,color:k.color}}><CountUp end={k.value} suffix={k.suffix}/></div>
+              </div>
+              <div style={{fontSize:28,opacity:0.8}}>{k.icon}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
+        <div style={{...CARD,background:C.surface}}>
+          <div style={{...TYPO.sectionTitle,marginBottom:16}}>시간대별 수집 현황</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={HOURLY_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+              <XAxis dataKey="time" fontSize={12} stroke="#9CA3AF"/>
+              <YAxis fontSize={12} stroke="#9CA3AF"/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Area type="monotone" dataKey="youtube" stackId="1" stroke={C.primary} fill={`${C.primary}30`} name="YouTube"/>
+              <Area type="monotone" dataKey="instagram" stackId="1" stroke={C.accent} fill={`${C.accent}30`} name="Instagram"/>
+              <Legend/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...CARD,background:C.surface}}>
+          <div style={{...TYPO.sectionTitle,marginBottom:16}}>플랫폼 비율</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={PLATFORM_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
+                {PLATFORM_DATA.map((d,i)=><Cell key={i} fill={d.color}/>)}
+              </Pie>
+              <Tooltip/>
+              <Legend/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{...CARD,background:C.surface}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{...TYPO.sectionTitle}}>최근 수집 영상</div>
+          <Badge color={C.success}>실시간 업데이트</Badge>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['','제목','채널','플랫폼','조회수','업로드일'].map(h=><th key={h} style={{textAlign:'left',padding:'10px 12px',fontSize:12,color:C.textLight,fontWeight:600}}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {RESULTS.slice(0,5).map((r,i)=>(
+              <tr key={r.id} onClick={()=>setModal({type:'detail',data:r})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'12px',fontSize:20}}>{r.thumbnail}</td>
+                <td style={{padding:'12px',fontSize:14,fontWeight:500,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.title}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textLight}}>{r.channel}</td>
+                <td style={{padding:'12px'}}><Badge color={r.platform==='YouTube'?C.primary:C.accent}>{r.platform}</Badge></td>
+                <td style={{padding:'12px',fontSize:14,fontWeight:600,color:C.primary}}>{(r.views/10000).toFixed(0)}만</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textLight}}>{r.uploadDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ChannelPage({setModal,setToast}){
+  const [search,setSearch]=useState('');
+  const [filterPlatform,setFilterPlatform]=useState('all');
+  const filtered=CHANNELS.filter(c=>{
+    if(filterPlatform!=='all'&&c.platform!==filterPlatform)return false;
+    if(search&&!c.name.includes(search))return false;
+    return true;
+  });
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:12,marginBottom:20,alignItems:'center'}}>
+        <input placeholder="채널 검색..." value={search} onChange={e=>setSearch(e.target.value)}
+          style={{flex:1,padding:'10px 16px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/>
+        <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
+          style={{padding:'10px 16px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:'#fff'}}>
+          <option value="all">전체 플랫폼</option>
+          <option value="YouTube">YouTube</option>
+          <option value="Instagram">Instagram</option>
+        </select>
+        <Btn onClick={()=>setModal({type:'add-channel'})} icon="＋">채널 추가</Btn>
+      </div>
+      <div style={{...CARD,background:C.surface,padding:0,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+              {['상태','채널명','플랫폼','구독자/팔로워','수집 영상','마지막 크롤링',''].map(h=><th key={h} style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((ch,i)=>(
+              <tr key={ch.id} onClick={()=>setModal({type:'channel-detail',data:ch})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*50}ms both`}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'14px 16px'}}><StatusDot status={ch.status}/>{ch.status==='active'?'활성':ch.status==='paused'?'일시정지':'오류'}</td>
+                <td style={{padding:'14px 16px',fontWeight:600,fontSize:14}}>{ch.name}</td>
+                <td style={{padding:'14px 16px'}}><Badge color={ch.platform==='YouTube'?C.primary:C.accent}>{ch.platform}</Badge></td>
+                <td style={{padding:'14px 16px',fontSize:14}}>{(ch.subscribers||ch.followers||0).toLocaleString()}명</td>
+                <td style={{padding:'14px 16px',fontSize:14}}>{ch.videos}개</td>
+                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{ch.lastCrawl}</td>
+                <td style={{padding:'14px 16px'}}>
+                  <Btn variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setModal({type:'edit-channel',data:ch})}}>편집</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FilterPage({setToast}){
+  const [platform,setPlatform]=useState('YouTube');
+  const [minViews,setMinViews]=useState('2000000');
+  const [maxSubs,setMaxSubs]=useState('1000');
+  const [uploadDays,setUploadDays]=useState('3');
+  const [presetName,setPresetName]=useState('');
+  const presets=[
+    {name:'바이럴 기본',platform:'YouTube',minViews:'2,000,000',maxSubs:'1,000',days:'3일'},
+    {name:'인스타 인기',platform:'Instagram',minViews:'500,000',maxSubs:'5,000',days:'7일'},
+    {name:'마이크로 유튜버',platform:'YouTube',minViews:'1,000,000',maxSubs:'500',days:'2일'},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease',display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+      <div style={{...CARD,background:C.surface}}>
+        <div style={{...TYPO.sectionTitle,marginBottom:20}}>수집 조건 설정</div>
+        <SelectField label="대상 플랫폼" value={platform} onChange={setPlatform} options={[{value:'YouTube',label:'YouTube'},{value:'Instagram',label:'Instagram'},{value:'Both',label:'YouTube + Instagram'}]}/>
+        <InputField label="최소 조회수" value={minViews} onChange={setMinViews} type="number" placeholder="예: 2000000"/>
+        <InputField label="최대 구독자/팔로워 수" value={maxSubs} onChange={setMaxSubs} type="number" placeholder="예: 1000"/>
+        <InputField label="업로드 기간 (일)" value={uploadDays} onChange={setUploadDays} type="number" placeholder="예: 3"/>
+        <div style={{display:'flex',gap:12,marginTop:20}}>
+          <Btn onClick={()=>setToast('수집 조건이 저장되었습니다')}>조건 저장</Btn>
+          <Btn variant="secondary" onClick={()=>setToast('조건이 초기화되었습니다')}>초기화</Btn>
+        </div>
+      </div>
+      <div>
+        <div style={{...CARD,background:C.surface,marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div style={{...TYPO.sectionTitle}}>저장된 프리셋</div>
+          </div>
+          {presets.map((p,i)=>(
+            <div key={i} onClick={()=>setToast(`"${p.name}" 프리셋이 적용되었습니다`)} style={{padding:'14px 16px',borderRadius:10,border:`1px solid ${C.border}`,marginBottom:10,cursor:'pointer',transition:'all 150ms'}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.primary;e.currentTarget.style.background=`${C.primary}06`}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background='transparent'}}>
+              <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>{p.name}</div>
+              <div style={{fontSize:12,color:C.textLight}}>{p.platform} · 조회수 {p.minViews}+ · 구독자 {p.maxSubs}이하 · {p.days} 이내</div>
+            </div>
+          ))}
+        </div>
+        <div style={{...CARD,background:C.surface}}>
+          <div style={{...TYPO.sectionTitle,marginBottom:16}}>새 프리셋 저장</div>
+          <InputField label="프리셋 이름" value={presetName} onChange={setPresetName} placeholder="프리셋 이름 입력"/>
+          <Btn onClick={()=>{if(presetName)setToast(`"${presetName}" 프리셋이 저장되었습니다`)}}>프리셋 저장</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultsPage({setModal}){
+  const PER_PAGE=6;
+  const [currentPage,setCurrentPage]=useState(1);
+  const [sortKey,setSortKey]=useState('views');
+  const [sortDir,setSortDir]=useState('desc');
+  const [filterPlatform,setFilterPlatform]=useState('all');
+  const filtered=RESULTS.filter(r=>filterPlatform==='all'||r.platform===filterPlatform);
+  const sorted=[...filtered].sort((a,b)=>sortDir==='desc'?b[sortKey]-a[sortKey]:a[sortKey]-b[sortKey]);
+  const paged=sorted.slice((currentPage-1)*PER_PAGE,currentPage*PER_PAGE);
+  const totalPages=Math.ceil(sorted.length/PER_PAGE);
+  const handleSort=(key)=>{if(sortKey===key)setSortDir(d=>d==='asc'?'desc':'asc');else{setSortKey(key);setSortDir('desc')}};
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:12,marginBottom:20,alignItems:'center'}}>
+        <input placeholder="영상 검색..." style={{flex:1,padding:'10px 16px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/>
+        <select value={filterPlatform} onChange={e=>{setFilterPlatform(e.target.value);setCurrentPage(1)}}
+          style={{padding:'10px 16px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:'#fff'}}>
+          <option value="all">전체 플랫폼</option>
+          <option value="YouTube">YouTube</option>
+          <option value="Instagram">Instagram</option>
+        </select>
+        <Btn variant="secondary" icon="📥" onClick={()=>{}}>CSV 내보내기</Btn>
+      </div>
+      <div style={{...CARD,background:C.surface,padding:0,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}></th>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>제목</th>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>채널</th>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>플랫폼</th>
+              <th onClick={()=>handleSort('views')} style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight,cursor:'pointer'}}>
+                조회수 {sortKey==='views'?(sortDir==='desc'?'▼':'▲'):''}
+              </th>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>구독자</th>
+              <th style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>업로드일</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((r,i)=>(
+              <tr key={r.id} onClick={()=>setModal({type:'detail',data:r})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*50}ms both`}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'12px 16px',fontSize:20}}>{r.thumbnail}</td>
+                <td style={{padding:'12px 16px',fontSize:14,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.title}</td>
+                <td style={{padding:'12px 16px',fontSize:13,color:C.textLight}}>{r.channel}</td>
+                <td style={{padding:'12px 16px'}}><Badge color={r.platform==='YouTube'?C.primary:C.accent}>{r.platform}</Badge></td>
+                <td style={{padding:'12px 16px',fontSize:14,fontWeight:600,color:C.primary}}>{(r.views/10000).toFixed(0)}만</td>
+                <td style={{padding:'12px 16px',fontSize:13}}>{(r.subscribers||r.followers||0).toLocaleString()}명</td>
+                <td style={{padding:'12px 16px',fontSize:13,color:C.textLight}}>{r.uploadDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:8,padding:16}}>
+          <button onClick={()=>setCurrentPage(p=>Math.max(1,p-1))} disabled={currentPage===1}
+            style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,background:'#fff',cursor:currentPage===1?'default':'pointer',opacity:currentPage===1?0.5:1,fontFamily:'inherit'}}>‹</button>
+          {[...Array(totalPages)].map((_,i)=>(
+            <button key={i} onClick={()=>setCurrentPage(i+1)}
+              style={{padding:'6px 12px',border:`1px solid ${currentPage===i+1?C.primary:C.border}`,borderRadius:6,background:currentPage===i+1?C.primary:'#fff',color:currentPage===i+1?'#fff':C.text,cursor:'pointer',fontWeight:currentPage===i+1?700:400,fontFamily:'inherit',fontSize:13}}>
+              {i+1}
+            </button>
+          ))}
+          <button onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages}
+            style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,background:'#fff',cursor:currentPage===totalPages?'default':'pointer',opacity:currentPage===totalPages?0.5:1,fontFamily:'inherit'}}>›</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePage({setModal,setToast}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+        {[
+          {label:'활성 스케줄',value:'6',icon:'▶',color:C.success},
+          {label:'일시정지',value:'1',icon:'⏸',color:C.warning},
+          {label:'오류',value:'1',icon:'⚠',color:C.danger},
+        ].map((s,i)=>(
+          <div key={s.label} style={{...CARD,background:C.surface,animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:40,height:40,borderRadius:10,background:`${s.color}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{s.icon}</div>
+              <div>
+                <div style={{fontSize:12,color:C.textLight}}>{s.label}</div>
+                <div style={{fontSize:22,fontWeight:700,color:s.color}}>{s.value}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{...CARD,background:C.surface,padding:0,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+              {['상태','채널','수집 주기','다음 실행','성공률',''].map(h=><th key={h} style={{textAlign:'left',padding:'12px 16px',fontSize:12,fontWeight:600,color:C.textLight}}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {SCHEDULES.map((s,i)=>(
+              <tr key={s.id} onClick={()=>setModal({type:'schedule-detail',data:s})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*50}ms both`}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'14px 16px'}}><StatusDot status={s.status}/>{s.status==='running'?'실행중':s.status==='paused'?'정지':'오류'}</td>
+                <td style={{padding:'14px 16px',fontWeight:600,fontSize:14}}>{s.channel}</td>
+                <td style={{padding:'14px 16px'}}><Badge>{s.interval}</Badge></td>
+                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{s.nextRun}</td>
+                <td style={{padding:'14px 16px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{flex:1,height:6,borderRadius:3,background:'#E5E7EB'}}>
+                      <div style={{height:'100%',borderRadius:3,background:s.successRate>95?C.success:s.successRate>85?C.warning:C.danger,width:`${s.successRate}%`,animation:'barGrow 800ms ease','--target-width':`${s.successRate}%`}}/>
+                    </div>
+                    <span style={{fontSize:13,fontWeight:600}}>{s.successRate}%</span>
+                  </div>
+                </td>
+                <td style={{padding:'14px 16px'}}>
+                  <Btn variant={s.status==='running'?'secondary':'primary'} size="sm"
+                    onClick={e=>{e.stopPropagation();setToast(s.status==='running'?`${s.channel} 스케줄이 일시정지되었습니다`:`${s.channel} 스케줄이 재시작되었습니다`)}}>
+                    {s.status==='running'?'일시정지':'시작'}
+                  </Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── App ──
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState('dashboard');
+  const [modal,setModal]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+
+  const NAV=[
+    {id:'dashboard',label:'실시간 모니터링 대시보드',icon:'📊'},
+    {id:'channels',label:'채널 관리',icon:'📡'},
+    {id:'filters',label:'조건 필터 설정',icon:'⚙'},
+    {id:'results',label:'수집 결과 리스트',icon:'📋'},
+    {id:'schedule',label:'크롤링 스케줄',icon:'⏱'},
+  ];
+  const PAGE_TITLES={dashboard:'실시간 모니터링 대시보드',channels:'채널 관리',filters:'조건 필터 설정',results:'수집 결과 리스트',schedule:'크롤링 스케줄'};
+
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard':return <DashboardPage setModal={setModal}/>;
+      case 'channels':return <ChannelPage setModal={setModal} setToast={setToast}/>;
+      case 'filters':return <FilterPage setToast={setToast}/>;
+      case 'results':return <ResultsPage setModal={setModal}/>;
+      case 'schedule':return <SchedulePage setModal={setModal} setToast={setToast}/>;
+    }
+  };
+
+  const renderModal=()=>{
+    if(!modal)return null;
+    switch(modal.type){
+      case 'detail':
+        const r=modal.data;
+        return(
+          <Modal title="영상 상세 정보" onClose={()=>setModal(null)} width={600}>
+            <div style={{display:'flex',gap:16,marginBottom:20}}>
+              <div style={{width:80,height:80,borderRadius:12,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>{r.thumbnail}</div>
+              <div style={{flex:1}}>
+                <h4 style={{fontSize:16,fontWeight:700,marginBottom:8}}>{r.title}</h4>
+                <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                  <Badge color={r.platform==='YouTube'?C.primary:C.accent}>{r.platform}</Badge>
+                  <span style={{fontSize:13,color:C.textLight}}>{r.channel}</span>
+                </div>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+              {[{label:'조회수',value:`${(r.views/10000).toFixed(0)}만회`},{label:'구독자',value:`${(r.subscribers||r.followers||0).toLocaleString()}명`},{label:'업로드일',value:r.uploadDate},{label:'수집일시',value:'2025.01.28 14:30'}].map(d=>(
+                <div key={d.label} style={{padding:14,borderRadius:10,background:'#F8FAFC'}}>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{d.label}</div>
+                  <div style={{fontSize:15,fontWeight:600}}>{d.value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>메모</div>
+              <textarea rows={3} placeholder="메모를 입력하세요..." style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+            <div style={{display:'flex',gap:12}}>
+              <Btn onClick={()=>{setModal(null);setToast('링크가 복사되었습니다')}} icon="🔗">링크 복사</Btn>
+              <Btn variant="secondary" onClick={()=>{setModal(null);setToast('메모가 저장되었습니다')}}>메모 저장</Btn>
+            </div>
+          </Modal>
+        );
+      case 'add-channel':
+        return(
+          <Modal title="채널 추가" onClose={()=>setModal(null)}>
+            <SelectField label="플랫폼" value="YouTube" onChange={()=>{}} options={[{value:'YouTube',label:'YouTube'},{value:'Instagram',label:'Instagram'}]}/>
+            <InputField label="채널 URL" value="" onChange={()=>{}} placeholder="예: youtube.com/@channelname"/>
+            <InputField label="채널명 (자동 파싱)" value="" onChange={()=>{}} placeholder="URL 입력 시 자동으로 채널명이 파싱됩니다"/>
+            <SelectField label="수집 주기" value="5" onChange={()=>{}} options={[{value:'5',label:'5분'},{value:'10',label:'10분'},{value:'15',label:'15분'},{value:'30',label:'30분'}]}/>
+            <div style={{display:'flex',gap:12,marginTop:20}}>
+              <Btn onClick={()=>{setModal(null);setToast('채널이 추가되었습니다')}}>추가</Btn>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+            </div>
+          </Modal>
+        );
+      case 'edit-channel':
+        const ch=modal.data;
+        return(
+          <Modal title="채널 편집" onClose={()=>setModal(null)}>
+            <InputField label="채널명" value={ch.name} onChange={()=>{}}/>
+            <InputField label="채널 URL" value={ch.url} onChange={()=>{}}/>
+            <SelectField label="수집 주기" value="5" onChange={()=>{}} options={[{value:'5',label:'5분'},{value:'10',label:'10분'},{value:'15',label:'15분'}]}/>
+            <SelectField label="상태" value={ch.status} onChange={()=>{}} options={[{value:'active',label:'활성'},{value:'paused',label:'일시정지'}]}/>
+            <div style={{display:'flex',gap:12,marginTop:20}}>
+              <Btn onClick={()=>{setModal(null);setToast('채널 정보가 수정되었습니다')}}>저장</Btn>
+              <Btn variant="danger" onClick={()=>{setModal(null);setToast('채널이 삭제되었습니다')}}>삭제</Btn>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+            </div>
+          </Modal>
+        );
+      case 'channel-detail':
+        const cd=modal.data;
+        return(
+          <Modal title="채널 상세 정보" onClose={()=>setModal(null)} width={600}>
+            <div style={{display:'flex',gap:16,marginBottom:20}}>
+              <div style={{width:60,height:60,borderRadius:12,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>📡</div>
+              <div>
+                <h4 style={{fontSize:16,fontWeight:700,marginBottom:4}}>{cd.name}</h4>
+                <div style={{display:'flex',gap:8}}><Badge color={cd.platform==='YouTube'?C.primary:C.accent}>{cd.platform}</Badge><Badge color={cd.status==='active'?C.success:C.warning}>{cd.status==='active'?'활성':'정지'}</Badge></div>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              {[{l:'구독자/팔로워',v:`${(cd.subscribers||cd.followers||0).toLocaleString()}명`},{l:'수집 영상',v:`${cd.videos}개`},{l:'마지막 크롤링',v:cd.lastCrawl},{l:'URL',v:cd.url}].map(d=>(
+                <div key={d.l} style={{padding:12,borderRadius:8,background:'#F8FAFC'}}>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{d.l}</div>
+                  <div style={{fontSize:14,fontWeight:500}}>{d.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>관리 메모</div>
+              <textarea rows={3} placeholder="채널 관련 메모를 입력하세요..." style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+            <div style={{display:'flex',gap:12}}>
+              <Btn onClick={()=>{setModal({type:'edit-channel',data:cd})}}>편집</Btn>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+            </div>
+          </Modal>
+        );
+      case 'schedule-detail':
+        const sd=modal.data;
+        return(
+          <Modal title="스케줄 상세" onClose={()=>setModal(null)}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              {[{l:'채널',v:sd.channel},{l:'수집 주기',v:sd.interval},{l:'다음 실행',v:sd.nextRun},{l:'상태',v:sd.status==='running'?'실행중':sd.status==='paused'?'정지':'오류'},{l:'성공률',v:`${sd.successRate}%`},{l:'총 실행 횟수',v:'1,247회'}].map(d=>(
+                <div key={d.l} style={{padding:12,borderRadius:8,background:'#F8FAFC'}}>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{d.l}</div>
+                  <div style={{fontSize:14,fontWeight:500}}>{d.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>최근 실행 로그</div>
+            {['14:30 - 수집 완료 (3건 신규)','14:25 - 수집 완료 (1건 신규)','14:20 - 수집 완료 (0건 신규)'].map((log,i)=>(
+              <div key={i} style={{padding:'8px 12px',borderRadius:6,background:'#F8FAFC',marginBottom:6,fontSize:13,color:C.textLight}}>{log}</div>
+            ))}
+            <div style={{display:'flex',gap:12,marginTop:16}}>
+              <Btn onClick={()=>{setModal(null);setToast('스케줄이 수정되었습니다')}}>수정</Btn>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+            </div>
+          </Modal>
+        );
+      case 'kpi-detail':
+        const kd=modal.data;
+        return(
+          <Modal title={kd.label+' 상세'} onClose={()=>setModal(null)}>
+            <div style={{textAlign:'center',padding:20}}>
+              <div style={{fontSize:48,marginBottom:12}}>{kd.icon}</div>
+              <div style={{fontSize:36,fontWeight:800,color:kd.color,marginBottom:8}}>{kd.value}{kd.suffix}</div>
+              <div style={{fontSize:14,color:C.textLight}}>전일 대비 +12{kd.suffix}</div>
+            </div>
+            <div style={{borderTop:`1px solid ${C.border}`,paddingTop:16,marginTop:16}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>최근 7일 추이</div>
+              {[7,6,5,4,3,2,1].map(d=>(
+                <div key={d} style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+                  <span style={{fontSize:12,color:C.textLight,width:50}}>{d}일 전</span>
+                  <div style={{flex:1,height:6,borderRadius:3,background:'#E5E7EB'}}>
+                    <div style={{height:'100%',borderRadius:3,background:kd.color,width:`${50+Math.random()*50}%`}}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Modal>
+        );
+      default:return null;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      {/* Sidebar */}
+      <aside style={{width:260,background:C.sidebar,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+        <div style={{padding:'24px 20px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:`${C.primary}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📹</div>
+          <span style={{color:'#fff',fontSize:18,fontWeight:700}}>ClipScope</span>
+        </div>
+        <nav style={{flex:1,padding:'8px 12px'}}>
+          {NAV.map(n=>(
+            <button key={n.id} onClick={()=>setPage(n.id)}
+              style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderRadius:8,border:'none',cursor:'pointer',marginBottom:2,
+                background:page===n.id?`${C.primary}25`:'transparent',color:page===n.id?'#fff':C.sidebarText,fontSize:14,fontWeight:page===n.id?600:400,fontFamily:'inherit',transition:'all 150ms',textAlign:'left'}}
+              onMouseEnter={e=>{if(page!==n.id)e.currentTarget.style.background='rgba(255,255,255,0.06)'}}
+              onMouseLeave={e=>{if(page!==n.id)e.currentTarget.style.background='transparent'}}>
+              <span style={{fontSize:17}}>{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:'#334155',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#94A3B8'}}>👤</div>
+            <div>
+              <div style={{color:'#E2E8F0',fontSize:13,fontWeight:600}}>김민수</div>
+              <div style={{color:'#64748B',fontSize:11}}>관리자</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div style={{flex:1,marginLeft:260,display:'flex',flexDirection:'column',minHeight:'100vh'}}>
+        <header style={{height:64,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
+          <h1 style={{...TYPO.pageTitle}}>{PAGE_TITLES[page]}</h1>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{position:'relative'}}>
+              <input placeholder="검색..." style={{padding:'8px 14px 8px 36px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',width:220,outline:'none'}}/>
+              <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:14,opacity:0.4}}>🔍</span>
+            </div>
+            <div style={{position:'relative',cursor:'pointer'}}>
+              <span style={{fontSize:20}}>🔔</span>
+              <span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:C.danger,color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center'}}>3</span>
+            </div>
+          </div>
+        </header>
+        <main style={{flex:1,padding:28,overflowY:'auto'}}>
+          {renderPage()}
+        </main>
+      </div>
+
+      {renderModal()}
+      {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

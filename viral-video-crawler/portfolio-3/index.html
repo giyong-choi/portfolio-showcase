@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TrendBurst - AI 콘텐츠 트렌드 분석 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#0F172A;color:#F1F5F9;overflow:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,Area,AreaChart} = Recharts;
+
+// ── Design Tokens (bright-workspace / modern-dark / Slate Pro) ──
+const C = {
+  primary:'#6366F1',secondary:'#8B5CF6',accent:'#22D3EE',
+  bg:'#0F172A',surface:'#1E293B',text:'#F1F5F9',textLight:'#94A3B8',
+  border:'#334155',success:'#34D399',warning:'#FBBF24',danger:'#F87171',
+  sidebar:'#FFFFFF',sidebarText:'#64748B',sidebarActive:'#6366F1',
+};
+const CARD={borderRadius:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',padding:20,border:`1px solid ${C.border}`};
+
+// ── Dummy Data ──
+const PLATFORMS_CONFIG = [
+  {id:'youtube',name:'YouTube',icon:'▶',status:'active',keywords:['여행','먹방','일상','ASMR'],minViews:100000,schedule:'10분'},
+  {id:'instagram',name:'Instagram',icon:'📷',status:'active',keywords:['패션','뷰티','카페','인테리어'],minViews:50000,schedule:'15분'},
+  {id:'tiktok',name:'TikTok',icon:'🎵',status:'active',keywords:['댄스','챌린지','요리','반려동물'],minViews:200000,schedule:'10분'},
+];
+
+const REPORTS = [
+  {id:1,title:'주간 바이럴 트렌드 리포트 #24',date:'2026.01.28',status:'completed',keywords:['겨울여행','홈카페','신년챌린지'],sentiment:{positive:62,neutral:28,negative:10},contentCount:342},
+  {id:2,title:'키워드 급상승 알림 — "설날 레시피"',date:'2026.01.27',status:'completed',keywords:['설날레시피','전통음식','명절요리'],sentiment:{positive:78,neutral:18,negative:4},contentCount:187},
+  {id:3,title:'플랫폼 간 트렌드 비교 분석',date:'2026.01.26',status:'completed',keywords:['GRWM','일상브이로그','먹방'],sentiment:{positive:55,neutral:35,negative:10},contentCount:520},
+  {id:4,title:'AI 감성 분석 심층 리포트',date:'2026.01.25',status:'processing',keywords:['감성분석','키워드추출','카테고리'],sentiment:{positive:0,neutral:0,negative:0},contentCount:0},
+];
+
+const CONTENTS = [
+  {id:1,title:'혼자 떠난 겨울 강릉 여행 브이로그',platform:'YouTube',keywords:['여행','강릉','겨울'],sentiment:'positive',views:3420000,category:'여행',date:'01.27'},
+  {id:2,title:'설날 전 만들기 완벽 가이드',platform:'YouTube',keywords:['설날','요리','전'],sentiment:'positive',views:2890000,category:'요리',date:'01.28'},
+  {id:3,title:'2026 봄 패션 트렌드 하울',platform:'Instagram',keywords:['패션','하울','트렌드'],sentiment:'positive',views:1520000,category:'패션',date:'01.27'},
+  {id:4,title:'숨은 카페 성수동 투어',platform:'TikTok',keywords:['카페','성수동','맛집'],sentiment:'positive',views:4210000,category:'라이프',date:'01.26'},
+  {id:5,title:'반려견과 함께하는 겨울 캠핑',platform:'YouTube',keywords:['캠핑','반려동물','겨울'],sentiment:'positive',views:2780000,category:'라이프',date:'01.28'},
+  {id:6,title:'ASMR 편의점 먹방 모음',platform:'TikTok',keywords:['ASMR','먹방','편의점'],sentiment:'neutral',views:5670000,category:'먹방',date:'01.27'},
+  {id:7,title:'홈카페 인테리어 비포&애프터',platform:'Instagram',keywords:['인테리어','홈카페','DIY'],sentiment:'positive',views:1980000,category:'인테리어',date:'01.26'},
+  {id:8,title:'신년 다이어리 꾸미기 챌린지',platform:'TikTok',keywords:['다이어리','챌린지','문구'],sentiment:'positive',views:3150000,category:'라이프',date:'01.28'},
+];
+
+const QUEUE_JOBS = [
+  {id:'JOB-001',type:'수집',platform:'YouTube',status:'completed',startTime:'14:28',duration:'45초',items:87},
+  {id:'JOB-002',type:'수집',platform:'Instagram',status:'completed',startTime:'14:27',duration:'32초',items:54},
+  {id:'JOB-003',type:'수집',platform:'TikTok',status:'running',startTime:'14:30',duration:'-',items:0},
+  {id:'JOB-004',type:'AI 분석',platform:'전체',status:'waiting',startTime:'-',duration:'-',items:141},
+  {id:'JOB-005',type:'리포트 생성',platform:'전체',status:'waiting',startTime:'-',duration:'-',items:0},
+  {id:'JOB-006',type:'수집',platform:'YouTube',status:'completed',startTime:'14:13',duration:'42초',items:92},
+  {id:'JOB-007',type:'AI 분석',platform:'전체',status:'completed',startTime:'14:14',duration:'2분 18초',items:146},
+  {id:'JOB-008',type:'리포트 생성',platform:'전체',status:'completed',startTime:'14:17',duration:'12초',items:1},
+];
+
+const TREND_DATA = [
+  {date:'01/22',youtube:45,instagram:32,tiktok:28},{date:'01/23',youtube:52,instagram:38,tiktok:35},
+  {date:'01/24',youtube:48,instagram:42,tiktok:40},{date:'01/25',youtube:61,instagram:45,tiktok:52},
+  {date:'01/26',youtube:58,instagram:50,tiktok:48},{date:'01/27',youtube:72,instagram:55,tiktok:62},
+  {date:'01/28',youtube:68,instagram:58,tiktok:55},
+];
+
+const KEYWORD_CLOUD = [
+  {word:'겨울여행',size:42,color:C.primary},{word:'홈카페',size:36,color:C.accent},{word:'먹방',size:38,color:C.secondary},
+  {word:'ASMR',size:30,color:C.success},{word:'챌린지',size:34,color:C.warning},{word:'패션',size:28,color:C.accent},
+  {word:'캠핑',size:26,color:C.primary},{word:'설날',size:32,color:C.danger},{word:'인테리어',size:24,color:C.success},
+  {word:'반려동물',size:30,color:C.secondary},{word:'다이어리',size:22,color:C.warning},{word:'카페',size:28,color:C.accent},
+];
+
+// ── Components ──
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.surface,color:C.text,padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.4)',fontSize:14,border:`1px solid ${C.border}`}}>{message}</div>;
+}
+function Badge({children,color=C.primary}){
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:`${color}20`,color}}>{children}</span>;
+}
+function Btn({children,onClick,variant='primary',size='md',icon,style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600,borderRadius:10,display:'inline-flex',alignItems:'center',gap:6,transition:'all 150ms'};
+  const sizes={sm:{padding:'5px 12px',fontSize:12},md:{padding:'8px 16px',fontSize:13},lg:{padding:'10px 20px',fontSize:14}};
+  const variants={
+    primary:{background:C.primary,color:'#fff'},
+    secondary:{background:`${C.primary}15`,color:C.primary},
+    danger:{background:`${C.danger}15`,color:C.danger},
+    ghost:{background:'transparent',color:C.textLight},
+  };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant],...s}}
+    onMouseEnter={e=>{e.currentTarget.style.background=variant==='primary'?C.secondary:variant==='ghost'?`${C.textLight}10`:`${(variants[variant]||{}).color||C.primary}25`}}
+    onMouseLeave={e=>{e.currentTarget.style.background=variants[variant].background}}>
+    {icon&&<span>{icon}</span>}{children}
+  </button>;
+}
+
+function Skeleton(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      <div style={{width:240,background:'#fff',borderRight:'1px solid #E5E7EB'}}/>
+      <div style={{flex:1,padding:20}}>
+        {[...Array(4)].map((_,i)=><div key={i} style={{height:i===0?40:160,borderRadius:16,marginBottom:16,background:'linear-gradient(90deg,#1E293B 25%,#334155 50%,#1E293B 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+}
+
+// ── Side Nav Item ──
+function SideNavItem({icon,label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',
+      background:active?`${C.sidebarActive}10`:'transparent',color:active?C.sidebarActive:'#64748B',
+      borderLeft:active?`3px solid ${C.sidebarActive}`:'3px solid transparent',fontSize:13,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}
+      onMouseEnter={e=>{if(!active)e.currentTarget.style.background='#F8FAFC'}}
+      onMouseLeave={e=>{if(!active)e.currentTarget.style.background=active?`${C.sidebarActive}10`:'transparent'}}>
+      <span style={{fontSize:16}}>{icon}</span>{label}
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,
+      color:active?C.primary:C.textLight,fontWeight:active?600:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>
+      {label}
+    </button>
+  );
+}
+
+// ── Pages ──
+function DashboardPage({setSelected}){
+  const kpis=[
+    {label:'수집 콘텐츠',value:1847,icon:'📊',color:C.primary},
+    {label:'AI 분석 완료',value:1423,icon:'🤖',color:C.accent},
+    {label:'생성 리포트',value:24,icon:'📄',color:C.success},
+    {label:'트렌드 키워드',value:156,icon:'🔑',color:C.warning},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {kpis.map((k,i)=>(
+          <div key={k.label} style={{...CARD,background:C.surface,animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <div>
+                <div style={{fontSize:11,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>{k.label}</div>
+                <div style={{fontSize:26,fontWeight:700,color:k.color}}><CountUp end={k.value}/></div>
+              </div>
+              <div style={{fontSize:24,opacity:0.6}}>{k.icon}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:16,marginBottom:24}}>
+        <div style={{...CARD,background:C.surface}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>플랫폼별 수집 추이</div>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={TREND_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+              <XAxis dataKey="date" fontSize={11} stroke={C.textLight}/>
+              <YAxis fontSize={11} stroke={C.textLight}/>
+              <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,color:C.text}}/>
+              <Area type="monotone" dataKey="youtube" stroke={C.primary} fill={`${C.primary}20`} name="YouTube"/>
+              <Area type="monotone" dataKey="instagram" stroke={C.accent} fill={`${C.accent}20`} name="Instagram"/>
+              <Area type="monotone" dataKey="tiktok" stroke={C.secondary} fill={`${C.secondary}20`} name="TikTok"/>
+              <Legend/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...CARD,background:C.surface}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>트렌드 키워드</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',padding:'12px 0'}}>
+            {KEYWORD_CLOUD.map((kw,i)=>(
+              <span key={i} style={{fontSize:kw.size*0.42,fontWeight:600,color:kw.color,opacity:0.85,cursor:'default',transition:'opacity 150ms',padding:'2px 4px'}}
+                onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='0.85'}>
+                {kw.word}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{...CARD,background:C.surface,padding:0}}>
+        <div style={{padding:'14px 20px',fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,borderBottom:`1px solid ${C.border}`}}>최근 수집 콘텐츠</div>
+        {CONTENTS.slice(0,5).map((c,i)=>(
+          <div key={c.id} onClick={()=>setSelected(c)} style={{padding:'12px 20px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',display:'flex',alignItems:'center',gap:16,transition:'all 150ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}08`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='2px solid transparent'}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{c.title}</div>
+              <div style={{display:'flex',gap:6}}>{c.keywords.map(k=><Badge key={k} color={C.accent}>{k}</Badge>)}</div>
+            </div>
+            <Badge color={c.platform==='YouTube'?C.primary:c.platform==='Instagram'?C.accent:C.secondary}>{c.platform}</Badge>
+            <span style={{fontSize:13,color:C.textLight}}>{(c.views/10000).toFixed(0)}만</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CollectionConfigPage({setToast}){
+  const [editPlatform,setEditPlatform]=useState(null);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+        {PLATFORMS_CONFIG.map((p,i)=>(
+          <div key={p.id} style={{...CARD,background:C.surface,animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:20}}>{p.icon}</span>
+                <span style={{fontSize:15,fontWeight:700}}>{p.name}</span>
+              </div>
+              <Badge color={p.status==='active'?C.success:C.warning}>{p.status==='active'?'활성':'정지'}</Badge>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:C.textLight,textTransform:'uppercase',marginBottom:6}}>키워드</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:4}}>{p.keywords.map(k=><Badge key={k}>{k}</Badge>)}</div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+              <div style={{padding:8,borderRadius:8,background:`${C.primary}08`}}>
+                <div style={{fontSize:10,color:C.textLight}}>최소 조회수</div>
+                <div style={{fontSize:13,fontWeight:600}}>{p.minViews.toLocaleString()}</div>
+              </div>
+              <div style={{padding:8,borderRadius:8,background:`${C.accent}08`}}>
+                <div style={{fontSize:10,color:C.textLight}}>수집 주기</div>
+                <div style={{fontSize:13,fontWeight:600}}>{p.schedule}</div>
+              </div>
+            </div>
+            <Btn variant="secondary" size="sm" onClick={()=>setEditPlatform(p)} style={{width:'100%',justifyContent:'center'}}>설정 편집</Btn>
+          </div>
+        ))}
+      </div>
+      {editPlatform&&(
+        <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onClick={()=>setEditPlatform(null)} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.6)',animation:'fadeIn 200ms ease'}}/>
+          <div style={{position:'relative',width:480,background:C.surface,borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',border:`1px solid ${C.border}`,boxShadow:'0 20px 60px rgba(0,0,0,0.4)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+              <h3 style={{fontSize:18,fontWeight:700}}>{editPlatform.name} 수집 설정</h3>
+              <button onClick={()=>setEditPlatform(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+            </div>
+            <div style={{padding:24}}>
+              <div style={{marginBottom:16}}>
+                <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>키워드 (쉼표 구분)</label>
+                <input defaultValue={editPlatform.keywords.join(', ')} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.bg,color:C.text}}/>
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>최소 조회수</label>
+                <input type="number" defaultValue={editPlatform.minViews} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.bg,color:C.text}}/>
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>수집 주기</label>
+                <select defaultValue={editPlatform.schedule} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.bg,color:C.text}}>
+                  <option>5분</option><option>10분</option><option>15분</option><option>30분</option>
+                </select>
+              </div>
+              <div style={{display:'flex',gap:12}}>
+                <Btn onClick={()=>{setEditPlatform(null);setToast(`${editPlatform.name} 설정이 저장되었습니다`)}}>저장</Btn>
+                <Btn variant="secondary" onClick={()=>setEditPlatform(null)}>취소</Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AIReportPage({setSelected}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:16}}>
+        <Btn icon="＋">새 리포트 생성</Btn>
+      </div>
+      {REPORTS.map((r,i)=>(
+        <div key={r.id} onClick={()=>setSelected(r)} style={{...CARD,background:C.surface,marginBottom:12,cursor:'pointer',animation:`slideUp 300ms ease ${i*60}ms both`,transition:'all 150ms'}}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.primary;e.currentTarget.style.background=`${C.primary}08`}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.surface}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>{r.title}</div>
+              <div style={{display:'flex',gap:6}}>{r.keywords.map(k=><Badge key={k} color={C.accent}>{k}</Badge>)}</div>
+            </div>
+            <Badge color={r.status==='completed'?C.success:C.warning}>{r.status==='completed'?'완료':'처리중'}</Badge>
+          </div>
+          <div style={{display:'flex',gap:20,fontSize:12,color:C.textLight}}>
+            <span>📅 {r.date}</span>
+            {r.contentCount>0&&<span>📊 분석 콘텐츠 {r.contentCount}개</span>}
+            {r.sentiment.positive>0&&(
+              <span>😊 긍정 {r.sentiment.positive}% · 😐 중립 {r.sentiment.neutral}% · 😟 부정 {r.sentiment.negative}%</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContentExplorerPage({setSelected}){
+  const [filterPlatform,setFilterPlatform]=useState('all');
+  const [filterCategory,setFilterCategory]=useState('all');
+  const [search,setSearch]=useState('');
+  const filtered=CONTENTS.filter(c=>{
+    if(filterPlatform!=='all'&&c.platform!==filterPlatform)return false;
+    if(filterCategory!=='all'&&c.category!==filterCategory)return false;
+    if(search&&!c.title.includes(search)&&!c.keywords.some(k=>k.includes(search)))return false;
+    return true;
+  });
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="키워드/제목 검색..."
+          style={{flex:1,minWidth:200,padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:C.bg,color:C.text,outline:'none'}}/>
+        <select value={filterPlatform} onChange={e=>setFilterPlatform(e.target.value)}
+          style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:C.bg,color:C.text}}>
+          <option value="all">전체 플랫폼</option><option value="YouTube">YouTube</option><option value="Instagram">Instagram</option><option value="TikTok">TikTok</option>
+        </select>
+        <select value={filterCategory} onChange={e=>setFilterCategory(e.target.value)}
+          style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:C.bg,color:C.text}}>
+          <option value="all">전체 카테고리</option><option value="여행">여행</option><option value="요리">요리</option><option value="패션">패션</option><option value="라이프">라이프</option><option value="먹방">먹방</option><option value="인테리어">인테리어</option>
+        </select>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+        {filtered.map((c,i)=>(
+          <div key={c.id} onClick={()=>setSelected(c)} style={{...CARD,background:C.surface,cursor:'pointer',animation:`slideUp 300ms ease ${i*60}ms both`,transition:'all 150ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=C.primary;e.currentTarget.style.background=`${C.primary}08`}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.background=C.surface}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+              <Badge color={c.platform==='YouTube'?C.primary:c.platform==='Instagram'?C.accent:C.secondary}>{c.platform}</Badge>
+              <span style={{fontSize:12,color:C.textLight}}>{c.date}</span>
+            </div>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:8}}>{c.title}</div>
+            <div style={{display:'flex',gap:4,marginBottom:8}}>{c.keywords.map(k=><Badge key={k} color={C.textLight}>{k}</Badge>)}</div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textLight}}>
+              <span>📊 {(c.views/10000).toFixed(0)}만 조회</span>
+              <Badge color={c.sentiment==='positive'?C.success:c.sentiment==='neutral'?C.warning:C.danger}>{c.sentiment==='positive'?'긍정':'중립'}</Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QueueStatusPage({setSelected}){
+  const queueStats=[
+    {name:'수집 큐',active:1,waiting:0,completed:24,color:C.primary},
+    {name:'분석 큐',active:0,waiting:1,completed:18,color:C.accent},
+    {name:'리포트 큐',active:0,waiting:1,completed:12,color:C.success},
+    {name:'알림 큐',active:0,waiting:0,completed:7,color:C.warning},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:24}}>
+        {queueStats.map((q,i)=>(
+          <div key={q.name} style={{...CARD,background:C.surface,animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{fontSize:11,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>{q.name}</div>
+            <div style={{display:'flex',gap:12}}>
+              {[{l:'활성',v:q.active,c:C.success},{l:'대기',v:q.waiting,c:C.warning},{l:'완료',v:q.completed,c:C.textLight}].map(s=>(
+                <div key={s.l}>
+                  <div style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div>
+                  <div style={{fontSize:10,color:C.textLight}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{...CARD,background:C.surface,padding:0}}>
+        <div style={{padding:'14px 20px',fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,borderBottom:`1px solid ${C.border}`}}>작업 이력</div>
+        {QUEUE_JOBS.map((j,i)=>(
+          <div key={j.id} onClick={()=>setSelected(j)} style={{padding:'12px 20px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',display:'flex',alignItems:'center',gap:16,transition:'all 150ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}08`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='2px solid transparent'}}>
+            <span style={{fontSize:12,color:C.textLight,fontFamily:'monospace',width:70}}>{j.id}</span>
+            <Badge color={j.type==='수집'?C.primary:j.type==='AI 분석'?C.accent:j.type==='리포트 생성'?C.success:C.warning}>{j.type}</Badge>
+            <span style={{flex:1,fontSize:13}}>{j.platform}</span>
+            <Badge color={j.status==='completed'?C.success:j.status==='running'?C.primary:C.warning}>
+              {j.status==='completed'?'완료':j.status==='running'?'실행중':'대기'}
+            </Badge>
+            <span style={{fontSize:12,color:C.textLight,width:60,textAlign:'right'}}>{j.startTime}</span>
+            <span style={{fontSize:12,color:C.textLight,width:80,textAlign:'right'}}>{j.duration}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── App ──
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [section,setSection]=useState('dashboard');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+
+  const NAV=[
+    {id:'dashboard',label:'트렌드 분석 대시보드',icon:'📊'},
+    {id:'collection',label:'멀티 플랫폼 수집 설정',icon:'⚙'},
+    {id:'report',label:'AI 트렌드 분석 리포트',icon:'🤖'},
+    {id:'explorer',label:'수집 결과 탐색기',icon:'🔍'},
+    {id:'queue',label:'작업 큐 현황',icon:'⚡'},
+  ];
+
+  const SECTION_TABS={
+    dashboard:[{id:'overview',label:'개요'},{id:'keywords',label:'키워드 분석'},{id:'platforms',label:'플랫폼 비교'}],
+    collection:[{id:'platforms',label:'플랫폼 설정'},{id:'keywords',label:'키워드 관리'},{id:'schedule',label:'스케줄'}],
+    report:[{id:'all',label:'전체 리포트'},{id:'weekly',label:'주간'},{id:'alert',label:'알림 리포트'}],
+    explorer:[{id:'all',label:'전체'},{id:'youtube',label:'YouTube'},{id:'instagram',label:'Instagram'},{id:'tiktok',label:'TikTok'}],
+    queue:[{id:'all',label:'전체'},{id:'active',label:'실행중'},{id:'history',label:'이력'}],
+  };
+
+  const renderPage=()=>{
+    switch(section){
+      case 'dashboard':return <DashboardPage setSelected={setSelected}/>;
+      case 'collection':return <CollectionConfigPage setToast={setToast}/>;
+      case 'report':return <AIReportPage setSelected={setSelected}/>;
+      case 'explorer':return <ContentExplorerPage setSelected={setSelected}/>;
+      case 'queue':return <QueueStatusPage setSelected={setSelected}/>;
+    }
+  };
+
+  const renderDetail=()=>{
+    if(!selected)return(
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+        <div style={{textAlign:'center'}}>
+          <div style={{fontSize:48,marginBottom:12,opacity:0.3}}>📋</div>
+          <div>항목을 선택하면 상세 정보가 표시됩니다</div>
+        </div>
+      </div>
+    );
+    return(
+      <div style={{animation:'slideInRight 200ms ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>{selected.title||selected.name||selected.id||'상세 정보'}</h3>
+          <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        {selected.views!==undefined&&(
+          <>
+            <div style={{display:'flex',gap:6,marginBottom:12}}>
+              <Badge color={selected.platform==='YouTube'?C.primary:selected.platform==='Instagram'?C.accent:C.secondary}>{selected.platform}</Badge>
+              {selected.category&&<Badge>{selected.category}</Badge>}
+              {selected.sentiment&&<Badge color={selected.sentiment==='positive'?C.success:C.warning}>{selected.sentiment==='positive'?'긍정':'중립'}</Badge>}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+              {[{l:'조회수',v:`${(selected.views/10000).toFixed(0)}만`},{l:'날짜',v:selected.date}].map(d=>(
+                <div key={d.l} style={{padding:10,borderRadius:10,background:C.bg,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:10,color:C.textLight,textTransform:'uppercase'}}>{d.l}</div>
+                  <div style={{fontSize:14,fontWeight:600}}>{d.v}</div>
+                </div>
+              ))}
+            </div>
+            {selected.keywords&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:C.textLight}}>키워드</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{selected.keywords.map(k=><Badge key={k} color={C.accent}>{k}</Badge>)}</div>
+              </div>
+            )}
+          </>
+        )}
+        {selected.status!==undefined&&!selected.views&&(
+          <>
+            {selected.contentCount!==undefined&&(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+                {[{l:'날짜',v:selected.date||selected.startTime},{l:'상태',v:selected.status==='completed'?'완료':selected.status==='running'?'실행중':'대기'},{l:'분석 콘텐츠',v:selected.contentCount?`${selected.contentCount}개`:'-'},{l:'소요 시간',v:selected.duration||'-'}].map(d=>(
+                  <div key={d.l} style={{padding:10,borderRadius:10,background:C.bg,border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:10,color:C.textLight,textTransform:'uppercase'}}>{d.l}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{d.v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selected.sentiment&&selected.sentiment.positive>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:C.textLight}}>감성 분석</div>
+                {[{l:'긍정',v:selected.sentiment.positive,c:C.success},{l:'중립',v:selected.sentiment.neutral,c:C.warning},{l:'부정',v:selected.sentiment.negative,c:C.danger}].map(s=>(
+                  <div key={s.l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                    <span style={{fontSize:12,width:30,color:C.textLight}}>{s.l}</span>
+                    <div style={{flex:1,height:8,borderRadius:4,background:`${s.c}15`}}>
+                      <div style={{height:'100%',borderRadius:4,background:s.c,width:`${s.v}%`,transition:'width 800ms ease'}}/>
+                    </div>
+                    <span style={{fontSize:12,fontWeight:600,width:30,textAlign:'right'}}>{s.v}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selected.keywords&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:C.textLight}}>주요 키워드</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{selected.keywords.map(k=><Badge key={k} color={C.accent}>{k}</Badge>)}</div>
+              </div>
+            )}
+          </>
+        )}
+        {selected.type&&selected.id&&selected.id.startsWith('JOB')&&(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+            {[{l:'작업 ID',v:selected.id},{l:'타입',v:selected.type},{l:'플랫폼',v:selected.platform},{l:'상태',v:selected.status==='completed'?'완료':selected.status==='running'?'실행중':'대기'},{l:'시작 시간',v:selected.startTime},{l:'소요 시간',v:selected.duration},{l:'처리 항목',v:selected.items>0?`${selected.items}개`:'-'}].map(d=>(
+              <div key={d.l} style={{padding:10,borderRadius:10,background:C.bg,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:10,color:C.textLight,textTransform:'uppercase'}}>{d.l}</div>
+                <div style={{fontSize:14,fontWeight:600}}>{d.v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:C.textLight}}>메모</div>
+          <textarea rows={3} placeholder="메모를 입력하세요..." style={{width:'100%',padding:10,borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:C.bg,color:C.text,resize:'vertical'}}/>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <Btn size="sm" onClick={()=>setToast('저장되었습니다')}>저장</Btn>
+          <Btn variant="secondary" size="sm" onClick={()=>setSelected(null)}>닫기</Btn>
+        </div>
+      </div>
+    );
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:C.sidebar,borderRight:'1px solid #E5E7EB',display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+        <div style={{padding:'0 16px 20px',display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>⚡</div>
+          <span style={{fontWeight:800,fontSize:16,color:'#1E293B'}}>TrendBurst</span>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV.map(n=><SideNavItem key={n.id} icon={n.icon} label={n.label} active={section===n.id} onClick={()=>{setSection(n.id);setTab(0);setSelected(null)}}/>)}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:'1px solid #E5E7EB'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:'#fff'}}>김</div>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:'#1E293B'}}>김민수</div>
+              <div style={{fontSize:10,color:'#94A3B8'}}>관리자</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Area */}
+      <div style={{flex:1,marginLeft:240,display:'flex',flexDirection:'column',overflow:'hidden',minHeight:'100vh'}}>
+        {/* App Bar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>TrendBurst</span>
+          <span style={{color:C.textLight,fontSize:10}}>›</span>
+          <span style={{fontSize:12,color:C.text,fontWeight:600}}>{NAV.find(n=>n.id===section)?.label}</span>
+          <div style={{flex:1}}/>
+          <input placeholder="검색..." style={{padding:'5px 12px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,fontFamily:'inherit',background:C.bg,color:C.text,width:160,outline:'none'}}/>
+        </header>
+
+        {/* Tab Strip */}
+        <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+          {(SECTION_TABS[section]||[]).map((t,i)=><TabUnderline key={t.id} label={t.label} active={tab===i} onClick={()=>setTab(i)}/>)}
+        </div>
+
+        {/* Master-Detail */}
+        <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+          <div style={{width:'58%',borderRight:`1px solid ${C.border}`,overflowY:'auto',padding:20}}>
+            {renderPage()}
+          </div>
+          <div style={{flex:1,overflowY:'auto',padding:20}}>
+            {renderDetail()}
+          </div>
+        </div>
+      </div>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MediLink API Hub — 의료 정보 시스템 연동 허브</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;word-break:keep-all;overflow-wrap:break-word}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDrawer{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area} = Recharts;
+
+const C={
+  primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',
+  bg:'#FAF5FF',surface:'#FFFFFF',border:'#E9D5FF',
+  text:'#1E1B4B',textLight:'#6B7280',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  gradient:'linear-gradient(135deg,#7C3AED,#A78BFA)',
+};
+
+/* ─── Data ─── */
+const SYSTEMS=[
+  {id:'emr-a',name:'서울대병원 EMR',type:'EMR',status:'connected',todayTx:1247,errorRate:1.2,queueDepth:8,lastSync:'14:32:18'},
+  {id:'emr-b',name:'삼성서울병원 EMR',type:'EMR',status:'connected',todayTx:893,errorRate:0.8,queueDepth:3,lastSync:'14:30:05'},
+  {id:'ins-a',name:'국민건강보험공단',type:'보험사',status:'connected',todayTx:2156,errorRate:2.1,queueDepth:15,lastSync:'14:28:42'},
+  {id:'ins-b',name:'삼성생명 보험',type:'보험사',status:'delayed',todayTx:567,errorRate:3.5,queueDepth:22,lastSync:'14:15:00'},
+];
+const TX_TIMELINE=Array.from({length:24},(_,i)=>({time:`${String(i).padStart(2,'0')}:00`,emr:Math.floor(Math.random()*120+30),insurance:Math.floor(Math.random()*80+20)}));
+const TX_LOGS=Array.from({length:60},(_,i)=>{
+  const sys=SYSTEMS[i%4];
+  const statuses=[200,200,200,201,200,200,200,400,200,200,500,200,200,200,200,200,200,200,200,200];
+  const endpoints=['/api/fhir/Patient','/api/fhir/Observation','/api/fhir/Encounter','/api/claims/submit','/api/claims/status','/api/patients/sync'];
+  const s=statuses[i%20];
+  return {id:5000-i,system:sys.name,systemType:sys.type,endpoint:endpoints[i%6],status:s,direction:i%3===0?'inbound':'outbound',duration:Math.floor(Math.random()*1200+100),timestamp:`2026-03-0${Math.min(3,Math.floor(i/20)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,payload:JSON.stringify({patient_id:`PAT-${10000+i}`,action:i%2===0?'sync':'query'}),response:JSON.stringify({success:s<400,code:s})}
+});
+const MAPPING_RULES=[
+  {id:1,name:'환자 기본정보 매핑',system:'서울대병원 EMR',sourceFormat:'HL7 FHIR Patient',targetTable:'patients',fieldCount:18,lastModified:'2026-02-28',status:'active',validationResult:'통과',fields:[{from:'Patient.name.given',to:'first_name',transform:'직접매핑'},{from:'Patient.name.family',to:'last_name',transform:'직접매핑'},{from:'Patient.birthDate',to:'birth_date',transform:'날짜포맷변환 (YYYY-MM-DD)'},{from:'Patient.identifier[0].value',to:'patient_id',transform:'접두사 추가 (PAT-)'}]},
+  {id:2,name:'진료기록 동기화 매핑',system:'서울대병원 EMR',sourceFormat:'HL7 FHIR Encounter',targetTable:'encounters',fieldCount:24,lastModified:'2026-02-27',status:'active',validationResult:'통과',fields:[{from:'Encounter.id',to:'encounter_id',transform:'UUID 매핑'},{from:'Encounter.period.start',to:'start_time',transform:'ISO8601→Timestamp'},{from:'Encounter.reasonCode',to:'diagnosis_code',transform:'코드 변환 (ICD-10)'}]},
+  {id:3,name:'보험 청구서 매핑',system:'국민건강보험공단',sourceFormat:'EDI 자체포맷',targetTable:'claims',fieldCount:32,lastModified:'2026-02-25',status:'active',validationResult:'경고 2건',fields:[{from:'claim_no',to:'claim_id',transform:'직접매핑'},{from:'patient_rrn',to:'patient_id',transform:'주민번호→환자ID 변환'},{from:'total_amount',to:'claim_amount',transform:'원→정수 변환'},{from:'procedure_codes',to:'procedures',transform:'배열→JSON 변환'}]},
+  {id:4,name:'보험금 지급내역 매핑',system:'삼성생명 보험',sourceFormat:'REST JSON',targetTable:'payments',fieldCount:14,lastModified:'2026-02-20',status:'active',validationResult:'통과',fields:[{from:'paymentId',to:'payment_id',transform:'직접매핑'},{from:'amount',to:'paid_amount',transform:'소수점2자리→정수'},{from:'paidAt',to:'payment_date',transform:'Unix timestamp→Date'}]},
+  {id:5,name:'검사결과 동기화 매핑',system:'삼성서울병원 EMR',sourceFormat:'HL7 FHIR Observation',targetTable:'lab_results',fieldCount:20,lastModified:'2026-02-15',status:'draft',validationResult:'미검증',fields:[{from:'Observation.code',to:'test_code',transform:'LOINC 코드 매핑'},{from:'Observation.valueQuantity',to:'result_value',transform:'수치+단위 분리'}]},
+];
+const ERROR_DATA=Array.from({length:35},(_,i)=>{
+  const types=['TIMEOUT','PARSE_ERROR','AUTH_EXPIRED','RATE_LIMITED','SCHEMA_MISMATCH','FHIR_VALIDATION'];
+  const t=types[i%6];
+  const sys=SYSTEMS[i%4];
+  return {id:7000-i,system:sys.name,systemType:sys.type,type:t,message:t==='TIMEOUT'?'EMR API 응답 시간 초과 (30초)':t==='PARSE_ERROR'?'HL7 FHIR 리소스 파싱 실패':t==='AUTH_EXPIRED'?'OAuth2 토큰 만료':t==='RATE_LIMITED'?'API 호출 횟수 제한 초과':t==='SCHEMA_MISMATCH'?'수신 데이터 스키마 불일치':t==='FHIR_VALIDATION'?'FHIR 리소스 유효성 검증 실패':'알 수 없는 오류',severity:i%6===0?'critical':'warning',retryPolicy:{maxRetries:i%6===3?0:5,backoff:'exponential',interval:i%6===3?'N/A':'2s→4s→8s→16s→32s'},retryCount:Math.floor(Math.random()*5),timestamp:`2026-03-0${Math.min(3,Math.floor(i/12)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,status:i%5===0?'resolved':'pending',detail:`상세 오류: ${t} — 트랜잭션 ID TX-${8000+i}`}
+});
+const SYS_SETTINGS=[
+  {id:'emr-a',name:'서울대병원 EMR',endpoint:'https://emr-api.snuh.org/fhir/v4',authType:'OAuth2',timeout:30000,rateLimit:'500/min',webhookUrl:'/webhook/emr-snuh',status:'active'},
+  {id:'emr-b',name:'삼성서울병원 EMR',endpoint:'https://api.samsunghospital.com/fhir',authType:'OAuth2',timeout:30000,rateLimit:'300/min',webhookUrl:'/webhook/emr-samsung',status:'active'},
+  {id:'ins-a',name:'국민건강보험공단',endpoint:'https://api.nhis.or.kr/v2',authType:'API Key + HMAC',timeout:60000,rateLimit:'100/min',webhookUrl:'/webhook/nhis',status:'active'},
+  {id:'ins-b',name:'삼성생명 보험',endpoint:'https://api.samsunglife.com/claims',authType:'API Key',timeout:45000,rateLimit:'200/min',webhookUrl:'/webhook/samsunglife',status:'active'},
+];
+
+/* ─── Shared Components ─── */
+function SkeletonLoader(){
+  return <div style={{padding:32}}><div style={{height:140,borderRadius:16,background:'linear-gradient(90deg,#F5F3FF 25%,#EDE9FE 50%,#F5F3FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',marginBottom:24}}/>{[...Array(3)].map((_,i)=><div key={i} style={{height:100,borderRadius:16,background:'linear-gradient(90deg,#F5F3FF 25%,#EDE9FE 50%,#F5F3FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',marginBottom:16}}/>)}</div>;
+}
+function CountUp({end,duration=1200,suffix=''}){const[val,setVal]=useState(0);useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);return <span>{val.toLocaleString()}{suffix}</span>;}
+function Badge({text,color}){return <span style={{display:'inline-block',padding:'3px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:`${color}15`,color}}>{text}</span>;}
+function Toast({message,onClose}){useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 8px 24px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;}
+
+function Drawer({title,onClose,children}){
+  return <>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'fixed',top:0,right:0,bottom:0,width:520,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',zIndex:201,animation:'slideDrawer 200ms ease',display:'flex',flexDirection:'column'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </>;
+}
+
+function Modal({title,onClose,children,width=560}){
+  return <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxWidth:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </div>;
+}
+
+/* ─── Pages ─── */
+function DashboardPage({setDrawerItem}){
+  const kpis=[
+    {label:'금일 트랜잭션',value:4863,icon:'📡',color:C.primary},
+    {label:'활성 연동 시스템',value:4,icon:'🏥',color:C.success},
+    {label:'대기 큐',value:48,icon:'📥',color:C.warning},
+    {label:'오류율',value:1.8,suffix:'%',icon:'⚠️',color:C.danger},
+  ];
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+      {kpis.map((k,i)=><div key={i} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',animation:`slideUp 400ms ease ${i*80}ms both`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <span style={{fontSize:12,color:C.textLight,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>{k.label}</span>
+          <span style={{fontSize:18}}>{k.icon}</span>
+        </div>
+        <div style={{fontSize:26,fontWeight:800,color:k.color,letterSpacing:'-0.03em'}}><CountUp end={k.value} suffix={k.suffix||''}/></div>
+      </div>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.06)'}}>
+        <h3 style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>시간대별 트랜잭션 처리량</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={TX_TIMELINE}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF"/>
+            <XAxis dataKey="time" tick={{fontSize:10}} interval={3}/>
+            <YAxis tick={{fontSize:10}}/>
+            <Tooltip/>
+            <Bar dataKey="emr" name="EMR" fill={C.primary} radius={[4,4,0,0]} stackId="a"/>
+            <Bar dataKey="insurance" name="보험사" fill={C.accent} radius={[4,4,0,0]} stackId="a"/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.06)'}}>
+        <h3 style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>연동 시스템 상태</h3>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {SYSTEMS.map((s,i)=><div key={s.id} onClick={()=>setDrawerItem(s)} style={{padding:14,borderRadius:12,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all 200ms'}} onMouseEnter={ev=>{ev.currentTarget.style.transform='scale(1.02)';ev.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='scale(1)';ev.currentTarget.style.boxShadow='none'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <span style={{fontSize:13,fontWeight:600}}>{s.name}</span>
+              <span style={{width:8,height:8,borderRadius:'50%',background:s.status==='connected'?C.success:C.warning}}/>
+            </div>
+            <div style={{display:'flex',gap:16,fontSize:12,color:C.textLight}}>
+              <span>{s.todayTx.toLocaleString()}건</span>
+              <span>큐: {s.queueDepth}</span>
+              <span style={{color:s.errorRate>2?C.danger:C.textMuted}}>오류: {s.errorRate}%</span>
+            </div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function TxLogsPage({setDrawerItem}){
+  const [filter,setFilter]=useState('all');
+  const [page,setPage]=useState(1);
+  const PER_PAGE=10;
+  const filtered=useMemo(()=>TX_LOGS.filter(l=>{
+    if(filter==='emr'&&l.systemType!=='EMR') return false;
+    if(filter==='insurance'&&l.systemType!=='보험사') return false;
+    if(filter==='error'&&l.status<400) return false;
+    return true;
+  }),[filter]);
+  const totalPages=Math.ceil(filtered.length/PER_PAGE);
+  const paged=filtered.slice((page-1)*PER_PAGE,page*PER_PAGE);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>
+      {[{k:'all',l:'전체'},{k:'emr',l:'EMR'},{k:'insurance',l:'보험사'},{k:'error',l:'오류만'}].map(f=>
+        <button key={f.k} onClick={()=>{setFilter(f.k);setPage(1)}} style={{padding:'8px 18px',borderRadius:24,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.gradient:C.surface,color:filter===f.k?'#fff':C.text,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{f.l}</button>
+      )}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+      {paged.map((l,i)=><div key={l.id} onClick={()=>setDrawerItem(l)} style={{background:C.surface,borderRadius:16,padding:18,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 300ms ease ${i*50}ms both`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='scale(1.02)';ev.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='scale(1)';ev.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <Badge text={l.systemType} color={l.systemType==='EMR'?C.primary:C.accent}/>
+          <span style={{fontSize:12,fontWeight:700,color:l.status<400?C.success:C.danger}}>{l.status}</span>
+        </div>
+        <div style={{fontSize:13,fontFamily:'monospace',marginBottom:8,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.endpoint}</div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textMuted}}>
+          <span>{l.system.split(' ')[0]}</span>
+          <span>{l.duration}ms</span>
+        </div>
+        <div style={{fontSize:11,color:C.textMuted,marginTop:6}}>{l.timestamp}</div>
+      </div>)}
+    </div>
+    <div style={{display:'flex',justifyContent:'center',gap:4,marginTop:20}}>
+      <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'8px 12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:page===1?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===1?.5:1}}>← 이전</button>
+      <span style={{padding:'8px 16px',fontSize:13,color:C.textLight}}>{page} / {totalPages}</span>
+      <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'8px 12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:page===totalPages?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===totalPages?.5:1}}>다음 →</button>
+    </div>
+  </div>;
+}
+
+function MappingRulesPage(){
+  const [drawer,setDrawer]=useState(null);
+  const [editModal,setEditModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <span style={{fontSize:13,color:C.textLight}}>총 {MAPPING_RULES.length}개 매핑 규칙</span>
+      <button onClick={()=>setEditModal({id:null,name:'',system:'',sourceFormat:'',targetTable:''})} style={{padding:'10px 22px',borderRadius:12,border:'none',background:C.gradient,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit',boxShadow:'0 4px 12px rgba(124,58,237,0.3)'}}>+ 규칙 추가</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+      {MAPPING_RULES.map((r,i)=><div key={r.id} onClick={()=>setDrawer(r)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='scale(1.02)';ev.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='scale(1)';ev.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <span style={{fontSize:15,fontWeight:700}}>{r.name}</span>
+          <Badge text={r.status==='active'?'활성':'초안'} color={r.status==='active'?C.success:C.textMuted}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:13}}>
+          <div><span style={{color:C.textMuted,fontSize:11}}>연동 시스템</span><div style={{marginTop:2}}>{r.system}</div></div>
+          <div><span style={{color:C.textMuted,fontSize:11}}>소스 포맷</span><div style={{marginTop:2}}>{r.sourceFormat}</div></div>
+          <div><span style={{color:C.textMuted,fontSize:11}}>매핑 필드</span><div style={{marginTop:2,fontWeight:600}}>{r.fieldCount}개</div></div>
+          <div><span style={{color:C.textMuted,fontSize:11}}>검증 결과</span><div style={{marginTop:2,color:r.validationResult==='통과'?C.success:C.warning}}>{r.validationResult}</div></div>
+        </div>
+      </div>)}
+    </div>
+    {drawer && <Drawer title={`매핑 규칙: ${drawer.name}`} onClose={()=>setDrawer(null)}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>연동 시스템</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{drawer.system}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>소스 포맷</span><div style={{fontSize:14,marginTop:4}}>{drawer.sourceFormat}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>대상 테이블</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace'}}>{drawer.targetTable}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>수정일</span><div style={{fontSize:14,marginTop:4}}>{drawer.lastModified}</div></div>
+      </div>
+      <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>필드 매핑 ({drawer.fields.length}개 미리보기)</h4>
+      <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
+        {drawer.fields.map((f,i)=><div key={i} style={{padding:12,background:'#F5F3FF',borderRadius:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+            <span style={{fontFamily:'monospace',fontSize:13,color:C.primary,fontWeight:600}}>{f.from}</span>
+            <span style={{color:C.textMuted}}>→</span>
+            <span style={{fontFamily:'monospace',fontSize:13,color:C.success,fontWeight:600}}>{f.to}</span>
+          </div>
+          <span style={{fontSize:11,color:C.textMuted}}>{f.transform}</span>
+        </div>)}
+      </div>
+      <div style={{display:'flex',gap:12}}>
+        <button onClick={()=>{setDrawer(null);setToast('시뮬레이션이 실행되었습니다.')}} style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>시뮬레이션</button>
+        <button onClick={()=>{setEditModal(drawer);setDrawer(null)}} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:C.gradient,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>편집</button>
+      </div>
+    </Drawer>}
+    {editModal && <Modal title={editModal.id?'규칙 편집':'새 매핑 규칙'} onClose={()=>setEditModal(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>규칙 이름</label><input defaultValue={editModal.name} placeholder="예: 환자 기본정보 매핑" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>연동 시스템</label><select defaultValue={editModal.system} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.surface}}>{SYSTEMS.map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>소스 포맷</label><input defaultValue={editModal.sourceFormat} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>대상 테이블</label><input defaultValue={editModal.targetTable} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'monospace'}}/></div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:8}}>
+          <button onClick={()=>setEditModal(null)} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{setEditModal(null);setToast('매핑 규칙이 저장되었습니다.')}} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.gradient,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+function ErrorHandlingPage({setDrawerItem}){
+  const [filter,setFilter]=useState('all');
+  const [page,setPage]=useState(1);
+  const [toast,setToast]=useState(null);
+  const PER_PAGE=9;
+  const filtered=useMemo(()=>ERROR_DATA.filter(e=>{
+    if(filter==='pending'&&e.status!=='pending') return false;
+    if(filter==='resolved'&&e.status!=='resolved') return false;
+    if(filter==='critical'&&e.severity!=='critical') return false;
+    return true;
+  }),[filter]);
+  const totalPages=Math.ceil(filtered.length/PER_PAGE);
+  const paged=filtered.slice((page-1)*PER_PAGE,page*PER_PAGE);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>
+      {[{k:'all',l:'전체'},{k:'pending',l:'미해결'},{k:'resolved',l:'해결됨'},{k:'critical',l:'긴급'}].map(f=>
+        <button key={f.k} onClick={()=>{setFilter(f.k);setPage(1)}} style={{padding:'8px 18px',borderRadius:24,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.gradient:C.surface,color:filter===f.k?'#fff':C.text,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{f.l}</button>
+      )}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+      {paged.map((e,i)=><div key={e.id} onClick={()=>setDrawerItem(e)} style={{background:C.surface,borderRadius:16,padding:18,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 300ms ease ${i*50}ms both`,borderLeft:`4px solid ${e.severity==='critical'?C.danger:C.warning}`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='scale(1.02)';ev.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.1)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='scale(1)';ev.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <Badge text={e.type} color={e.severity==='critical'?C.danger:C.warning}/>
+          <span style={{fontSize:11,color:e.status==='resolved'?C.success:C.textMuted,fontWeight:600}}>{e.status==='resolved'?'해결':'대기'}</span>
+        </div>
+        <div style={{fontSize:13,marginBottom:8,lineHeight:1.5}}>{e.message}</div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textMuted}}>
+          <span>{e.system.split(' ')[0]}</span>
+          <span>재시도: {e.retryCount}회</span>
+        </div>
+      </div>)}
+    </div>
+    <div style={{display:'flex',justifyContent:'center',gap:4,marginTop:20}}>
+      <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'8px 12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:page===1?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===1?.5:1}}>← 이전</button>
+      <span style={{padding:'8px 16px',fontSize:13,color:C.textLight}}>{page} / {totalPages}</span>
+      <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'8px 12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,cursor:page===totalPages?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===totalPages?.5:1}}>다음 →</button>
+    </div>
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+function SystemSettingsPage(){
+  const [detail,setDetail]=useState(null);
+  const [editModal,setEditModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+      {SYS_SETTINGS.map((s,i)=><div key={s.id} onClick={()=>setDetail(s)} style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.06)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='scale(1.02)';ev.currentTarget.style.boxShadow='0 8px 24px rgba(124,58,237,0.15)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='scale(1)';ev.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:24}}>{s.name.includes('병원')?'🏥':s.name.includes('건강')?'🏛️':'🏢'}</span>
+            <div><div style={{fontSize:15,fontWeight:700}}>{s.name}</div><div style={{fontSize:12,color:C.textMuted,marginTop:2}}>{s.authType}</div></div>
+          </div>
+          <span style={{width:10,height:10,borderRadius:'50%',background:C.success}}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,fontSize:13}}>
+          <div><span style={{color:C.textMuted,fontSize:11}}>엔드포인트</span><div style={{marginTop:2,fontFamily:'monospace',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.endpoint}</div></div>
+          <div><span style={{color:C.textMuted,fontSize:11}}>Rate Limit</span><div style={{marginTop:2}}>{s.rateLimit}</div></div>
+        </div>
+      </div>)}
+    </div>
+    {detail && <Drawer title={`시스템: ${detail.name}`} onClose={()=>setDetail(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>API 엔드포인트</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace',padding:12,background:'#F5F3FF',borderRadius:8}}>{detail.endpoint}</div></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><span style={{fontSize:12,color:C.textMuted}}>인증 방식</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{detail.authType}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>타임아웃</span><div style={{fontSize:14,marginTop:4}}>{detail.timeout/1000}초</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>Rate Limit</span><div style={{fontSize:14,marginTop:4}}>{detail.rateLimit}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>Webhook URL</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace'}}>{detail.webhookUrl}</div></div>
+        </div>
+        <div style={{marginTop:8}}>
+          <span style={{fontSize:12,color:C.textMuted}}>운영 메모</span>
+          <textarea placeholder="이 시스템에 대한 운영 메모..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginTop:6}}/>
+        </div>
+        <div style={{display:'flex',gap:12}}>
+          <button onClick={()=>{setDetail(null);setToast('연결 테스트를 시작합니다.')}} style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>연결 테스트</button>
+          <button onClick={()=>{setEditModal(detail);setDetail(null)}} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:C.gradient,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>편집</button>
+        </div>
+      </div>
+    </Drawer>}
+    {editModal && <Modal title={`${editModal.name} 설정 편집`} onClose={()=>setEditModal(null)}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>API 엔드포인트</label><input defaultValue={editModal.endpoint} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'monospace'}}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>타임아웃 (ms)</label><input type="number" defaultValue={editModal.timeout} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+          <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>Rate Limit</label><input defaultValue={editModal.rateLimit} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:8}}>
+          <button onClick={()=>setEditModal(null)} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{setEditModal(null);setToast('설정이 저장되었습니다.')}} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.gradient,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+/* ─── Layout ─── */
+const TABS=[
+  {id:'dashboard',label:'연동 현황 대시보드',icon:'📡'},
+  {id:'transaction-logs',label:'API 트랜잭션 로그',icon:'📋'},
+  {id:'mapping-rules',label:'데이터 매핑 규칙 관리',icon:'🔗'},
+  {id:'error-handling',label:'연동 오류 대응',icon:'🚨'},
+  {id:'system-settings',label:'연동 시스템 설정',icon:'⚙️'},
+];
+const HERO_META={
+  dashboard:{title:'연동 현황 대시보드',sub:'EMR 및 보험사 API 연동 상태를 실시간 모니터링합니다',kpis:[{label:'EMR 시스템',value:'2개'},{label:'보험사 연동',value:'2개'},{label:'금일 처리',value:'4,863건'}]},
+  'transaction-logs':{title:'API 트랜잭션 로그',sub:'모든 외부 시스템과의 요청·응답 기록을 조회합니다',kpis:[{label:'금일 로그',value:'4,863건'},{label:'오류율',value:'1.8%'},{label:'평균 응답',value:'340ms'}]},
+  'mapping-rules':{title:'데이터 매핑 규칙 관리',sub:'외부 API 데이터와 내부 DB 간의 변환 규칙을 정의합니다',kpis:[{label:'활성 규칙',value:'4개'},{label:'매핑 필드',value:'108개'},{label:'검증 통과',value:'3/5'}]},
+  'error-handling':{title:'연동 오류 대응',sub:'API 연동 실패 항목을 관리하고 재시도 정책을 설정합니다',kpis:[{label:'미해결 오류',value:'28건'},{label:'긴급 오류',value:'6건'},{label:'자동 재시도',value:'활성'}]},
+  'system-settings':{title:'연동 시스템 설정',sub:'외부 시스템 API 엔드포인트, 인증, Rate Limit을 관리합니다',kpis:[{label:'연동 시스템',value:'4개'},{label:'활성 Webhook',value:'4개'},{label:'상태',value:'정상'}]},
+};
+
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [tab,setTab]=useState('dashboard');
+  const [drawer,setDrawer]=useState(null);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading) return <SkeletonLoader/>;
+  const hero=HERO_META[tab];
+  const renderPage=()=>{
+    switch(tab){
+      case 'dashboard':return <DashboardPage setDrawerItem={setDrawer}/>;
+      case 'transaction-logs':return <TxLogsPage setDrawerItem={setDrawer}/>;
+      case 'mapping-rules':return <MappingRulesPage/>;
+      case 'error-handling':return <ErrorHandlingPage setDrawerItem={setDrawer}/>;
+      case 'system-settings':return <SystemSettingsPage/>;
+      default:return <DashboardPage setDrawerItem={setDrawer}/>;
+    }
+  };
+  return <div style={{minHeight:'100vh',background:C.bg}}>
+    {/* Top Nav */}
+    <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 28px',gap:6}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginRight:24}}>
+        <div style={{width:32,height:32,borderRadius:10,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff',fontWeight:700}}>M</div>
+        <span style={{fontSize:16,fontWeight:700,color:C.secondary}}>MediLink</span>
+      </div>
+      {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} title={t.label} style={{padding:'6px 14px',borderRadius:10,border:'none',background:tab===t.id?`${C.primary}15`:'transparent',color:tab===t.id?C.primary:C.textLight,fontSize:13,fontWeight:tab===t.id?700:500,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms',whiteSpace:'nowrap'}}>
+        <span style={{marginRight:6}}>{t.icon}</span>{t.label}
+      </button>)}
+      <div style={{flex:1}}/>
+      <span style={{fontSize:16,cursor:'pointer',position:'relative'}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:14,height:14,borderRadius:'50%',background:C.danger,color:'#fff',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center'}}>5</span></span>
+      <div style={{width:32,height:32,borderRadius:'50%',background:C.accent,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:600,marginLeft:12}}>이</div>
+    </header>
+    {/* Hero Banner */}
+    <div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}>
+      <h1 style={{fontSize:24,fontWeight:800,letterSpacing:'-0.03em'}}>{hero.title}</h1>
+      <p style={{fontSize:14,opacity:.85,marginTop:6}}>{hero.sub}</p>
+      <div style={{display:'flex',gap:32,marginTop:16}}>
+        {hero.kpis.map(k=><div key={k.label}><span style={{fontSize:11,opacity:.7,textTransform:'uppercase',letterSpacing:'0.05em'}}>{k.label}</span><div style={{fontSize:20,fontWeight:700,marginTop:2}}>{k.value}</div></div>)}
+      </div>
+    </div>
+    {/* Content */}
+    <main style={{padding:'24px 32px'}}>{renderPage()}</main>
+    {/* Drawer for detail views */}
+    {drawer && <Drawer title={drawer.name||drawer.system||`트랜잭션 #${drawer.id}`} onClose={()=>setDrawer(null)}>
+      {drawer.endpoint && drawer.status!==undefined && drawer.payload ? <>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div><span style={{fontSize:12,color:C.textMuted}}>시스템</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{drawer.system}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>상태</span><div style={{fontSize:14,fontWeight:600,marginTop:4,color:drawer.status<400?C.success:C.danger}}>{drawer.status}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>엔드포인트</span><div style={{fontSize:13,marginTop:4,fontFamily:'monospace'}}>{drawer.endpoint}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>응답시간</span><div style={{fontSize:14,marginTop:4}}>{drawer.duration}ms</div></div>
+        </div>
+        <div style={{marginBottom:16}}><span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>요청</span><pre style={{background:'#F5F3FF',padding:12,borderRadius:8,fontSize:12,fontFamily:'monospace',marginTop:6}}>{JSON.stringify(JSON.parse(drawer.payload),null,2)}</pre></div>
+        <div><span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>응답</span><pre style={{background:'#F5F3FF',padding:12,borderRadius:8,fontSize:12,fontFamily:'monospace',marginTop:6}}>{JSON.stringify(JSON.parse(drawer.response),null,2)}</pre></div>
+      </> : drawer.type && drawer.message ? <>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div><span style={{fontSize:12,color:C.textMuted}}>오류 유형</span><div style={{marginTop:4}}><Badge text={drawer.type} color={drawer.severity==='critical'?C.danger:C.warning}/></div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>시스템</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{drawer.system}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>재시도 정책</span><div style={{fontSize:14,marginTop:4}}>{drawer.retryPolicy.backoff} ({drawer.retryPolicy.maxRetries}회)</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>재시도 간격</span><div style={{fontSize:13,marginTop:4,fontFamily:'monospace'}}>{drawer.retryPolicy.interval}</div></div>
+        </div>
+        <div style={{padding:14,background:'#FEF2F2',borderRadius:10,marginBottom:16,border:'1px solid #FECACA'}}><span style={{fontSize:14,color:C.danger}}>{drawer.message}</span></div>
+        <div style={{marginBottom:16}}><span style={{fontSize:12,color:C.textMuted}}>상세 정보</span><div style={{fontSize:13,marginTop:4,padding:12,background:'#F5F3FF',borderRadius:8}}>{drawer.detail}</div></div>
+        <textarea placeholder="오류 대응 메모를 남겨주세요..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginBottom:16}}/>
+        <div style={{display:'flex',gap:12}}>
+          <button onClick={()=>setDrawer(null)} style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>재처리</button>
+          <button onClick={()=>setDrawer(null)} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:C.success,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>해결 처리</button>
+        </div>
+      </> : <>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div><span style={{fontSize:12,color:C.textMuted}}>시스템 유형</span><div style={{fontSize:14,marginTop:4}}>{drawer.type}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>상태</span><div style={{fontSize:14,fontWeight:600,marginTop:4,color:drawer.status==='connected'?C.success:C.warning}}>{drawer.status==='connected'?'연결됨':'지연'}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>금일 트랜잭션</span><div style={{fontSize:14,marginTop:4}}>{drawer.todayTx?.toLocaleString()}건</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>오류율</span><div style={{fontSize:14,marginTop:4,color:drawer.errorRate>2?C.danger:C.success}}>{drawer.errorRate}%</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>큐 깊이</span><div style={{fontSize:14,marginTop:4}}>{drawer.queueDepth}</div></div>
+          <div><span style={{fontSize:12,color:C.textMuted}}>마지막 동기화</span><div style={{fontSize:14,marginTop:4}}>{drawer.lastSync}</div></div>
+        </div>
+      </>}
+    </Drawer>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

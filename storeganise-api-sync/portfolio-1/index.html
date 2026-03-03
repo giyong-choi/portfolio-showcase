@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LogiConnect Sync — 물류 SaaS API 연동 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;word-break:keep-all;overflow-wrap:break-word}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useMemo} = React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area} = Recharts;
+
+/* ─── Colors ─── */
+const C = {
+  primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',
+  bg:'#F0F9FF',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#0F172A',textLight:'#475569',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  sidebarBg:'#1A365D',sidebarText:'#94A3B8',sidebarActive:'#0066CC',
+};
+
+/* ─── Dummy Data ─── */
+const SYNC_HISTORY = Array.from({length:24},(_,i)=>({time:`${String(i).padStart(2,'0')}:00`,success:Math.floor(Math.random()*80+40),fail:Math.floor(Math.random()*8),retry:Math.floor(Math.random()*12)}));
+const API_LOGS = Array.from({length:50},(_,i)=>{
+  const methods=['GET','POST','PUT','DELETE'];
+  const endpoints=['/api/v1/shipments','/api/v1/inventory','/api/v1/orders','/api/v1/tracking','/api/v1/warehouses','/api/v1/webhook/receive'];
+  const statuses=[200,200,200,201,400,500,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200,200];
+  const s=statuses[i%statuses.length];
+  return {id:1050-i,method:methods[i%4],endpoint:endpoints[i%6],status:s,direction:i%3===0?'inbound':'outbound',duration:Math.floor(Math.random()*800+50),timestamp:`2026-03-0${Math.min(3,Math.floor(i/16)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,requestBody:JSON.stringify({shipment_id:`SHP-${1000+i}`,status:'processing'}),responseBody:JSON.stringify({success:s<400,message:s<400?'OK':'Error occurred'})}
+});
+const SYNC_CONFIGS = [
+  {id:1,name:'출고 데이터 동기화',source:'Storeganise → 내부DB',direction:'inbound',schedule:'*/5 * * * *',fields:12,lastSync:'2026-03-03 14:32:18',status:'active',mappedFields:['shipment_id→출고번호','warehouse_code→창고코드','qty→수량','status→상태']},
+  {id:2,name:'재고 현황 동기화',source:'내부DB → Storeganise',direction:'outbound',schedule:'*/10 * * * *',fields:8,lastSync:'2026-03-03 14:30:05',status:'active',mappedFields:['product_id→item_id','stock_qty→available_qty','location→zone','updated_at→sync_time']},
+  {id:3,name:'주문 정보 동기화',source:'Storeganise → 내부DB',direction:'inbound',schedule:'*/3 * * * *',fields:15,lastSync:'2026-03-03 14:28:42',status:'active',mappedFields:['order_id→주문번호','customer→고객명','items→주문품목','total→합계금액']},
+  {id:4,name:'창고 정보 동기화',source:'양방향',direction:'bidirectional',schedule:'0 */1 * * *',fields:6,lastSync:'2026-03-03 14:00:00',status:'active',mappedFields:['warehouse_id→창고ID','name→창고명','capacity→수용량','address→주소']},
+  {id:5,name:'반품 데이터 동기화',source:'Storeganise → 내부DB',direction:'inbound',schedule:'*/15 * * * *',fields:10,lastSync:'2026-03-03 13:45:22',status:'paused',mappedFields:['return_id→반품번호','reason→사유','item_id→품목코드','qty→수량']},
+];
+const ERRORS = Array.from({length:30},(_,i)=>{
+  const types=['TIMEOUT','PARSE_ERROR','AUTH_FAIL','DUPLICATE','SCHEMA_MISMATCH','CONNECTION_REFUSED'];
+  const t=types[i%6];
+  return {id:3000-i,type:t,endpoint:API_LOGS[i%6].endpoint,message:t==='TIMEOUT'?'API 응답 시간 초과 (30초)':t==='PARSE_ERROR'?'응답 데이터 JSON 파싱 실패':t==='AUTH_FAIL'?'API 인증 토큰 만료':t==='DUPLICATE'?'중복 레코드 감지됨':t==='SCHEMA_MISMATCH'?'데이터 스키마 불일치':t==='CONNECTION_REFUSED'?'외부 서버 연결 거부':'알 수 없는 오류',severity:i%5===0?'critical':'warning',retryCount:Math.floor(Math.random()*5),timestamp:`2026-03-0${Math.min(3,Math.floor(i/10)+1)} ${String(Math.floor(Math.random()*24)).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,status:i%4===0?'resolved':'pending',relatedData:JSON.stringify({shipment_id:`SHP-${2000+i}`,error_detail:`상세 오류 정보 ${i+1}`})}
+});
+const API_KEYS = [
+  {id:1,name:'운영 환경 API 키',key:'sk_live_a1b2c3d4...ef90',env:'production',created:'2025-10-15',lastUsed:'2026-03-03 14:30:00',status:'active',permissions:['read','write','webhook']},
+  {id:2,name:'스테이징 환경 API 키',key:'sk_test_x9y8z7w6...mn12',env:'staging',created:'2025-11-01',lastUsed:'2026-03-02 16:42:00',status:'active',permissions:['read','write']},
+  {id:3,name:'개발 환경 API 키',key:'sk_dev_q5r4s3t2...jk34',env:'development',created:'2025-12-10',lastUsed:'2026-03-01 11:15:00',status:'active',permissions:['read']},
+  {id:4,name:'레거시 API 키 (폐기 예정)',key:'sk_old_m3n2o1p0...gh56',env:'production',created:'2024-06-01',lastUsed:'2025-08-20 09:00:00',status:'expired',permissions:['read']},
+];
+const SYNC_STATUS = [{label:'성공',value:2847,color:C.success},{label:'실패',value:23,color:C.danger},{label:'재시도',value:156,color:C.warning},{label:'대기',value:42,color:C.accent}];
+
+/* ─── Components ─── */
+function SkeletonLoader(){
+  return <div style={{display:'flex',flexDirection:'column',gap:16,padding:24}}>
+    {[...Array(4)].map((_,i)=><div key={i} style={{height:i===0?80:120,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+  </div>;
+}
+
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Modal({title,onClose,children,width=600}){
+  return <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxWidth:'90vw',maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid #E2E8F0'}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </div>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({text,color}){
+  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:`${color}18`,color}}>{text}</span>;
+}
+
+function StatusDot({status}){
+  const colors={active:C.success,paused:C.warning,expired:C.danger,pending:C.warning,resolved:C.success};
+  return <span style={{display:'inline-block',width:8,height:8,borderRadius:'50%',background:colors[status]||C.textMuted,marginRight:6}}/>;
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  const kpis=[
+    {label:'금일 동기화',value:3068,suffix:'건',icon:'🔄',color:C.primary},
+    {label:'성공률',value:92.8,suffix:'%',icon:'✅',color:C.success},
+    {label:'활성 오류',value:23,suffix:'건',icon:'⚠️',color:C.danger},
+    {label:'평균 응답시간',value:247,suffix:'ms',icon:'⚡',color:C.accent},
+  ];
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:24}}>
+      {kpis.map((k,i)=><div key={i} style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',animation:`slideUp 400ms ease ${i*80}ms both`,cursor:'default'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{k.label}</span>
+          <span style={{fontSize:20}}>{k.icon}</span>
+        </div>
+        <div style={{fontSize:28,fontWeight:700,color:k.color}}><CountUp end={k.value} suffix={k.suffix}/></div>
+      </div>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+        <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>시간대별 동기화 처리량</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={SYNC_HISTORY}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="time" tick={{fontSize:11}} interval={3}/>
+            <YAxis tick={{fontSize:11}}/>
+            <Tooltip/>
+            <Area type="monotone" dataKey="success" stackId="1" stroke={C.success} fill={`${C.success}40`} name="성공"/>
+            <Area type="monotone" dataKey="retry" stackId="1" stroke={C.warning} fill={`${C.warning}40`} name="재시도"/>
+            <Area type="monotone" dataKey="fail" stackId="1" stroke={C.danger} fill={`${C.danger}40`} name="실패"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+        <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>동기화 상태 분포</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie data={SYNC_STATUS} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={50} outerRadius={80}>
+              {SYNC_STATUS.map((s,i)=><Cell key={i} fill={s.color}/>)}
+            </Pie>
+            <Tooltip/>
+          </PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',gap:12,justifyContent:'center'}}>
+          {SYNC_STATUS.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:s.color}}/>
+            {s.label} <span style={{fontWeight:600}}>{s.value.toLocaleString()}</span>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <h3 style={{fontSize:16,fontWeight:600}}>최근 오류 이벤트</h3>
+        <span style={{fontSize:13,color:C.primary,cursor:'pointer'}}>전체 보기 →</span>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{borderBottom:'2px solid #E2E8F0'}}>
+          {['유형','엔드포인트','메시지','시간','상태'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,color:C.textMuted,fontWeight:600}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{ERRORS.slice(0,5).map((e,i)=><tr key={i} style={{borderBottom:'1px solid #F1F5F9',transition:'background 150ms',cursor:'pointer'}} onMouseEnter={ev=>ev.currentTarget.style.background=`${C.primary}06`} onMouseLeave={ev=>ev.currentTarget.style.background='transparent'}>
+          <td style={{padding:'12px'}}><Badge text={e.type} color={e.severity==='critical'?C.danger:C.warning}/></td>
+          <td style={{padding:'12px',fontSize:13,fontFamily:'monospace'}}>{e.endpoint}</td>
+          <td style={{padding:'12px',fontSize:13}}>{e.message}</td>
+          <td style={{padding:'12px',fontSize:12,color:C.textMuted}}>{e.timestamp}</td>
+          <td style={{padding:'12px'}}><StatusDot status={e.status}/><span style={{fontSize:13}}>{e.status==='resolved'?'해결됨':'대기중'}</span></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>;
+}
+
+function ApiLogsPage(){
+  const [filter,setFilter]=useState('all');
+  const [search,setSearch]=useState('');
+  const [page,setPage]=useState(1);
+  const [detail,setDetail]=useState(null);
+  const PER_PAGE=10;
+  const filtered=useMemo(()=>API_LOGS.filter(l=>{
+    if(filter!=='all'&&filter!=='error'&&l.direction!==filter) return false;
+    if(filter==='error'&&l.status<400) return false;
+    if(search&&!l.endpoint.includes(search)&&!String(l.status).includes(search)) return false;
+    return true;
+  }),[filter,search]);
+  const totalPages=Math.ceil(filtered.length/PER_PAGE);
+  const paged=filtered.slice((page-1)*PER_PAGE,page*PER_PAGE);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap',alignItems:'center'}}>
+      {[{k:'all',l:'전체'},{k:'inbound',l:'인바운드'},{k:'outbound',l:'아웃바운드'},{k:'error',l:'오류만'}].map(f=>
+        <button key={f.k} onClick={()=>{setFilter(f.k);setPage(1)}} style={{padding:'6px 16px',borderRadius:8,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.primary:C.surface,color:filter===f.k?'#fff':C.text,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>{f.l}</button>
+      )}
+      <div style={{flex:1}}/>
+      <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="엔드포인트 또는 상태코드 검색..." style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,width:260,fontFamily:'inherit',outline:'none'}}/>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{borderBottom:'2px solid #E2E8F0'}}>
+          {['ID','방향','메소드','엔드포인트','상태','응답시간','타임스탬프'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,color:C.textMuted,fontWeight:600}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{paged.map((l,i)=><tr key={l.id} onClick={()=>setDetail(l)} style={{borderBottom:'1px solid #F1F5F9',cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}} onMouseEnter={ev=>ev.currentTarget.style.background=`${C.primary}06`} onMouseLeave={ev=>ev.currentTarget.style.background='transparent'}>
+          <td style={{padding:'12px 14px',fontSize:13,color:C.textMuted}}>#{l.id}</td>
+          <td style={{padding:'12px 14px'}}><Badge text={l.direction==='inbound'?'수신':'발신'} color={l.direction==='inbound'?C.primary:C.accent}/></td>
+          <td style={{padding:'12px 14px'}}><span style={{fontSize:12,fontWeight:700,fontFamily:'monospace',padding:'2px 8px',borderRadius:4,background:l.method==='GET'?'#DBEAFE':l.method==='POST'?'#D1FAE5':l.method==='PUT'?'#FEF3C7':'#FEE2E2',color:l.method==='GET'?'#1D4ED8':l.method==='POST'?'#059669':l.method==='PUT'?'#D97706':'#DC2626'}}>{l.method}</span></td>
+          <td style={{padding:'12px 14px',fontSize:13,fontFamily:'monospace'}}>{l.endpoint}</td>
+          <td style={{padding:'12px 14px'}}><span style={{fontSize:13,fontWeight:600,color:l.status<400?C.success:C.danger}}>{l.status}</span></td>
+          <td style={{padding:'12px 14px',fontSize:13}}>{l.duration}ms</td>
+          <td style={{padding:'12px 14px',fontSize:12,color:C.textMuted}}>{l.timestamp}</td>
+        </tr>)}</tbody>
+      </table>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderTop:'1px solid #E2E8F0'}}>
+        <span style={{fontSize:13,color:C.textMuted}}>총 {filtered.length}건 중 {(page-1)*PER_PAGE+1}-{Math.min(page*PER_PAGE,filtered.length)}건</span>
+        <div style={{display:'flex',gap:4}}>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'6px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,cursor:page===1?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===1?.5:1}}>←</button>
+          {Array.from({length:totalPages},(_,i)=>i+1).slice(Math.max(0,page-3),page+2).map(p=>
+            <button key={p} onClick={()=>setPage(p)} style={{padding:'6px 10px',borderRadius:6,border:p===page?'none':`1px solid ${C.border}`,background:p===page?C.primary:C.surface,color:p===page?'#fff':C.text,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:p===page?600:400}}>{p}</button>
+          )}
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'6px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,cursor:page===totalPages?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===totalPages?.5:1}}>→</button>
+        </div>
+      </div>
+    </div>
+    {detail && <Modal title={`API 로그 #${detail.id}`} onClose={()=>setDetail(null)} width={640}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>메소드</span><div style={{fontSize:14,fontWeight:600,marginTop:4}}>{detail.method}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>상태코드</span><div style={{fontSize:14,fontWeight:600,marginTop:4,color:detail.status<400?C.success:C.danger}}>{detail.status}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>엔드포인트</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace'}}>{detail.endpoint}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>응답시간</span><div style={{fontSize:14,marginTop:4}}>{detail.duration}ms</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>방향</span><div style={{marginTop:4}}><Badge text={detail.direction==='inbound'?'수신':'발신'} color={C.primary}/></div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>타임스탬프</span><div style={{fontSize:14,marginTop:4}}>{detail.timestamp}</div></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>요청 페이로드</span>
+        <pre style={{background:'#F8FAFC',padding:16,borderRadius:8,fontSize:12,fontFamily:'monospace',marginTop:8,overflowX:'auto',border:'1px solid #E2E8F0'}}>{JSON.stringify(JSON.parse(detail.requestBody),null,2)}</pre>
+      </div>
+      <div>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>응답 페이로드</span>
+        <pre style={{background:'#F8FAFC',padding:16,borderRadius:8,fontSize:12,fontFamily:'monospace',marginTop:8,overflowX:'auto',border:'1px solid #E2E8F0'}}>{JSON.stringify(JSON.parse(detail.responseBody),null,2)}</pre>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+function SyncConfigPage(){
+  const [modal,setModal]=useState(null);
+  const [configs,setConfigs]=useState(SYNC_CONFIGS);
+  const [editModal,setEditModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  const dirColors={inbound:C.primary,outbound:C.success,bidirectional:C.accent};
+  const dirLabels={inbound:'인바운드',outbound:'아웃바운드',bidirectional:'양방향'};
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <div>
+        <h3 style={{fontSize:16,fontWeight:600}}>동기화 규칙 목록</h3>
+        <p style={{fontSize:13,color:C.textLight,marginTop:4}}>총 {configs.length}개의 동기화 규칙이 설정되어 있습니다.</p>
+      </div>
+      <button onClick={()=>setEditModal({id:null,name:'',direction:'inbound',schedule:'*/5 * * * *',fields:0})} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 규칙 추가</button>
+    </div>
+    <div style={{display:'grid',gap:16}}>
+      {configs.map((c,i)=><div key={c.id} onClick={()=>setModal(c)} style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='translateY(-2px)';ev.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='translateY(0)';ev.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.08)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <StatusDot status={c.status}/>
+            <span style={{fontSize:15,fontWeight:600}}>{c.name}</span>
+          </div>
+          <Badge text={dirLabels[c.direction]} color={dirColors[c.direction]}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+          <div><span style={{fontSize:11,color:C.textMuted}}>소스</span><div style={{fontSize:13,marginTop:2}}>{c.source}</div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>스케줄</span><div style={{fontSize:13,marginTop:2,fontFamily:'monospace'}}>{c.schedule}</div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>매핑 필드</span><div style={{fontSize:13,marginTop:2}}>{c.fields}개</div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>마지막 동기화</span><div style={{fontSize:13,marginTop:2}}>{c.lastSync}</div></div>
+        </div>
+      </div>)}
+    </div>
+    {modal && <Modal title={`동기화 규칙: ${modal.name}`} onClose={()=>setModal(null)} width={640}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>방향</span><div style={{marginTop:4}}><Badge text={dirLabels[modal.direction]} color={dirColors[modal.direction]}/></div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>상태</span><div style={{marginTop:4}}><StatusDot status={modal.status}/>{modal.status==='active'?'활성':'일시정지'}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>Cron 스케줄</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace'}}>{modal.schedule}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>마지막 동기화</span><div style={{fontSize:14,marginTop:4}}>{modal.lastSync}</div></div>
+      </div>
+      <h4 style={{fontSize:14,fontWeight:600,marginBottom:12}}>필드 매핑 규칙</h4>
+      <div style={{display:'grid',gap:8}}>
+        {modal.mappedFields.map((f,i)=>{
+          const [from,to]=f.split('→');
+          return <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',background:'#F8FAFC',borderRadius:8}}>
+            <span style={{fontFamily:'monospace',fontSize:13,color:C.primary,fontWeight:600}}>{from}</span>
+            <span style={{color:C.textMuted}}>→</span>
+            <span style={{fontFamily:'monospace',fontSize:13,color:C.success,fontWeight:600}}>{to}</span>
+          </div>;
+        })}
+      </div>
+      <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:24}}>
+        <button onClick={()=>{setModal(null);setToast('동기화 규칙이 수동 실행되었습니다.')}} style={{padding:'8px 20px',borderRadius:8,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>즉시 실행</button>
+        <button onClick={()=>{setEditModal(modal);setModal(null)}} style={{padding:'8px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>편집</button>
+      </div>
+    </Modal>}
+    {editModal && <Modal title={editModal.id?'규칙 편집':'새 규칙 추가'} onClose={()=>setEditModal(null)} width={560}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>규칙 이름</label><input defaultValue={editModal.name} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>동기화 방향</label><select defaultValue={editModal.direction} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.surface}}><option value="inbound">인바운드 (외부→내부)</option><option value="outbound">아웃바운드 (내부→외부)</option><option value="bidirectional">양방향</option></select></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>Cron 스케줄</label><input defaultValue={editModal.schedule} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'monospace'}}/></div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:8}}>
+          <button onClick={()=>setEditModal(null)} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{setEditModal(null);setToast('규칙이 저장되었습니다.')}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+function ErrorManagementPage(){
+  const [filter,setFilter]=useState('all');
+  const [page,setPage]=useState(1);
+  const [detail,setDetail]=useState(null);
+  const [toast,setToast]=useState(null);
+  const PER_PAGE=8;
+  const filtered=useMemo(()=>ERRORS.filter(e=>{
+    if(filter==='pending'&&e.status!=='pending') return false;
+    if(filter==='resolved'&&e.status!=='resolved') return false;
+    if(filter==='critical'&&e.severity!=='critical') return false;
+    return true;
+  }),[filter]);
+  const totalPages=Math.ceil(filtered.length/PER_PAGE);
+  const paged=filtered.slice((page-1)*PER_PAGE,page*PER_PAGE);
+  const typeCounts=useMemo(()=>{const m={};ERRORS.forEach(e=>{m[e.type]=(m[e.type]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])},[]);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+        <span style={{fontSize:12,color:C.textMuted}}>총 오류</span>
+        <div style={{fontSize:24,fontWeight:700,color:C.danger,marginTop:4}}><CountUp end={ERRORS.length}/></div>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+        <span style={{fontSize:12,color:C.textMuted}}>미해결</span>
+        <div style={{fontSize:24,fontWeight:700,color:C.warning,marginTop:4}}><CountUp end={ERRORS.filter(e=>e.status==='pending').length}/></div>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
+        <span style={{fontSize:12,color:C.textMuted}}>해결됨</span>
+        <div style={{fontSize:24,fontWeight:700,color:C.success,marginTop:4}}><CountUp end={ERRORS.filter(e=>e.status==='resolved').length}/></div>
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'3fr 1fr',gap:20}}>
+      <div>
+        <div style={{display:'flex',gap:8,marginBottom:16}}>
+          {[{k:'all',l:'전체'},{k:'pending',l:'미해결'},{k:'resolved',l:'해결됨'},{k:'critical',l:'긴급'}].map(f=>
+            <button key={f.k} onClick={()=>{setFilter(f.k);setPage(1)}} style={{padding:'6px 14px',borderRadius:8,border:filter===f.k?'none':`1px solid ${C.border}`,background:filter===f.k?C.primary:C.surface,color:filter===f.k?'#fff':C.text,fontSize:13,cursor:'pointer',fontFamily:'inherit',fontWeight:500}}>{f.l}</button>
+          )}
+        </div>
+        <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{borderBottom:'2px solid #E2E8F0'}}>
+              {['ID','유형','메시지','재시도','시간','상태',''].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,color:C.textMuted,fontWeight:600}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{paged.map((e,i)=><tr key={e.id} onClick={()=>setDetail(e)} style={{borderBottom:'1px solid #F1F5F9',cursor:'pointer',transition:'background 150ms'}} onMouseEnter={ev=>ev.currentTarget.style.background=`${C.primary}06`} onMouseLeave={ev=>ev.currentTarget.style.background='transparent'}>
+              <td style={{padding:'10px 12px',fontSize:13,color:C.textMuted}}>#{e.id}</td>
+              <td style={{padding:'10px 12px'}}><Badge text={e.type} color={e.severity==='critical'?C.danger:C.warning}/></td>
+              <td style={{padding:'10px 12px',fontSize:13,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.message}</td>
+              <td style={{padding:'10px 12px',fontSize:13,textAlign:'center'}}>{e.retryCount}</td>
+              <td style={{padding:'10px 12px',fontSize:12,color:C.textMuted}}>{e.timestamp}</td>
+              <td style={{padding:'10px 12px'}}><StatusDot status={e.status}/><span style={{fontSize:12}}>{e.status==='resolved'?'해결':'대기'}</span></td>
+              <td style={{padding:'10px 12px'}}><button onClick={ev=>{ev.stopPropagation();setToast('재처리 요청이 접수되었습니다.')}} style={{padding:'4px 12px',borderRadius:6,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:500}}>재처리</button></td>
+            </tr>)}</tbody>
+          </table>
+          <div style={{display:'flex',justifyContent:'center',gap:4,padding:'12px'}}>
+            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'6px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,cursor:page===1?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===1?.5:1}}>←</button>
+            {Array.from({length:totalPages},(_,i)=>i+1).map(p=>
+              <button key={p} onClick={()=>setPage(p)} style={{padding:'6px 10px',borderRadius:6,border:p===page?'none':`1px solid ${C.border}`,background:p===page?C.primary:C.surface,color:p===page?'#fff':C.text,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>{p}</button>
+            )}
+            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'6px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,cursor:page===totalPages?'default':'pointer',fontSize:13,fontFamily:'inherit',opacity:page===totalPages?.5:1}}>→</button>
+          </div>
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',alignSelf:'start'}}>
+        <h4 style={{fontSize:14,fontWeight:600,marginBottom:16}}>오류 유형 분포</h4>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {typeCounts.map(([type,count],i)=><div key={type}>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+              <span style={{color:C.textLight,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>{type}</span>
+              <span style={{fontWeight:600}}>{count}</span>
+            </div>
+            <div style={{height:6,background:'#E2E8F0',borderRadius:3,overflow:'hidden'}}>
+              <div style={{height:'100%',background:i===0?C.danger:i===1?C.warning:C.accent,borderRadius:3,width:`${(count/ERRORS.length)*100}%`,animation:`barGrow 800ms ease ${i*100}ms both`,['--target-width']:`${(count/ERRORS.length)*100}%`}}/>
+            </div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    {detail && <Modal title={`오류 상세: #${detail.id}`} onClose={()=>setDetail(null)} width={600}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>유형</span><div style={{marginTop:4}}><Badge text={detail.type} color={detail.severity==='critical'?C.danger:C.warning}/></div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>심각도</span><div style={{fontSize:14,fontWeight:600,marginTop:4,color:detail.severity==='critical'?C.danger:C.warning}}>{detail.severity==='critical'?'긴급':'경고'}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>엔드포인트</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace'}}>{detail.endpoint}</div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>재시도 횟수</span><div style={{fontSize:14,marginTop:4}}>{detail.retryCount}회</div></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>오류 메시지</span>
+        <div style={{padding:14,background:'#FEF2F2',borderRadius:8,marginTop:8,fontSize:14,color:C.danger,border:'1px solid #FECACA'}}>{detail.message}</div>
+      </div>
+      <div style={{marginBottom:20}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>관련 데이터</span>
+        <pre style={{background:'#F8FAFC',padding:14,borderRadius:8,fontSize:12,fontFamily:'monospace',marginTop:8,border:'1px solid #E2E8F0'}}>{JSON.stringify(JSON.parse(detail.relatedData),null,2)}</pre>
+      </div>
+      <div style={{marginBottom:20}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>운영 메모</span>
+        <textarea placeholder="이 오류에 대한 메모를 남겨주세요..." style={{width:'100%',padding:12,borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',minHeight:80,resize:'vertical',marginTop:8}}/>
+      </div>
+      <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+        <button onClick={()=>{setDetail(null);setToast('재처리가 요청되었습니다.')}} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>재처리</button>
+        <button onClick={()=>{setDetail(null);setToast('오류가 해결 처리되었습니다.')}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.success,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>해결 처리</button>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+function ApiKeyPage(){
+  const [keys,setKeys]=useState(API_KEYS);
+  const [detail,setDetail]=useState(null);
+  const [editModal,setEditModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <div>
+        <h3 style={{fontSize:16,fontWeight:600}}>API 키 관리</h3>
+        <p style={{fontSize:13,color:C.textLight,marginTop:4}}>Storeganise API 인증에 사용되는 키를 관리합니다.</p>
+      </div>
+      <button onClick={()=>setEditModal({id:null,name:'',env:'development',permissions:['read']})} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 키 생성</button>
+    </div>
+    <div style={{display:'grid',gap:16}}>
+      {keys.map((k,i)=><div key={k.id} onClick={()=>setDetail(k)} style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={ev=>{ev.currentTarget.style.transform='translateY(-2px)';ev.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)'}} onMouseLeave={ev=>{ev.currentTarget.style.transform='translateY(0)';ev.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.08)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:20}}>🔑</span>
+            <span style={{fontSize:15,fontWeight:600}}>{k.name}</span>
+          </div>
+          <Badge text={k.status==='active'?'활성':'만료'} color={k.status==='active'?C.success:C.danger}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+          <div><span style={{fontSize:11,color:C.textMuted}}>키</span><div style={{fontSize:13,marginTop:2,fontFamily:'monospace'}}>{k.key}</div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>환경</span><div style={{fontSize:13,marginTop:2}}><Badge text={k.env} color={k.env==='production'?C.danger:k.env==='staging'?C.warning:C.accent}/></div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>생성일</span><div style={{fontSize:13,marginTop:2}}>{k.created}</div></div>
+          <div><span style={{fontSize:11,color:C.textMuted}}>마지막 사용</span><div style={{fontSize:13,marginTop:2}}>{k.lastUsed}</div></div>
+        </div>
+      </div>)}
+    </div>
+    {detail && <Modal title={`API 키: ${detail.name}`} onClose={()=>setDetail(null)} width={560}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div><span style={{fontSize:12,color:C.textMuted}}>환경</span><div style={{marginTop:4}}><Badge text={detail.env} color={detail.env==='production'?C.danger:C.accent}/></div></div>
+        <div><span style={{fontSize:12,color:C.textMuted}}>상태</span><div style={{marginTop:4}}><Badge text={detail.status==='active'?'활성':'만료'} color={detail.status==='active'?C.success:C.danger}/></div></div>
+        <div style={{gridColumn:'1/3'}}><span style={{fontSize:12,color:C.textMuted}}>API 키</span><div style={{fontSize:14,marginTop:4,fontFamily:'monospace',padding:'10px 14px',background:'#F8FAFC',borderRadius:8,border:'1px solid #E2E8F0'}}>{detail.key}</div></div>
+      </div>
+      <div style={{marginBottom:20}}>
+        <span style={{fontSize:12,color:C.textMuted,fontWeight:600}}>권한</span>
+        <div style={{display:'flex',gap:8,marginTop:8}}>
+          {detail.permissions.map(p=><Badge key={p} text={p} color={C.primary}/>)}
+        </div>
+      </div>
+      <div style={{display:'flex',gap:12,justifyContent:'flex-end'}}>
+        <button onClick={()=>{setDetail(null);setToast('키가 재생성되었습니다.')}} style={{padding:'8px 20px',borderRadius:8,border:`1px solid ${C.warning}`,background:'transparent',color:C.warning,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>키 재생성</button>
+        <button onClick={()=>{setEditModal(detail);setDetail(null)}} style={{padding:'8px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>편집</button>
+      </div>
+    </Modal>}
+    {editModal && <Modal title={editModal.id?'키 편집':'새 API 키 생성'} onClose={()=>setEditModal(null)} width={500}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>키 이름</label><input defaultValue={editModal.name} placeholder="예: 운영 환경 API 키" style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}/></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>환경</label><select defaultValue={editModal.env} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',background:C.surface}}><option value="production">운영 (Production)</option><option value="staging">스테이징 (Staging)</option><option value="development">개발 (Development)</option></select></div>
+        <div><label style={{fontSize:12,fontWeight:600,color:C.textLight,display:'block',marginBottom:6}}>권한</label>
+          <div style={{display:'flex',gap:12}}>
+            {['read','write','webhook'].map(p=><label key={p} style={{display:'flex',alignItems:'center',gap:6,fontSize:13,cursor:'pointer'}}><input type="checkbox" defaultChecked={editModal.permissions?.includes(p)}/>{p}</label>)}
+          </div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:12,marginTop:8}}>
+          <button onClick={()=>setEditModal(null)} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{setEditModal(null);setToast('API 키가 저장되었습니다.')}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </div>
+    </Modal>}
+    {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+/* ─── Layout ─── */
+const NAV = [
+  {id:'dashboard',label:'동기화 모니터링 대시보드',icon:'📊'},
+  {id:'api-logs',label:'API 로그 조회',icon:'📋'},
+  {id:'sync-config',label:'ETL 동기화 설정',icon:'⚙️'},
+  {id:'error-management',label:'오류 관리 및 재처리',icon:'🚨'},
+  {id:'api-keys',label:'API 키 관리',icon:'🔑'},
+];
+const PAGE_TITLES={dashboard:'동기화 모니터링 대시보드','api-logs':'API 로그 조회','sync-config':'ETL 동기화 설정','error-management':'오류 관리 및 재처리','api-keys':'API 키 관리'};
+
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState('dashboard');
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading) return <div style={{display:'flex',minHeight:'100vh'}}><div style={{width:260,background:C.sidebarBg,flexShrink:0}}/><div style={{flex:1,padding:24}}><SkeletonLoader/></div></div>;
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard':return <DashboardPage/>;
+      case 'api-logs':return <ApiLogsPage/>;
+      case 'sync-config':return <SyncConfigPage/>;
+      case 'error-management':return <ErrorManagementPage/>;
+      case 'api-keys':return <ApiKeyPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+  return <div style={{display:'flex',minHeight:'100vh'}}>
+    {/* Sidebar */}
+    <aside style={{width:260,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'sticky',top:0,height:'100vh'}}>
+      <div style={{padding:'20px 20px 24px',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff',fontWeight:700}}>L</div>
+        <div><div style={{color:'#fff',fontSize:16,fontWeight:700}}>LogiConnect</div><div style={{color:C.sidebarText,fontSize:11}}>Sync Dashboard</div></div>
+      </div>
+      <nav style={{flex:1,padding:'0 12px',display:'flex',flexDirection:'column',gap:4}}>
+        {NAV.map(n=><button key={n.id} onClick={()=>setPage(n.id)} title={n.label} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'10px 14px',borderRadius:8,border:'none',cursor:'pointer',background:page===n.id?`${C.primary}25`:'transparent',color:page===n.id?'#fff':C.sidebarText,fontSize:14,fontWeight:page===n.id?600:400,fontFamily:'inherit',textAlign:'left',transition:'all 150ms'}}>
+          <span style={{fontSize:17}}>{n.icon}</span>
+          <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.label}</span>
+        </button>)}
+      </nav>
+      <div style={{padding:16,borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:600}}>김</div>
+          <div><div style={{color:'#fff',fontSize:13,fontWeight:500}}>김민수</div><div style={{color:C.sidebarText,fontSize:11}}>시스템 관리자</div></div>
+        </div>
+      </div>
+    </aside>
+    {/* Main */}
+    <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0}}>
+      <header style={{height:56,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',background:C.surface,flexShrink:0}}>
+        <h1 style={{fontSize:18,fontWeight:700}}>{PAGE_TITLES[page]}</h1>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'8px 14px 8px 36px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,width:220,fontFamily:'inherit',outline:'none'}}/>
+            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:14,color:C.textMuted}}>🔍</span>
+          </div>
+          <div style={{position:'relative',cursor:'pointer'}}>
+            <span style={{fontSize:18}}>🔔</span>
+            <span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:C.danger,color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600}}>3</span>
+          </div>
+        </div>
+      </header>
+      <main style={{flex:1,overflow:'auto',padding:24}}>
+        {renderPage()}
+      </main>
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
