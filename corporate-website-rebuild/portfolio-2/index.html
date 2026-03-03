@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>트래블링크 관광 포털 관리 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.10.3/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;overflow:hidden}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef} = React;
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line,PieChart,Pie,Cell} = Recharts;
+
+const C = {
+  primary:'#0EA5E9',primaryDark:'#0369A1',accent:'#38BDF8',
+  bg:'#F0F9FF',surface:'#FFFFFF',
+  text:'#0F172A',textLight:'#475569',
+  border:'#E2E8F0',success:'#10B981',warning:'#F59E0B',danger:'#EF4444',
+  gradient:'linear-gradient(135deg,#0EA5E9,#06B6D4,#0369A1)',
+};
+
+/* ─── Data ─── */
+const CONTENT_DATA = [
+  {id:1,type:'관광지',title:'제주 한라산 트레킹 코스',region:'제주',theme:'자연',image:'🏔️',status:'게시',views:1842,price:'무료'},
+  {id:2,type:'패키지',title:'부산 해운대 2박3일 패키지',region:'부산',theme:'해변',image:'🏖️',status:'게시',views:2156,price:'₩580,000'},
+  {id:3,type:'객실',title:'설악 파인리조트 디럭스룸',region:'강원',theme:'리조트',image:'🏨',status:'게시',views:987,price:'₩320,000/박'},
+  {id:4,type:'관광지',title:'경주 불국사·석굴암 투어',region:'경주',theme:'역사',image:'🏛️',status:'게시',views:1523,price:'₩15,000'},
+  {id:5,type:'패키지',title:'강릉 커피거리 당일 여행',region:'강원',theme:'미식',image:'☕',status:'비게시',views:654,price:'₩89,000'},
+  {id:6,type:'객실',title:'여수 오션뷰 스위트',region:'전남',theme:'해변',image:'🌊',status:'게시',views:1234,price:'₩450,000/박'},
+  {id:7,type:'관광지',title:'전주 한옥마을 문화 체험',region:'전북',theme:'문화',image:'🏯',status:'게시',views:2034,price:'₩25,000'},
+  {id:8,type:'패키지',title:'제주 올레길 3박4일 힐링',region:'제주',theme:'자연',image:'🌿',status:'게시',views:1678,price:'₩890,000'},
+];
+const INQUIRY_DATA = [
+  {id:1,name:'김서연',email:'kim@email.com',phone:'010-1234-5678',content:'부산 해운대 패키지 인원 변경 가능한가요? 6명 기준 견적 요청합니다.',date:'2024.08.18',status:'접수',package:'부산 해운대 2박3일 패키지'},
+  {id:2,name:'이준호',email:'lee@email.com',phone:'010-2345-6789',content:'설악 리조트 추석 연휴 예약 가능 여부 확인 부탁드립니다.',date:'2024.08.17',status:'확인',package:'설악 파인리조트 디럭스룸'},
+  {id:3,name:'박하나',email:'park@email.com',phone:'010-3456-7890',content:'제주 올레길 패키지 단체(20명) 예약 문의입니다. 할인 가능한지요?',date:'2024.08.16',status:'답변',package:'제주 올레길 3박4일 힐링'},
+  {id:4,name:'정수민',email:'jung@email.com',phone:'010-4567-8901',content:'여수 오션뷰 스위트 2박 예약하고 싶습니다. 조식 포함인가요?',date:'2024.08.15',status:'완료',package:'여수 오션뷰 스위트'},
+  {id:5,name:'최우진',email:'choi@email.com',phone:'010-5678-9012',content:'경주 투어와 숙소를 함께 예약할 수 있나요?',date:'2024.08.14',status:'접수',package:'경주 불국사·석굴암 투어'},
+];
+const PROMO_DATA = [
+  {id:1,type:'뉴스',title:'2024 가을 여행 시즌 오픈 안내',date:'2024.08.20',endDate:'',status:'게시',pinned:true,views:892},
+  {id:2,type:'이벤트',title:'추석 연휴 특가 프로모션 — 전 객실 20% 할인',date:'2024.08.15',endDate:'2024.09.20',status:'게시',pinned:true,views:2341},
+  {id:3,type:'프로모션',title:'얼리버드 할인 — 10월 패키지 사전 예약',date:'2024.08.10',endDate:'2024.09.30',status:'게시',pinned:false,views:1567},
+  {id:4,type:'뉴스',title:'강릉 새 파트너 리조트 입점 안내',date:'2024.08.05',endDate:'',status:'게시',pinned:false,views:456},
+  {id:5,type:'이벤트',title:'여름 시즌 마감 — 라스트 미닛 특가',date:'2024.07.20',endDate:'2024.08.31',status:'만료예정',pinned:false,views:3210},
+];
+const ANALYTICS_DATA = [
+  {month:'3월',visitors:12400,inquiries:89},
+  {month:'4월',visitors:15600,inquiries:112},
+  {month:'5월',visitors:18200,inquiries:134},
+  {month:'6월',visitors:22800,inquiries:178},
+  {month:'7월',visitors:28500,inquiries:223},
+  {month:'8월',visitors:31200,inquiries:245},
+];
+const REGION_PIE = [{name:'제주',value:35},{name:'부산',value:22},{name:'강원',value:18},{name:'경주',value:12},{name:'기타',value:13}];
+const PIE_COLORS = ['#0EA5E9','#06B6D4','#38BDF8','#7DD3FC','#BAE6FD'];
+
+const TABS = [
+  {id:'home',label:'홈',icon:'🏠'},
+  {id:'content',label:'관광 콘텐츠',icon:'🗺️'},
+  {id:'inquiry',label:'예약/문의',icon:'📩'},
+  {id:'promotion',label:'홍보 콘텐츠',icon:'📢'},
+  {id:'analytics',label:'방문 분석',icon:'📈'},
+];
+
+const PAGE_META = {
+  home:{title:'관리자 대시보드',desc:'트래블링크 포털 운영 현황',kpis:[{label:'콘텐츠',value:'8',unit:'건'},{label:'신규 문의',value:'5',unit:'건'},{label:'이달 방문',value:'31.2K',unit:''}]},
+  content:{title:'관광 콘텐츠 관리',desc:'관광지·패키지·객실 카탈로그',kpis:[{label:'전체',value:'8',unit:'건'},{label:'게시중',value:'7',unit:'건'},{label:'조회수',value:'12.1K',unit:''}]},
+  inquiry:{title:'예약/문의 관리',desc:'방문자 예약 문의 처리',kpis:[{label:'전체',value:'5',unit:'건'},{label:'미처리',value:'2',unit:'건'},{label:'완료',value:'1',unit:'건'}]},
+  promotion:{title:'홍보 콘텐츠 관리',desc:'뉴스·이벤트·프로모션 게시판',kpis:[{label:'전체',value:'5',unit:'건'},{label:'게시중',value:'4',unit:'건'},{label:'총 조회',value:'8.5K',unit:''}]},
+  analytics:{title:'방문 분석',desc:'페이지 방문 통계 및 유입 분석',kpis:[{label:'이달 방문',value:'31.2K',unit:''},{label:'문의 전환',value:'245',unit:'건'},{label:'인기 지역',value:'제주',unit:''}]},
+};
+
+/* ─── Components ─── */
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primaryDark,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(14,165,233,0.3)',fontSize:14}}>{message}</div>;
+}
+
+function Drawer({item,onClose,showToast}){
+  if(!item) return null;
+  const statusColors={접수:C.warning,확인:C.primary,답변:C.accent,완료:C.success};
+  const statuses=['접수','확인','답변','완료'];
+  return <>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'fixed',top:0,right:0,bottom:0,width:520,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',zIndex:201,overflowY:'auto',animation:'slideInRight 200ms ease',display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>문의 상세</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,flex:1}}>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>관련 상품</div>
+          <div style={{fontSize:15,fontWeight:600}}>{item.package}</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+          <div style={{padding:12,background:'#F8FAFC',borderRadius:10}}><div style={{fontSize:11,color:C.textLight,marginBottom:2}}>이름</div><div style={{fontSize:14,fontWeight:600}}>{item.name}</div></div>
+          <div style={{padding:12,background:'#F8FAFC',borderRadius:10}}><div style={{fontSize:11,color:C.textLight,marginBottom:2}}>연락처</div><div style={{fontSize:14}}>{item.phone}</div></div>
+          <div style={{padding:12,background:'#F8FAFC',borderRadius:10}}><div style={{fontSize:11,color:C.textLight,marginBottom:2}}>이메일</div><div style={{fontSize:14}}>{item.email}</div></div>
+          <div style={{padding:12,background:'#F8FAFC',borderRadius:10}}><div style={{fontSize:11,color:C.textLight,marginBottom:2}}>접수일</div><div style={{fontSize:14}}>{item.date}</div></div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:6}}>문의 내용</div>
+          <div style={{padding:14,background:'#F8FAFC',borderRadius:10,fontSize:14,lineHeight:1.7}}>{item.content}</div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:8}}>처리 상태</div>
+          <div style={{display:'flex',gap:8}}>
+            {statuses.map((s,i)=>{
+              const isCurrent=s===item.status;const isPast=statuses.indexOf(item.status)>i;
+              return <div key={s} style={{flex:1,textAlign:'center'}}>
+                <div style={{width:32,height:32,borderRadius:'50%',margin:'0 auto 6px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,background:isCurrent?C.primary:isPast?C.success:'#E2E8F0',color:isCurrent||isPast?'#fff':C.textLight}}>{isPast?'✓':i+1}</div>
+                <div style={{fontSize:11,color:isCurrent?C.primary:C.textLight,fontWeight:isCurrent?600:400}}>{s}</div>
+              </div>;
+            })}
+          </div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:12,color:C.textLight,marginBottom:6}}>관리자 메모</div>
+          <textarea rows={3} placeholder="내부 메모를 입력하세요..." style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none',resize:'vertical'}}/>
+        </div>
+      </div>
+      <div style={{padding:'16px 24px',borderTop:`1px solid ${C.border}`,display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <button onClick={onClose} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>닫기</button>
+        <button onClick={()=>{onClose();showToast('처리 상태가 변경되었습니다')}} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>상태 변경</button>
+      </div>
+    </div>
+  </>;
+}
+
+function Modal({title,onClose,children,width=580}){
+  return <>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:500,animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:18,fontWeight:800}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </>;
+}
+
+function Badge({label,color}){
+  return <span style={{display:'inline-block',padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:`${color}18`,color}}>{label}</span>;
+}
+
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{if(typeof end==='string'){setVal(end);return}let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span>{typeof val==='number'?val.toLocaleString():val}{suffix}</span>;
+}
+
+function Skeleton(){
+  return <div style={{padding:32}}>{[...Array(3)].map((_,i)=><div key={i} style={{height:140,borderRadius:16,marginBottom:16,background:'linear-gradient(90deg,#E0F2FE 25%,#BAE6FD 50%,#E0F2FE 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}</div>;
+}
+
+/* ═══ Home Dashboard ═══ */
+function HomePage(){
+  const contentTypes=[{label:'관광지',count:3,icon:'🏔️'},{label:'패키지',count:3,icon:'📦'},{label:'객실',count:2,icon:'🏨'}];
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:28}}>
+      {contentTypes.map((t,i)=><div key={t.label} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms',cursor:'default'}}
+        onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+        onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div><div style={{fontSize:12,color:C.textLight,marginBottom:4,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em'}}>{t.label}</div><div style={{fontSize:32,fontWeight:800}}>{t.count}</div></div>
+          <div style={{fontSize:36}}>{t.icon}</div>
+        </div>
+      </div>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:16,marginBottom:28}}>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 500ms ease 240ms both'}}>
+        <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>월별 방문자 추이</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={ANALYTICS_DATA}><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="month" fontSize={12}/><YAxis fontSize={12}/><Tooltip/><Line type="monotone" dataKey="visitors" stroke={C.primary} strokeWidth={3} dot={{r:5,fill:C.primary}}/></LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 500ms ease 320ms both'}}>
+        <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>인기 지역</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart><Pie data={REGION_PIE} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>{REGION_PIE.map((_,i)=><Cell key={i} fill={PIE_COLORS[i]}/>)}</Pie></PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginTop:8}}>
+          {REGION_PIE.map((r,i)=><span key={r.name} style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:4,background:PIE_COLORS[i]}}/>{r.name} {r.value}%</span>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 500ms ease 400ms both'}}>
+      <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>최근 문의</div>
+      {INQUIRY_DATA.slice(0,3).map((q,i)=><div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:i<2?`1px solid ${C.border}`:'none'}}>
+        <div><div style={{fontSize:14,fontWeight:600}}>{q.name}</div><div style={{fontSize:12,color:C.textLight,marginTop:2}}>{q.package}</div></div>
+        <Badge label={q.status} color={q.status==='접수'?C.warning:q.status==='완료'?C.success:C.primary}/>
+      </div>)}
+    </div>
+  </div>;
+}
+
+/* ═══ Content Management ═══ */
+function ContentPage({showToast}){
+  const [filter,setFilter]=useState('전체');
+  const [modal,setModal]=useState(null);
+  const filters=['전체','관광지','패키지','객실'];
+  const filtered=filter==='전체'?CONTENT_DATA:CONTENT_DATA.filter(c=>c.type===filter);
+
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <div style={{display:'flex',gap:6}}>
+        {filters.map(f=><button key={f} onClick={()=>setFilter(f)} style={{padding:'7px 16px',borderRadius:20,fontSize:13,fontWeight:filter===f?600:400,border:'none',cursor:'pointer',background:filter===f?C.primary:'transparent',color:filter===f?'#fff':C.textLight,fontFamily:'Pretendard',transition:'all 150ms'}}>{f}</button>)}
+      </div>
+      <button onClick={()=>setModal('create')} style={{padding:'8px 20px',borderRadius:12,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>+ 콘텐츠 등록</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+      {filtered.map((c,i)=><div key={c.id} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms',cursor:'pointer'}}
+        onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+        onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+        <div style={{height:140,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56}}>{c.image}</div>
+        <div style={{padding:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <Badge label={c.type} color={c.type==='관광지'?C.primary:c.type==='패키지'?C.accent:C.success}/>
+            <Badge label={c.status} color={c.status==='게시'?C.success:C.textLight}/>
+          </div>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:6}}>{c.title}</h3>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textLight}}>
+            <span>📍 {c.region} · {c.theme}</span>
+            <span>👁 {c.views.toLocaleString()}</span>
+          </div>
+          <div style={{fontSize:15,fontWeight:700,color:C.primary,marginTop:8}}>{c.price}</div>
+        </div>
+      </div>)}
+    </div>
+
+    {modal==='create'&&<Modal title="콘텐츠 등록" onClose={()=>setModal(null)} width={620}>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>유형</label>
+        <select style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}>
+          <option>관광지</option><option>패키지</option><option>객실</option>
+        </select>
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>제목</label>
+        <input placeholder="콘텐츠 제목을 입력하세요" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none'}}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        <div><label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>지역</label>
+        <select style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}>
+          <option>제주</option><option>부산</option><option>강원</option><option>경주</option><option>전남</option>
+        </select></div>
+        <div><label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>테마</label>
+        <select style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}>
+          <option>자연</option><option>해변</option><option>역사</option><option>미식</option><option>문화</option>
+        </select></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>가격</label>
+        <input placeholder="₩580,000" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none'}}/>
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>상세 설명</label>
+        <textarea rows={4} placeholder="콘텐츠 상세 내용을 입력하세요" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none',resize:'vertical'}}/>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+        <button onClick={()=>setModal(null)} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>취소</button>
+        <button onClick={()=>{setModal(null);showToast('콘텐츠가 등록되었습니다')}} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>등록</button>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+/* ═══ Inquiry Management ═══ */
+function InquiryPage({showToast}){
+  const [drawer,setDrawer]=useState(null);
+  const [filter,setFilter]=useState('전체');
+  const statuses=['전체','접수','확인','답변','완료'];
+  const filtered=filter==='전체'?INQUIRY_DATA:INQUIRY_DATA.filter(q=>q.status===filter);
+  const statusColors={접수:C.warning,확인:C.primary,답변:C.accent,완료:C.success};
+
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:6,marginBottom:20}}>
+      {statuses.map(s=><button key={s} onClick={()=>setFilter(s)} style={{padding:'7px 16px',borderRadius:20,fontSize:13,fontWeight:filter===s?600:400,border:'none',cursor:'pointer',background:filter===s?C.primary:'transparent',color:filter===s?'#fff':C.textLight,fontFamily:'Pretendard'}}>{s}</button>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+      {filtered.map((q,i)=><div key={q.id} onClick={()=>setDrawer(q)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',cursor:'pointer',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms'}}
+        onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+        onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <div style={{fontWeight:700,fontSize:15}}>{q.name}</div>
+          <Badge label={q.status} color={statusColors[q.status]}/>
+        </div>
+        <div style={{fontSize:13,color:C.textLight,marginBottom:6}}>{q.package}</div>
+        <div style={{fontSize:14,color:C.text,lineHeight:1.6,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{q.content}</div>
+        <div style={{fontSize:12,color:C.textLight,marginTop:10}}>{q.date}</div>
+      </div>)}
+    </div>
+    <Drawer item={drawer} onClose={()=>setDrawer(null)} showToast={showToast}/>
+  </div>;
+}
+
+/* ═══ Promotion Management ═══ */
+function PromoPage({showToast}){
+  const [filter,setFilter]=useState('전체');
+  const [modal,setModal]=useState(null);
+  const types=['전체','뉴스','이벤트','프로모션'];
+  const filtered=filter==='전체'?PROMO_DATA:PROMO_DATA.filter(p=>p.type===filter);
+
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <div style={{display:'flex',gap:6}}>
+        {types.map(t=><button key={t} onClick={()=>setFilter(t)} style={{padding:'7px 16px',borderRadius:20,fontSize:13,fontWeight:filter===t?600:400,border:'none',cursor:'pointer',background:filter===t?C.primary:'transparent',color:filter===t?'#fff':C.textLight,fontFamily:'Pretendard'}}>{t}</button>)}
+      </div>
+      <button onClick={()=>setModal('create')} style={{padding:'8px 20px',borderRadius:12,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>+ 홍보 콘텐츠 작성</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#F8FAFC'}}>
+          {['','유형','제목','게시일','종료일','상태','조회수'].map((h,i)=><th key={i} style={{padding:'14px 16px',fontSize:12,fontWeight:700,color:C.textLight,textAlign:'left',borderBottom:`1px solid ${C.border}`,textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{filtered.map((p,idx)=><tr key={p.id} style={{animation:`slideInRight 250ms ease ${idx*60}ms both`,transition:'all 150ms'}}
+          onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}08`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,width:28}}>{p.pinned?'📌':''}</td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`}}><Badge label={p.type} color={p.type==='뉴스'?C.primary:p.type==='이벤트'?C.warning:C.accent}/></td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,fontSize:14,fontWeight:600}}>{p.title}</td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.textLight}}>{p.date}</td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.textLight}}>{p.endDate||'—'}</td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`}}><Badge label={p.status} color={p.status==='게시'?C.success:C.warning}/></td>
+          <td style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,fontSize:13,color:C.textLight}}>{p.views.toLocaleString()}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+
+    {modal==='create'&&<Modal title="홍보 콘텐츠 작성" onClose={()=>setModal(null)} width={640}>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>유형</label>
+        <select style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}>
+          <option>뉴스</option><option>이벤트</option><option>프로모션</option>
+        </select>
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>제목</label>
+        <input placeholder="제목을 입력하세요" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none'}}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        <div><label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>게시 시작일</label>
+        <input type="date" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}/></div>
+        <div><label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>게시 종료일</label>
+        <input type="date" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard'}}/></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>본문</label>
+        <textarea rows={6} placeholder="본문 내용을 입력하세요" style={{width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none',resize:'vertical'}}/>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+        <button onClick={()=>setModal(null)} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>취소</button>
+        <button onClick={()=>{setModal(null);showToast('홍보 콘텐츠가 등록되었습니다')}} style={{padding:'8px 18px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>등록</button>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+/* ═══ Analytics ═══ */
+function AnalyticsPage(){
+  const topPages=[
+    {page:'제주 한라산 트레킹 코스',views:1842,pct:100},
+    {page:'부산 해운대 2박3일 패키지',views:2156,pct:92},
+    {page:'전주 한옥마을 문화 체험',views:2034,pct:87},
+    {page:'제주 올레길 3박4일 힐링',views:1678,pct:72},
+    {page:'경주 불국사·석굴암 투어',views:1523,pct:65},
+  ];
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:16,marginBottom:28}}>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 400ms ease both'}}>
+        <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>월별 방문자 · 문의 추이</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={ANALYTICS_DATA}><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="month" fontSize={12}/><YAxis fontSize={12}/><Tooltip/><Bar dataKey="visitors" fill={C.primary} radius={[8,8,0,0]} name="방문자"/><Bar dataKey="inquiries" fill={C.accent} radius={[8,8,0,0]} name="문의"/></BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 400ms ease 80ms both'}}>
+        <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>유입 경로</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart><Pie data={[{name:'검색 엔진',value:42},{name:'직접 방문',value:28},{name:'SNS',value:18},{name:'광고',value:12}]} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="value" paddingAngle={3}>{PIE_COLORS.slice(0,4).map((c,i)=><Cell key={i} fill={c}/>)}</Pie></PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,justifyContent:'center',marginTop:4}}>
+          {[{n:'검색 엔진',v:42},{n:'직접 방문',v:28},{n:'SNS',v:18},{n:'광고',v:12}].map((r,i)=><span key={r.n} style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:4,background:PIE_COLORS[i]}}/>{r.n} {r.v}%</span>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',animation:'slideUp 400ms ease 160ms both'}}>
+      <div style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:16}}>인기 콘텐츠 TOP 5</div>
+      {topPages.map((p,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:16,padding:'12px 0',borderBottom:i<4?`1px solid ${C.border}`:'none'}}>
+        <div style={{width:28,height:28,borderRadius:8,background:i<3?C.primary:C.border,color:i<3?'#fff':C.textLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700}}>{i+1}</div>
+        <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,marginBottom:6}}>{p.page}</div>
+          <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',background:C.primary,borderRadius:3,width:`${p.pct}%`,animation:'barGrow 800ms ease','--target-width':`${p.pct}%`}}/></div>
+        </div>
+        <div style={{fontSize:14,fontWeight:700,color:C.primary,width:60,textAlign:'right'}}>{p.views.toLocaleString()}</div>
+      </div>)}
+    </div>
+  </div>;
+}
+
+/* ═══ App ═══ */
+function App(){
+  const [tab,setTab]=useState('home');
+  const [loading,setLoading]=useState(true);
+  const [toast,setToast]=useState(null);
+  const showToast=(msg)=>setToast(msg);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  const meta=PAGE_META[tab];
+  if(loading) return <Skeleton/>;
+
+  return <div style={{minHeight:'100vh',background:C.bg}}>
+    {/* Top Nav */}
+    <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 24px',gap:8,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
+      <div style={{fontSize:20,fontWeight:800,color:C.primary,marginRight:20,letterSpacing:'-0.03em'}}>✈️ 트래블링크</div>
+      {TABS.map(t=><button key={t.id} title={t.label} onClick={()=>setTab(t.id)} style={{padding:'8px 16px',borderRadius:10,fontSize:14,fontWeight:tab===t.id?700:400,border:'none',cursor:'pointer',background:tab===t.id?`${C.primary}12`:'transparent',color:tab===t.id?C.primary:C.textLight,fontFamily:'Pretendard',transition:'all 150ms',display:'flex',alignItems:'center',gap:6}}>
+        <span style={{fontSize:16}}>{t.icon}</span>{t.label}
+      </button>)}
+      <div style={{flex:1}}/>
+      <div style={{position:'relative'}}>
+        <input placeholder="검색..." style={{padding:'7px 14px 7px 34px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,width:180,outline:'none',fontFamily:'Pretendard'}}/>
+        <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14}}>🔍</span>
+      </div>
+      <div style={{position:'relative',cursor:'pointer',marginLeft:8}}>🔔<span style={{position:'absolute',top:-4,right:-6,width:16,height:16,borderRadius:8,background:C.danger,color:'#fff',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>3</span></div>
+      <div style={{width:32,height:32,borderRadius:10,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700,marginLeft:8}}>관</div>
+    </header>
+
+    {/* Hero Banner */}
+    <div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+        <div><h1 style={{fontSize:28,fontWeight:800,letterSpacing:'-0.03em'}}>{meta.title}</h1><div style={{fontSize:14,opacity:0.85,marginTop:4}}>{meta.desc}</div></div>
+        <div style={{display:'flex',gap:32}}>
+          {meta.kpis.map(k=><div key={k.label} style={{textAlign:'center'}}>
+            <div style={{fontSize:28,fontWeight:800}}>{k.value}</div>
+            <div style={{fontSize:12,opacity:0.8}}>{k.label}{k.unit&&` (${k.unit})`}</div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+
+    {/* Content */}
+    <main style={{padding:'24px 32px',maxHeight:'calc(100vh - 56px - 100px)',overflowY:'auto'}}>
+      {tab==='home'&&<HomePage/>}
+      {tab==='content'&&<ContentPage showToast={showToast}/>}
+      {tab==='inquiry'&&<InquiryPage showToast={showToast}/>}
+      {tab==='promotion'&&<PromoPage showToast={showToast}/>}
+      {tab==='analytics'&&<AnalyticsPage/>}
+    </main>
+
+    {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

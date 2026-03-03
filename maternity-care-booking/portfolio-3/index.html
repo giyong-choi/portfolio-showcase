@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>리틀블룸 — 프리미엄 산후조리 관리 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#F8FAFC;color:#0F172A;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.skeleton{background:linear-gradient(90deg,#E2E8F0 25%,#CBD5E1 50%,#E2E8F0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── 디자인 토큰 (Indigo / bright-workspace) ── */
+const C = {
+  primary:'#6366F1', primaryDark:'#4338CA', primaryLight:'#EEF2FF',
+  secondary:'#0F172A', accent:'#22D3EE',
+  bg:'#F8FAFC', surface:'#FFFFFF', border:'#E5E7EB',
+  text:'#0F172A', textSub:'#64748B', textLight:'#9CA3AF',
+  success:'#059669', warning:'#D97706', danger:'#DC2626', info:'#0284C7',
+  card:{ borderRadius:20, boxShadow:'0 1px 4px rgba(0,0,0,0.06)', padding:20, border:'1px solid #E5E7EB' },
+};
+
+/* ── 더미 데이터 ── */
+const MOTHERS_DATA = [
+  { id:1, name:'김서연', age:32, room:'스위트 A', baby:'김지호', babyDOB:'2025-10-28', checkIn:'2025-11-01', program:'프리미엄', status:'입실중',
+    health:{ temp:[36.5,36.7,36.4,36.6,36.8,36.5,36.6], bp:['120/80','118/78','122/82','119/79','121/80','120/81','118/78'], weight:[62.5,62.3,62.1,61.8,61.6,61.4,61.2] },
+    alerts:[] },
+  { id:2, name:'박하나', age:29, room:'패밀리 A', baby:'박서윤', babyDOB:'2025-10-22', checkIn:'2025-10-25', program:'스탠다드', status:'입실중',
+    health:{ temp:[36.6,36.8,37.1,36.9,36.7,36.5,36.6], bp:['130/85','132/86','128/84','126/82','125/80','124/80','122/78'], weight:[58.0,57.8,57.6,57.5,57.3,57.2,57.0] },
+    alerts:['혈압 경미 상승'] },
+  { id:3, name:'정수민', age:35, room:'스탠다드 1', baby:'정민준', babyDOB:'2025-10-25', checkIn:'2025-10-28', program:'프리미엄', status:'입실중',
+    health:{ temp:[36.4,36.5,36.6,36.5,36.7,36.6,36.5], bp:['115/75','118/76','116/74','117/75','115/74','116/75','114/73'], weight:[55.2,55.0,54.8,54.6,54.5,54.3,54.2] },
+    alerts:[] },
+  { id:4, name:'강유진', age:31, room:'프리미엄', baby:'강하은', babyDOB:'2025-10-18', checkIn:'2025-10-20', program:'VIP', status:'입실중',
+    health:{ temp:[36.6,36.5,36.7,36.8,36.6,36.5,36.4], bp:['110/72','112/74','111/73','110/72','108/70','110/72','109/71'], weight:[60.0,59.7,59.5,59.3,59.1,58.9,58.7] },
+    alerts:[] },
+  { id:5, name:'이지은', age:28, room:'스위트 B', baby:'이하린', babyDOB:'2025-11-03', checkIn:'2025-11-05', program:'스탠다드', status:'예약확정',
+    health:{ temp:[], bp:[], weight:[] },
+    alerts:[] },
+];
+
+const CARE_LOGS = [
+  { id:1, baby:'김지호', time:'08:00', type:'수유', detail:'모유 수유 15분 (좌측)', nurse:'이민지', date:'2025-11-07' },
+  { id:2, baby:'김지호', time:'09:30', type:'목욕', detail:'전신 목욕, 배꼽 소독', nurse:'박지혜', date:'2025-11-07' },
+  { id:3, baby:'김지호', time:'10:00', type:'수면', detail:'숙면 중 (체위 변경)', nurse:'이민지', date:'2025-11-07' },
+  { id:4, baby:'박서윤', time:'07:30', type:'수유', detail:'분유 80ml', nurse:'김영희', date:'2025-11-07' },
+  { id:5, baby:'박서윤', time:'09:00', type:'수면', detail:'깊은 수면', nurse:'김영희', date:'2025-11-07' },
+  { id:6, baby:'박서윤', time:'11:00', type:'수유', detail:'모유 수유 20분 (우측)', nurse:'박지혜', date:'2025-11-07' },
+  { id:7, baby:'정민준', time:'06:00', type:'수유', detail:'분유 70ml', nurse:'최수진', date:'2025-11-07' },
+  { id:8, baby:'정민준', time:'08:30', type:'목욕', detail:'스펀지 목욕', nurse:'최수진', date:'2025-11-07' },
+  { id:9, baby:'강하은', time:'07:00', type:'수유', detail:'모유 수유 10분 + 분유 40ml', nurse:'이민지', date:'2025-11-07' },
+  { id:10, baby:'강하은', time:'10:30', type:'목욕', detail:'전신 목욕, 로션 도포', nurse:'이민지', date:'2025-11-07' },
+];
+
+const GROWTH_DATA = [
+  { day:1, weight:3.2, height:50.0 },
+  { day:3, weight:3.15, height:50.0 },
+  { day:5, weight:3.25, height:50.2 },
+  { day:7, weight:3.35, height:50.5 },
+  { day:10, weight:3.5, height:51.0 },
+  { day:14, weight:3.7, height:51.5 },
+];
+
+const STAFF = [
+  { id:1, name:'이민지', role:'간호사', shift:'주간', assigned:['김서연','강유진'], phone:'010-1111-1111' },
+  { id:2, name:'김영희', role:'간호사', shift:'주간', assigned:['박하나'], phone:'010-2222-2222' },
+  { id:3, name:'박지혜', role:'돌봄사', shift:'주간', assigned:['김서연','박하나'], phone:'010-3333-3333' },
+  { id:4, name:'최수진', role:'돌봄사', shift:'야간', assigned:['정수민'], phone:'010-4444-4444' },
+  { id:5, name:'정은주', role:'영양사', shift:'주간', assigned:[], phone:'010-5555-5555' },
+  { id:6, name:'한미라', role:'간호사', shift:'야간', assigned:['김서연','정수민'], phone:'010-6666-6666' },
+];
+
+const SCHEDULE = {
+  headers:['직원','월','화','수','목','금','토','일'],
+  data:[
+    { name:'이민지', shifts:['주간','주간','주간','주간','주간','휴무','휴무'] },
+    { name:'김영희', shifts:['주간','주간','주간','주간','주간','주간','휴무'] },
+    { name:'박지혜', shifts:['주간','주간','휴무','주간','주간','주간','휴무'] },
+    { name:'최수진', shifts:['야간','야간','야간','야간','야간','휴무','휴무'] },
+    { name:'정은주', shifts:['주간','주간','주간','주간','주간','휴무','휴무'] },
+    { name:'한미라', shifts:['휴무','휴무','야간','야간','야간','야간','야간'] },
+  ],
+};
+
+const ROOMS_DATA = [
+  { id:1, name:'스위트 A', type:'스위트', status:'입실중', guest:'김서연', checkIn:'2025-11-01', checkOut:'2025-11-15', clean:'완료' },
+  { id:2, name:'스위트 B', type:'스위트', status:'예약확정', guest:'이지은', checkIn:'2025-11-05', checkOut:'2025-11-19', clean:'완료' },
+  { id:3, name:'패밀리 A', type:'패밀리', status:'입실중', guest:'박하나', checkIn:'2025-10-25', checkOut:'2025-11-08', clean:'완료' },
+  { id:4, name:'패밀리 B', type:'패밀리', status:'공실', guest:'-', checkIn:'-', checkOut:'-', clean:'필요' },
+  { id:5, name:'스탠다드 1', type:'스탠다드', status:'입실중', guest:'정수민', checkIn:'2025-10-28', checkOut:'2025-11-11', clean:'완료' },
+  { id:6, name:'프리미엄', type:'프리미엄', status:'입실중', guest:'강유진', checkIn:'2025-10-20', checkOut:'2025-11-03', clean:'완료' },
+];
+
+const NAV_ITEMS = [
+  { id:'monitoring', icon:'💗', label:'산모 모니터링' },
+  { id:'room', icon:'🛏️', label:'예약/객실' },
+  { id:'care-log', icon:'📝', label:'돌봄 일지' },
+  { id:'staff', icon:'👩‍⚕️', label:'직원 관리' },
+  { id:'settings', icon:'⚙️', label:'운영 설정' },
+];
+
+const DAYS_LABEL = ['1일','3일','5일','7일','10일','14일'];
+
+/* ── 유틸 컴포넌트 ── */
+function Badge({ children, color=C.primary, bg }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:600, color, background:bg||color+'18' }}>{children}</span>;
+}
+function StatusBadge({ status }) {
+  const m = { '입실중':{c:C.success,b:'#D1FAE5'}, '예약확정':{c:C.info,b:'#E0F2FE'}, '공실':{c:C.textLight,b:'#F1F5F9'}, '주간':{c:C.info,b:'#DBEAFE'}, '야간':{c:C.primary,b:C.primaryLight}, '휴무':{c:C.textLight,b:'#F1F5F9'}, '완료':{c:C.success,b:'#D1FAE5'}, '필요':{c:C.warning,b:'#FEF3C7'} };
+  const s = m[status]||{c:C.textSub,b:'#F1F5F9'};
+  return <Badge color={s.c} bg={s.b}>{status}</Badge>;
+}
+function Toast({ message, onClose }) {
+  useEffect(()=>{ const t=setTimeout(onClose,3000); return ()=>clearTimeout(t); },[]);
+  return <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, background:C.primary, color:'#fff', padding:'12px 24px', borderRadius:12, animation:'slideUp 300ms ease', boxShadow:'0 4px 16px rgba(99,102,241,0.3)', fontSize:14 }}>{message}</div>;
+}
+function Modal({ open, onClose, title, width=560, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:500 }} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width, maxWidth:'90vw', maxHeight:'85vh', overflowY:'auto', background:C.surface, borderRadius:20, border:`1px solid ${C.border}`, boxShadow:'0 20px 60px rgba(0,0,0,0.15)', zIndex:501, animation:'fadeInScale 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+function InputField({ label, value, onChange, type='text', placeholder, textarea, readOnly }) {
+  const s = { width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', background:readOnly?'#F9FAFB':C.surface };
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:6 }}>{label}</label>
+      {textarea ? <textarea value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} rows={4} style={{...s, resize:'vertical'}} /> : <input type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} style={s} />}
+    </div>
+  );
+}
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:6 }}>{label}</label>
+      <select value={value} onChange={onChange} style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', background:C.surface, cursor:'pointer' }}>
+        {options.map(o => <option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+      </select>
+    </div>
+  );
+}
+function Btn({ children, onClick, variant='primary', size='md', style:sx={} }) {
+  const base = { border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:600, borderRadius:12, display:'inline-flex', alignItems:'center', gap:6, transition:'all 150ms' };
+  const sizes = { sm:{padding:'6px 12px',fontSize:12}, md:{padding:'8px 16px',fontSize:13}, lg:{padding:'10px 20px',fontSize:14} };
+  const variants = { primary:{background:C.primary,color:'#fff'}, secondary:{background:C.bg,color:C.primary,border:`1px solid ${C.border}`}, danger:{background:C.danger,color:'#fff'}, ghost:{background:'transparent',color:C.textSub} };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant],...sx}} onMouseOver={e=>{e.currentTarget.style.background=variant==='primary'?C.primaryDark:variant==='ghost'?`${C.primary}08`:C.primaryLight;}} onMouseOut={e=>{e.currentTarget.style.background=variants[variant].background;}}>{children}</button>;
+}
+
+/* ── 산모 모니터링 ── */
+function MonitoringPage({ showToast }) {
+  const [selected, setSelected] = useState(MOTHERS_DATA[0]);
+  const [chartType, setChartType] = useState('temp');
+
+  const chartLabels = { temp:'체온 (°C)', bp:'혈압 (mmHg)', weight:'체중 (kg)' };
+  const dayLabels = ['1일차','2일차','3일차','4일차','5일차','6일차','7일차'];
+
+  function getChartData() {
+    if (!selected.health[chartType] || selected.health[chartType].length === 0) return [];
+    if (chartType === 'bp') return selected.health.bp.map(v => parseInt(v.split('/')[0]));
+    return selected.health[chartType];
+  }
+
+  const data = getChartData();
+  const maxVal = data.length ? Math.max(...data) : 100;
+  const minVal = data.length ? Math.min(...data) : 0;
+  const range = maxVal - minVal || 1;
+
+  return (
+    <div style={{ display:'flex', height:'100%', animation:'fadeIn 300ms ease' }}>
+      {/* 마스터 */}
+      <div style={{ width:'42%', borderRight:`1px solid ${C.border}`, overflowY:'auto' }}>
+        <div style={{ padding:'12px 16px', borderBottom:`1px solid ${C.border}` }}>
+          <input placeholder="산모 검색..." style={{ width:'100%', padding:'8px 12px', border:`1px solid ${C.border}`, borderRadius:10, fontSize:13, outline:'none', fontFamily:'inherit' }} />
+        </div>
+        {MOTHERS_DATA.map((m,i) => (
+          <div key={m.id} onClick={()=>setSelected(m)} style={{
+            padding:'14px 16px', borderBottom:`1px solid ${C.border}`, cursor:'pointer',
+            background:selected.id===m.id ? C.primaryLight : 'transparent',
+            borderLeft:selected.id===m.id ? `3px solid ${C.primary}` : '3px solid transparent',
+            transition:'all 150ms', animation:`slideInRight 200ms ease ${i*40}ms both`,
+          }}
+          onMouseOver={e=>{if(selected.id!==m.id)e.currentTarget.style.background=`${C.primary}04`;}}
+          onMouseOut={e=>{if(selected.id!==m.id)e.currentTarget.style.background='transparent';}}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600 }}>{m.name} <span style={{ fontSize:12, color:C.textLight }}>({m.age}세)</span></div>
+                <div style={{ fontSize:12, color:C.textSub, marginTop:2 }}>{m.room} · 아기: {m.baby}</div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
+                <StatusBadge status={m.status} />
+                {m.alerts.length > 0 && <Badge color={C.warning} bg="#FEF3C7">⚠ {m.alerts[0]}</Badge>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 디테일 */}
+      <div style={{ flex:1, overflowY:'auto', padding:20 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div>
+            <h2 style={{ fontSize:22, fontWeight:700, letterSpacing:'-0.01em' }}>{selected.name}</h2>
+            <div style={{ fontSize:13, color:C.textSub, marginTop:4 }}>{selected.room} · {selected.program} 프로그램 · 아기: {selected.baby}</div>
+          </div>
+          <Btn onClick={()=>showToast('건강 리포트가 생성되었습니다')}>📋 리포트 생성</Btn>
+        </div>
+
+        {/* 건강 차트 */}
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight }}>건강 지표 추이</h3>
+            <div style={{ display:'flex', gap:4 }}>
+              {['temp','bp','weight'].map(t => (
+                <button key={t} onClick={()=>setChartType(t)} style={{ padding:'4px 12px', borderRadius:8, border:`1px solid ${chartType===t?C.primary:C.border}`, background:chartType===t?C.primaryLight:'transparent', color:chartType===t?C.primary:C.textSub, fontSize:12, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>{chartLabels[t]}</button>
+              ))}
+            </div>
+          </div>
+          {data.length > 0 ? (
+            <div style={{ position:'relative', height:160 }}>
+              <svg viewBox="0 0 600 160" style={{ width:'100%', height:'100%' }}>
+                <defs>
+                  <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={C.primary} stopOpacity="0.2" />
+                    <stop offset="100%" stopColor={C.primary} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {/* grid lines */}
+                {[0,1,2,3].map(i => <line key={i} x1={40} y1={10+i*40} x2={580} y2={10+i*40} stroke={C.border} strokeWidth={1} />)}
+                {/* area */}
+                <path d={`M${data.map((v,i) => `${40+i*(540/(data.length-1))},${10+((maxVal-v)/range)*130}`).join(' L')} L${40+(data.length-1)*(540/(data.length-1))},140 L40,140 Z`} fill="url(#chartGrad)" />
+                {/* line */}
+                <path d={`M${data.map((v,i) => `${40+i*(540/(data.length-1))},${10+((maxVal-v)/range)*130}`).join(' L')}`} fill="none" stroke={C.primary} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+                {/* dots */}
+                {data.map((v,i) => <circle key={i} cx={40+i*(540/(data.length-1))} cy={10+((maxVal-v)/range)*130} r={4} fill={C.primary} stroke="#fff" strokeWidth={2} />)}
+                {/* labels */}
+                {dayLabels.map((l,i) => <text key={i} x={40+i*(540/(data.length-1))} y={155} textAnchor="middle" fontSize={10} fill={C.textLight}>{l}</text>)}
+                {/* values */}
+                {data.map((v,i) => <text key={i} x={40+i*(540/(data.length-1))} y={10+((maxVal-v)/range)*130-10} textAnchor="middle" fontSize={10} fill={C.primary} fontWeight={600}>{chartType==='bp'?selected.health.bp[i]:v}</text>)}
+              </svg>
+            </div>
+          ) : (
+            <div style={{ height:160, display:'flex', alignItems:'center', justifyContent:'center', color:C.textLight, fontSize:14 }}>아직 입실 전 — 건강 데이터 없음</div>
+          )}
+        </div>
+
+        {/* 돌봄 히스토리 */}
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:16 }}>최근 돌봄 기록</h3>
+          {CARE_LOGS.filter(l => l.baby === selected.baby).length > 0 ? (
+            CARE_LOGS.filter(l => l.baby === selected.baby).map((log,i) => (
+              <div key={log.id} style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:i<CARE_LOGS.filter(l=>l.baby===selected.baby).length-1?`1px solid ${C.border}`:'none', animation:`slideInRight 200ms ease ${i*50}ms both` }}>
+                <span style={{ fontSize:12, fontWeight:600, color:C.primary, minWidth:44 }}>{log.time}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{log.detail}</div>
+                  <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>담당: {log.nurse}</div>
+                </div>
+                <Badge color={log.type==='수유'?C.primary:log.type==='목욕'?C.accent:C.success}>{log.type}</Badge>
+              </div>
+            ))
+          ) : (
+            <div style={{ padding:20, textAlign:'center', color:C.textLight }}>돌봄 기록이 없습니다</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 예약/객실 ── */
+function RoomPage({ showToast }) {
+  const [modal, setModal] = useState(null);
+
+  return (
+    <div style={{ padding:20, animation:'fadeIn 300ms ease', overflowY:'auto', height:'100%' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <h2 style={{ fontSize:22, fontWeight:700 }}>객실 현황</h2>
+        <Btn onClick={()=>setModal('create')}>+ 예약 등록</Btn>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
+        {ROOMS_DATA.map((r,i) => (
+          <div key={r.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding, cursor:'pointer', transition:'all 150ms', animation:`slideUp 400ms ease ${i*80}ms both` }}
+               onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;}}
+               onMouseOut={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderLeft=C.card.border;}}
+               onClick={()=>setModal(r)}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
+              <h4 style={{ fontSize:15, fontWeight:700 }}>{r.name}</h4>
+              <StatusBadge status={r.status} />
+            </div>
+            <div style={{ fontSize:13, color:C.textSub, marginBottom:8 }}>타입: {r.type}</div>
+            {r.guest !== '-' && (
+              <>
+                <div style={{ fontSize:13, fontWeight:500 }}>{r.guest}</div>
+                <div style={{ fontSize:12, color:C.textLight, marginTop:4 }}>{r.checkIn} ~ {r.checkOut}</div>
+              </>
+            )}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:12, paddingTop:12, borderTop:`1px solid ${C.border}` }}>
+              <span style={{ fontSize:12, color:C.textSub }}>청소</span>
+              <StatusBadge status={r.clean} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 입퇴실 체크리스트 */}
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+        <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:16 }}>입퇴실 프로세스</h3>
+        {[
+          { step:'서류 확인', desc:'입실 동의서, 건강 진단서 확인', done:true },
+          { step:'객실 배정', desc:'선택 객실 배정 및 키 전달', done:true },
+          { step:'오리엔테이션', desc:'시설 안내, 프로그램 소개, 비상 연락망', done:false },
+          { step:'입실 완료', desc:'담당 간호사 배정, 건강 측정', done:false },
+          { step:'확인', desc:'관리자 최종 확인', done:false },
+        ].map((s,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:16, padding:'12px 0', borderBottom:i<4?`1px solid ${C.border}`:'none' }}>
+            <div style={{ width:28, height:28, borderRadius:14, border:`2px solid ${s.done?C.success:C.border}`, background:s.done?C.success:'transparent', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, flexShrink:0, cursor:'pointer' }}
+                 onClick={()=>showToast(`${s.step} 완료 처리되었습니다`)}>
+              {s.done && '✓'}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600, color:s.done?C.textLight:C.text, textDecoration:s.done?'line-through':'none' }}>{s.step}</div>
+              <div style={{ fontSize:12, color:C.textLight }}>{s.desc}</div>
+            </div>
+            <span style={{ fontSize:12, color:C.textLight }}>{i+1}/5</span>
+          </div>
+        ))}
+      </div>
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="예약 등록" width={500}>
+        <InputField label="산모명" value="" onChange={()=>{}} placeholder="이름" />
+        <SelectField label="객실" value="" onChange={()=>{}} options={['객실 선택','스위트 A','스위트 B','패밀리 A','패밀리 B','스탠다드 1','프리미엄']} />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="입실일" value="" onChange={()=>{}} type="date" />
+          <InputField label="퇴실일" value="" onChange={()=>{}} type="date" />
+        </div>
+        <SelectField label="프로그램" value="" onChange={()=>{}} options={['프로그램 선택','프리미엄','스탠다드','VIP']} />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('예약이 등록되었습니다');}}>등록</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal !== 'create' && typeof modal === 'object'} onClose={()=>setModal(null)} title="객실 상세">
+        {modal && modal !== 'create' && typeof modal === 'object' && (
+          <>
+            <InputField label="객실명" value={modal.name} readOnly />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="타입" value={modal.type} readOnly />
+              <InputField label="상태" value={modal.status} readOnly />
+              <InputField label="입실자" value={modal.guest} readOnly />
+              <InputField label="청소 상태" value={modal.clean} readOnly />
+            </div>
+            {modal.checkIn !== '-' && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+                <InputField label="입실일" value={modal.checkIn} readOnly />
+                <InputField label="퇴실일" value={modal.checkOut} readOnly />
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('객실 정보가 수정되었습니다');}}>수정</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 돌봄 일지 ── */
+function CareLogPage({ showToast }) {
+  const [selectedBaby, setSelectedBaby] = useState('김지호');
+  const [modal, setModal] = useState(null);
+  const babies = [...new Set(CARE_LOGS.map(l => l.baby))];
+  const filtered = CARE_LOGS.filter(l => l.baby === selectedBaby);
+
+  return (
+    <div style={{ display:'flex', height:'100%', animation:'fadeIn 300ms ease' }}>
+      {/* 마스터 — 타임라인 */}
+      <div style={{ width:'55%', borderRight:`1px solid ${C.border}`, overflowY:'auto', padding:20 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <div style={{ display:'flex', gap:8 }}>
+            {babies.map(b => (
+              <button key={b} onClick={()=>setSelectedBaby(b)} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${selectedBaby===b?C.primary:C.border}`, background:selectedBaby===b?C.primaryLight:'transparent', color:selectedBaby===b?C.primary:C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{b}</button>
+            ))}
+          </div>
+          <Btn size="sm" onClick={()=>setModal('create')}>+ 기록 추가</Btn>
+        </div>
+
+        {/* 타임라인 */}
+        <div style={{ position:'relative', paddingLeft:24 }}>
+          <div style={{ position:'absolute', left:8, top:0, bottom:0, width:2, background:C.border }} />
+          {filtered.map((log,i) => (
+            <div key={log.id} style={{ position:'relative', marginBottom:16, animation:`slideUp 300ms ease ${i*60}ms both` }}>
+              <div style={{ position:'absolute', left:-20, top:4, width:12, height:12, borderRadius:6, background:log.type==='수유'?C.primary:log.type==='목욕'?C.accent:C.success, border:'2px solid #fff', boxShadow:'0 0 0 2px '+C.border }} />
+              <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:16, marginLeft:8, cursor:'pointer', transition:'all 150ms' }}
+                   onMouseOver={e=>{e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;e.currentTarget.style.background=C.primaryLight;}}
+                   onMouseOut={e=>{e.currentTarget.style.borderLeft=C.card.border;e.currentTarget.style.background=C.surface;}}
+                   onClick={()=>setModal({type:'logDetail',...log})}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.primary }}>{log.time}</span>
+                  <Badge color={log.type==='수유'?C.primary:log.type==='목욕'?C.accent:C.success}>{log.type}</Badge>
+                </div>
+                <div style={{ fontSize:14, fontWeight:500 }}>{log.detail}</div>
+                <div style={{ fontSize:11, color:C.textLight, marginTop:4 }}>담당: {log.nurse}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 디테일 — 성장 차트 */}
+      <div style={{ flex:1, overflowY:'auto', padding:20 }}>
+        <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:16 }}>성장 차트 — {selectedBaby}</h3>
+
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16 }}>
+          <h4 style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>체중 (kg)</h4>
+          <div style={{ position:'relative', height:140 }}>
+            <svg viewBox="0 0 400 140" style={{ width:'100%', height:'100%' }}>
+              {[0,1,2,3].map(i => <line key={i} x1={30} y1={10+i*35} x2={380} y2={10+i*35} stroke={C.border} strokeWidth={1} />)}
+              <path d={GROWTH_DATA.map((d,i) => `${i===0?'M':'L'}${30+i*(350/(GROWTH_DATA.length-1))},${10+((3.8-d.weight)/0.8)*105}`).join(' ')} fill="none" stroke={C.primary} strokeWidth={2} strokeLinecap="round" />
+              {GROWTH_DATA.map((d,i) => <circle key={i} cx={30+i*(350/(GROWTH_DATA.length-1))} cy={10+((3.8-d.weight)/0.8)*105} r={4} fill={C.primary} stroke="#fff" strokeWidth={2} />)}
+              {DAYS_LABEL.map((l,i) => <text key={i} x={30+i*(350/(GROWTH_DATA.length-1))} y={135} textAnchor="middle" fontSize={10} fill={C.textLight}>{l}</text>)}
+              {GROWTH_DATA.map((d,i) => <text key={i} x={30+i*(350/(GROWTH_DATA.length-1))} y={10+((3.8-d.weight)/0.8)*105-10} textAnchor="middle" fontSize={10} fill={C.primary} fontWeight={600}>{d.weight}</text>)}
+            </svg>
+          </div>
+        </div>
+
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16 }}>
+          <h4 style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>키 (cm)</h4>
+          <div style={{ position:'relative', height:140 }}>
+            <svg viewBox="0 0 400 140" style={{ width:'100%', height:'100%' }}>
+              {[0,1,2,3].map(i => <line key={i} x1={30} y1={10+i*35} x2={380} y2={10+i*35} stroke={C.border} strokeWidth={1} />)}
+              <path d={GROWTH_DATA.map((d,i) => `${i===0?'M':'L'}${30+i*(350/(GROWTH_DATA.length-1))},${10+((52-d.height)/3)*105}`).join(' ')} fill="none" stroke={C.accent} strokeWidth={2} strokeLinecap="round" />
+              {GROWTH_DATA.map((d,i) => <circle key={i} cx={30+i*(350/(GROWTH_DATA.length-1))} cy={10+((52-d.height)/3)*105} r={4} fill={C.accent} stroke="#fff" strokeWidth={2} />)}
+              {DAYS_LABEL.map((l,i) => <text key={i} x={30+i*(350/(GROWTH_DATA.length-1))} y={135} textAnchor="middle" fontSize={10} fill={C.textLight}>{l}</text>)}
+              {GROWTH_DATA.map((d,i) => <text key={i} x={30+i*(350/(GROWTH_DATA.length-1))} y={10+((52-d.height)/3)*105-10} textAnchor="middle" fontSize={10} fill={C.accent} fontWeight={600}>{d.height}</text>)}
+            </svg>
+          </div>
+        </div>
+
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h4 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:12 }}>일일 요약</h4>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+            <div style={{ padding:12, background:C.bg, borderRadius:12, textAlign:'center' }}>
+              <div style={{ fontSize:11, color:C.textSub }}>수유</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.primary }}>{filtered.filter(l=>l.type==='수유').length}회</div>
+            </div>
+            <div style={{ padding:12, background:C.bg, borderRadius:12, textAlign:'center' }}>
+              <div style={{ fontSize:11, color:C.textSub }}>목욕</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.accent }}>{filtered.filter(l=>l.type==='목욕').length}회</div>
+            </div>
+            <div style={{ padding:12, background:C.bg, borderRadius:12, textAlign:'center' }}>
+              <div style={{ fontSize:11, color:C.textSub }}>수면</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.success }}>{filtered.filter(l=>l.type==='수면').length}회</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="돌봄 기록 추가" width={440}>
+        <SelectField label="아기" value={selectedBaby} onChange={()=>{}} options={babies} />
+        <SelectField label="유형" value="" onChange={()=>{}} options={['유형 선택','수유','목욕','수면','기타']} />
+        <InputField label="시간" value="" onChange={()=>{}} type="time" />
+        <InputField label="상세 내용" value="" onChange={()=>{}} textarea placeholder="돌봄 기록 상세 내용" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('돌봄 기록이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'logDetail'} onClose={()=>setModal(null)} title="돌봄 기록 상세">
+        {modal && modal.type === 'logDetail' && (
+          <>
+            <div style={{ display:'flex', gap:12, alignItems:'center', marginBottom:16, padding:16, background:C.bg, borderRadius:12 }}>
+              <Badge color={modal.type2||modal.detail?.includes('수유')?C.primary:modal.detail?.includes('목욕')?C.accent:C.success}>{CARE_LOGS.find(l=>l.id===modal.id)?.type||'기록'}</Badge>
+              <span style={{ fontSize:14, fontWeight:600 }}>{modal.baby}</span>
+              <span style={{ fontSize:13, color:C.textLight }}>{modal.date} {modal.time}</span>
+            </div>
+            <InputField label="상세 내용" value={modal.detail} readOnly />
+            <InputField label="담당" value={modal.nurse} readOnly />
+            <InputField label="메모" value="" onChange={()=>{}} textarea placeholder="추가 메모 입력" />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('기록이 수정되었습니다');}}>수정 저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 직원 관리 ── */
+function StaffPage({ showToast }) {
+  const [subTab, setSubTab] = useState('schedule');
+  const [modal, setModal] = useState(null);
+
+  return (
+    <div style={{ padding:20, animation:'fadeIn 300ms ease', overflowY:'auto', height:'100%' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div style={{ display:'flex', gap:8 }}>
+          {[{k:'schedule',l:'주간 스케줄'},{k:'assign',l:'담당 배정'},{k:'list',l:'직원 목록'}].map(t => (
+            <button key={t.k} onClick={()=>setSubTab(t.k)} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${subTab===t.k?C.primary:C.border}`, background:subTab===t.k?C.primaryLight:'transparent', color:subTab===t.k?C.primary:C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t.l}</button>
+          ))}
+        </div>
+        <Btn size="sm" onClick={()=>setModal('create')}>+ 직원 추가</Btn>
+      </div>
+
+      {subTab === 'schedule' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:16 }}>2025년 11월 1주차</h3>
+          <div style={{ display:'grid', gridTemplateColumns:'100px repeat(7,1fr)', gap:0 }}>
+            {SCHEDULE.headers.map((h,i) => (
+              <div key={h} style={{ padding:10, fontWeight:700, fontSize:12, textAlign:i>0?'center':'left', borderBottom:`2px solid ${C.primary}`, color:i>0?C.textSub:C.text }}>{h}</div>
+            ))}
+            {SCHEDULE.data.map((row,ri) => (
+              <React.Fragment key={ri}>
+                <div style={{ padding:'12px 10px', fontWeight:600, fontSize:13, borderBottom:`1px solid ${C.border}` }}>{row.name}</div>
+                {row.shifts.map((s,si) => (
+                  <div key={si} style={{ padding:8, textAlign:'center', borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.border}20`, cursor:'pointer' }}
+                       onClick={()=>showToast(`${row.name} ${SCHEDULE.headers[si+1]} 시프트 변경`)}>
+                    <StatusBadge status={s} />
+                  </div>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {subTab === 'assign' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
+          {STAFF.filter(s => s.assigned.length > 0).map((s,i) => (
+            <div key={s.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding, animation:`slideUp 400ms ease ${i*80}ms both` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:700 }}>{s.name}</div>
+                  <div style={{ fontSize:12, color:C.textSub }}>{s.role} · {s.shift}</div>
+                </div>
+                <Btn variant="secondary" size="sm" onClick={()=>setModal({type:'editAssign',...s})}>편집</Btn>
+              </div>
+              <div style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:8 }}>담당 산모</div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {s.assigned.map(a => <Badge key={a}>{a}</Badge>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'list' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          {STAFF.map((s,i) => (
+            <div key={s.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0', borderBottom:i<STAFF.length-1?`1px solid ${C.border}`:'none', cursor:'pointer', transition:'all 150ms', animation:`slideInRight 200ms ease ${i*40}ms both` }}
+                 onMouseOver={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`;e.currentTarget.style.paddingLeft='12px';}}
+                 onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none';e.currentTarget.style.paddingLeft='0';}}
+                 onClick={()=>setModal(s)}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ width:36, height:36, borderRadius:18, background:C.primaryLight, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:C.primary, fontWeight:700 }}>{s.name[0]}</div>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:600 }}>{s.name}</div>
+                  <div style={{ fontSize:12, color:C.textSub }}>{s.role}</div>
+                </div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <StatusBadge status={s.shift} />
+                <span style={{ fontSize:12, color:C.textLight }}>담당 {s.assigned.length}명</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="직원 추가" width={440}>
+        <InputField label="이름" value="" onChange={()=>{}} placeholder="직원명" />
+        <SelectField label="역할" value="" onChange={()=>{}} options={['역할 선택','간호사','돌봄사','영양사']} />
+        <SelectField label="시프트" value="" onChange={()=>{}} options={['주간','야간']} />
+        <InputField label="연락처" value="" onChange={()=>{}} placeholder="010-0000-0000" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('직원이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'editAssign'} onClose={()=>setModal(null)} title="담당 배정 편집" width={440}>
+        {modal && modal.type === 'editAssign' && (
+          <>
+            <InputField label="직원명" value={modal.name} readOnly />
+            <InputField label="역할" value={modal.role + ' · ' + modal.shift} readOnly />
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:'block', fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:6 }}>담당 산모 선택</label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {MOTHERS_DATA.filter(m=>m.status==='입실중').map(m => (
+                  <span key={m.id} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${modal.assigned.includes(m.name)?C.primary:C.border}`, background:modal.assigned.includes(m.name)?C.primaryLight:'transparent', color:modal.assigned.includes(m.name)?C.primary:C.textSub, fontSize:13, cursor:'pointer' }}>{m.name}</span>
+                ))}
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('배정이 변경되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modal && modal !== 'create' && typeof modal === 'object' && !modal.type} onClose={()=>setModal(null)} title="직원 상세">
+        {modal && modal !== 'create' && typeof modal === 'object' && !modal.type && (
+          <>
+            <InputField label="이름" value={modal.name} readOnly />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="역할" value={modal.role} readOnly />
+              <InputField label="시프트" value={modal.shift} readOnly />
+            </div>
+            <InputField label="연락처" value={modal.phone} readOnly />
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:'block', fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:6 }}>담당 산모</label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {modal.assigned.length > 0 ? modal.assigned.map(a => <Badge key={a}>{a}</Badge>) : <span style={{ fontSize:13, color:C.textLight }}>배정 없음</span>}
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('직원 정보가 수정되었습니다');}}>수정</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 운영 설정 ── */
+function SettingsPage({ showToast }) {
+  const [subTab, setSubTab] = useState('rooms');
+  const [modal, setModal] = useState(null);
+
+  return (
+    <div style={{ padding:20, animation:'fadeIn 300ms ease', overflowY:'auto', height:'100%' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {[{k:'rooms',l:'객실 타입'},{k:'programs',l:'프로그램'},{k:'info',l:'운영 정보'}].map(t => (
+          <button key={t.k} onClick={()=>setSubTab(t.k)} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${subTab===t.k?C.primary:C.border}`, background:subTab===t.k?C.primaryLight:'transparent', color:subTab===t.k?C.primary:C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t.l}</button>
+        ))}
+      </div>
+
+      {subTab === 'rooms' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight }}>객실 타입 설정</h3>
+            <Btn size="sm" onClick={()=>setModal('addRoomType')}>+ 타입 추가</Btn>
+          </div>
+          {[{type:'스위트',rooms:2,price:'4,200,000원',size:'42㎡'},{type:'패밀리',rooms:2,price:'3,500,000원',size:'35㎡'},{type:'스탠다드',rooms:3,price:'2,800,000원',size:'28㎡'},{type:'프리미엄',rooms:1,price:'5,500,000원',size:'55㎡'}].map((t,i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:16, borderRadius:12, border:`1px solid ${C.border}`, marginBottom:8, transition:'all 150ms', cursor:'pointer' }}
+                 onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;}}
+                 onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft=`1px solid ${C.border}`;}}>
+              <div>
+                <div style={{ fontWeight:600, fontSize:14 }}>{t.type}</div>
+                <div style={{ fontSize:12, color:C.textSub, marginTop:2 }}>{t.rooms}실 · {t.size} · {t.price} (2주)</div>
+              </div>
+              <Btn variant="secondary" size="sm" onClick={()=>setModal({type:'editRoomType',...t})}>편집</Btn>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'programs' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight }}>프로그램 설정</h3>
+            <Btn size="sm" onClick={()=>setModal('addProgram')}>+ 프로그램 추가</Btn>
+          </div>
+          {['산후 요가','모유 수유 교실','신생아 마사지','산후 필라테스','영양 상담'].map((p,i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:16, borderRadius:12, border:`1px solid ${C.border}`, marginBottom:8 }}>
+              <span style={{ fontWeight:600, fontSize:14 }}>{p}</span>
+              <div style={{ display:'flex', gap:8 }}>
+                <Btn variant="secondary" size="sm" onClick={()=>setModal({type:'editProgram',name:p})}>편집</Btn>
+                <Btn variant="ghost" size="sm" onClick={()=>setModal({type:'deleteProgram',name:p})}>삭제</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'info' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, border:C.card.border, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:13, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:C.textLight, marginBottom:16 }}>운영 정보</h3>
+          <InputField label="조리원명" value="리틀블룸 산후조리원" onChange={()=>{}} />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+            <InputField label="연락처" value="02-9876-5432" onChange={()=>{}} />
+            <InputField label="이메일" value="hello@littlebloom.co.kr" onChange={()=>{}} />
+          </div>
+          <InputField label="주소" value="서울시 서초구 반포동 456 리틀블룸타워 3~7층" onChange={()=>{}} />
+          <InputField label="소개" value="리틀블룸은 산모와 신생아를 위한 프리미엄 케어 서비스를 제공합니다. 개별 맞춤형 건강 모니터링과 전담 간호사 시스템으로 최상의 산후 회복 환경을 만들어 드립니다." onChange={()=>{}} textarea />
+          <div style={{ display:'flex', justifyContent:'flex-end' }}>
+            <Btn onClick={()=>showToast('운영 정보가 저장되었습니다')}>저장</Btn>
+          </div>
+        </div>
+      )}
+
+      <Modal open={modal==='addRoomType'} onClose={()=>setModal(null)} title="객실 타입 추가" width={480}>
+        <InputField label="타입명" value="" onChange={()=>{}} placeholder="예: 디럭스" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="면적 (㎡)" value="" onChange={()=>{}} type="number" placeholder="0" />
+          <InputField label="객실 수" value="" onChange={()=>{}} type="number" placeholder="0" />
+        </div>
+        <InputField label="가격 (2주, 원)" value="" onChange={()=>{}} type="number" placeholder="0" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('객실 타입이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'editRoomType'} onClose={()=>setModal(null)} title="객실 타입 편집" width={480}>
+        {modal && modal.type === 'editRoomType' && (
+          <>
+            <InputField label="타입명" value={modal.type} onChange={()=>{}} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="면적" value={modal.size} onChange={()=>{}} />
+              <InputField label="객실 수" value={String(modal.rooms)} onChange={()=>{}} />
+            </div>
+            <InputField label="가격 (2주)" value={modal.price} onChange={()=>{}} />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('객실 타입이 수정되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modal==='addProgram'} onClose={()=>setModal(null)} title="프로그램 추가" width={480}>
+        <InputField label="프로그램명" value="" onChange={()=>{}} placeholder="프로그램 이름" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="시간" value="" onChange={()=>{}} placeholder="10:00-11:00" />
+          <InputField label="요일" value="" onChange={()=>{}} placeholder="월·수·금" />
+        </div>
+        <InputField label="강사" value="" onChange={()=>{}} placeholder="강사명" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('프로그램이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'editProgram'} onClose={()=>setModal(null)} title="프로그램 편집" width={480}>
+        {modal && modal.type === 'editProgram' && (
+          <>
+            <InputField label="프로그램명" value={modal.name} onChange={()=>{}} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="시간" value="" onChange={()=>{}} placeholder="10:00-11:00" />
+              <InputField label="요일" value="" onChange={()=>{}} placeholder="월·수·금" />
+            </div>
+            <InputField label="강사" value="" onChange={()=>{}} placeholder="강사명" />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('프로그램이 수정되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modal && modal.type === 'deleteProgram'} onClose={()=>setModal(null)} title="프로그램 삭제" width={400}>
+        {modal && modal.type === 'deleteProgram' && (
+          <>
+            <div style={{ textAlign:'center', padding:'16px 0' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>⚠️</div>
+              <div style={{ fontSize:15, fontWeight:600, marginBottom:8 }}>정말 삭제하시겠습니까?</div>
+              <div style={{ fontSize:13, color:C.textSub }}>'{modal.name}' 프로그램이 삭제됩니다.</div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'center', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn variant="danger" onClick={()=>{setModal(null);showToast('프로그램이 삭제되었습니다');}}>삭제</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 메인 앱 ── */
+function MainApp() {
+  const [section, setSection] = useState('monitoring');
+  const [toast, setToast] = useState(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const showToast = (msg) => setToast(msg);
+
+  const SECTION_LABELS = { monitoring:'산모 모니터링', room:'예약/객실', 'care-log':'돌봄 일지', staff:'직원 관리', settings:'운영 설정' };
+
+  return (
+    <div style={{ display:'flex', minHeight:'100vh', background:C.bg }}>
+      {/* 밝은 사이드바 */}
+      <nav style={{ width:240, background:'#fff', borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', paddingTop:16, flexShrink:0 }}>
+        <div style={{ padding:'0 16px 20px', display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:22 }}>🌸</span>
+          <span style={{ fontWeight:800, fontSize:16, color:C.text }}>리틀블룸</span>
+        </div>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2, padding:'0 8px' }}>
+          {NAV_ITEMS.map(item => (
+            <button key={item.id} onClick={()=>setSection(item.id)} style={{
+              display:'flex', alignItems:'center', gap:10, width:'100%', padding:'10px 12px', borderRadius:8, border:'none', cursor:'pointer',
+              background:section===item.id ? `${C.primary}10` : 'transparent',
+              color:section===item.id ? C.primary : C.textSub,
+              borderLeft:section===item.id ? `3px solid ${C.primary}` : '3px solid transparent',
+              fontSize:14, fontWeight:section===item.id ? 600 : 400, transition:'all 150ms', fontFamily:'inherit',
+            }}
+            onMouseOver={e=>{if(section!==item.id)e.target.style.background=`${C.primary}04`;}}
+            onMouseOut={e=>{if(section!==item.id)e.target.style.background='transparent';}}>
+              <span style={{ fontSize:18 }}>{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding:16, borderTop:`1px solid ${C.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:32, height:32, borderRadius:16, background:C.primaryLight, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, color:C.primary, fontWeight:700 }}>관</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:600 }}>관리자</div>
+              <div style={{ fontSize:11, color:C.textLight }}>admin@littlebloom.co.kr</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* 메인 영역 */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {/* 앱바 */}
+        <header style={{ height:40, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', padding:'0 16px', gap:8, background:C.surface, flexShrink:0 }}>
+          <span style={{ fontSize:12, color:C.textLight }}>리틀블룸</span>
+          <span style={{ fontSize:12, color:C.textLight }}>/</span>
+          <span style={{ fontSize:12, fontWeight:600, color:C.text }}>{SECTION_LABELS[section]}</span>
+          <div style={{ flex:1 }} />
+          <input placeholder="검색..." style={{ padding:'4px 12px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, width:160, outline:'none', fontFamily:'inherit' }} />
+          <div style={{ position:'relative' }}>
+            <span onClick={()=>setNotifOpen(!notifOpen)} style={{ fontSize:16, cursor:'pointer', position:'relative' }}>🔔<span style={{ position:'absolute', top:-2, right:-2, width:6, height:6, borderRadius:3, background:C.danger }} /></span>
+            {notifOpen && (
+              <div style={{ position:'absolute', top:'100%', right:0, marginTop:8, width:300, background:C.surface, borderRadius:C.card.borderRadius, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:`1px solid ${C.border}`, zIndex:200, animation:'slideDown 200ms ease' }}>
+                <div style={{ padding:'10px 14px', borderBottom:`1px solid ${C.border}`, fontWeight:700, fontSize:13 }}>알림</div>
+                {[
+                  { msg:'박하나님 혈압 경미 상승 알림', time:'30분 전' },
+                  { msg:'강유진님 퇴실 D-3 안내 발송', time:'1시간 전' },
+                  { msg:'신생아 목욕 스케줄 완료', time:'2시간 전' },
+                ].map((n,i) => (
+                  <div key={i} onClick={()=>{setNotifOpen(false);setSection('monitoring');}} style={{ padding:'10px 14px', borderBottom:`1px solid ${C.border}`, cursor:'pointer', transition:'background 150ms' }}
+                       onMouseOver={e=>e.currentTarget.style.background=C.primaryLight}
+                       onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{ fontSize:12 }}>{n.msg}</div>
+                    <div style={{ fontSize:10, color:C.textLight, marginTop:2 }}>{n.time}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* 콘텐츠 */}
+        <main style={{ flex:1, overflow:'hidden' }}>
+          {section==='monitoring' && <MonitoringPage showToast={showToast} />}
+          {section==='room' && <RoomPage showToast={showToast} />}
+          {section==='care-log' && <CareLogPage showToast={showToast} />}
+          {section==='staff' && <StaffPage showToast={showToast} />}
+          {section==='settings' && <SettingsPage showToast={showToast} />}
+        </main>
+      </div>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+/* ── 스켈레톤 + 엔트리 ── */
+function SkeletonLoader() {
+  return (
+    <div style={{ display:'flex', minHeight:'100vh' }}>
+      <div style={{ width:240, background:'#fff', borderRight:`1px solid ${C.border}`, flexShrink:0 }}>
+        <div style={{ padding:20 }}>
+          <div className="skeleton" style={{ height:24, width:120, marginBottom:24 }} />
+          {[...Array(5)].map((_,i) => <div key={i} className="skeleton" style={{ height:20, width:160, marginBottom:12 }} />)}
+        </div>
+      </div>
+      <div style={{ flex:1 }}>
+        <div className="skeleton" style={{ height:40, margin:0 }} />
+        <div style={{ display:'flex', height:'calc(100vh - 40px)' }}>
+          <div style={{ width:'42%', borderRight:`1px solid ${C.border}`, padding:16 }}>
+            {[...Array(5)].map((_,i) => <div key={i} className="skeleton" style={{ height:60, marginBottom:8 }} />)}
+          </div>
+          <div style={{ flex:1, padding:20 }}>
+            <div className="skeleton" style={{ height:32, width:200, marginBottom:20 }} />
+            <div className="skeleton" style={{ height:200, marginBottom:16 }} />
+            <div className="skeleton" style={{ height:150 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+  if (loading) return <SkeletonLoader />;
+  return <MainApp />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

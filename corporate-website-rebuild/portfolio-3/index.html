@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>메이커허브 B2B 제조 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.10.3/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAFAFA;color:#1C1917;overflow:hidden}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#D6D3D1;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line,PieChart,Pie,Cell} = Recharts;
+
+const C = {
+  primary:'#7C3AED',primaryLight:'#A78BFA',primaryBg:'#EDE9FE',
+  secondary:'#4C1D95',accent:'#A78BFA',
+  bg:'#FAFAFA',surface:'#FFFFFF',
+  text:'#1C1917',textLight:'#78716C',
+  border:'#E7E5E4',success:'#10B981',warning:'#F59E0B',danger:'#EF4444',
+};
+
+/* ─── Data ─── */
+const QUOTES = [
+  {id:'Q-2024-001',dealer:'(주)대성산업',items:3,total:'₩12,500,000',status:'승인',date:'2024.08.18',grade:'골드'},
+  {id:'Q-2024-002',dealer:'한진기계(주)',items:5,total:'₩28,700,000',status:'검토중',date:'2024.08.17',grade:'플래티넘'},
+  {id:'Q-2024-003',dealer:'세진테크',items:2,total:'₩4,200,000',status:'요청',date:'2024.08.16',grade:'실버'},
+  {id:'Q-2024-004',dealer:'(주)동양밸브',items:4,total:'₩18,300,000',status:'수정',date:'2024.08.15',grade:'골드'},
+  {id:'Q-2024-005',dealer:'금성공업(주)',items:1,total:'₩6,800,000',status:'승인',date:'2024.08.14',grade:'일반'},
+  {id:'Q-2024-006',dealer:'삼화피팅',items:6,total:'₩32,100,000',status:'요청',date:'2024.08.13',grade:'플래티넘'},
+];
+const DEALERS = [
+  {id:1,name:'한진기계(주)',grade:'플래티넘',totalAmount:'₩482,000,000',orders:67,discount:'15%',lastOrder:'2024.08.17',status:'활성'},
+  {id:2,name:'(주)대성산업',grade:'골드',totalAmount:'₩238,000,000',orders:42,discount:'10%',lastOrder:'2024.08.18',status:'활성'},
+  {id:3,name:'(주)동양밸브',grade:'골드',totalAmount:'₩195,000,000',orders:35,discount:'10%',lastOrder:'2024.08.15',status:'활성'},
+  {id:4,name:'세진테크',grade:'실버',totalAmount:'₩87,000,000',orders:18,discount:'5%',lastOrder:'2024.08.16',status:'활성'},
+  {id:5,name:'금성공업(주)',grade:'일반',totalAmount:'₩32,000,000',orders:8,discount:'0%',lastOrder:'2024.08.14',status:'활성'},
+  {id:6,name:'삼화피팅',grade:'플래티넘',totalAmount:'₩521,000,000',orders:73,discount:'15%',lastOrder:'2024.08.13',status:'활성'},
+];
+const DOCS = [
+  {id:1,title:'산업용 밸브 기술 사양서',version:'v2.3',lang:'한/영',lastUpdate:'2024.08.15',status:'최신',type:'기술사양'},
+  {id:2,title:'유압 실린더 설치 가이드',version:'v1.8',lang:'한국어',lastUpdate:'2024.08.10',status:'번역필요',type:'설치가이드'},
+  {id:3,title:'ISO 9001 인증서',version:'v1.0',lang:'영어',lastUpdate:'2024.07.20',status:'최신',type:'인증서'},
+  {id:4,title:'배관 피팅 규격표',version:'v3.1',lang:'한/영',lastUpdate:'2024.08.12',status:'최신',type:'기술사양'},
+  {id:5,title:'공압 부품 카탈로그',version:'v2.0',lang:'한국어',lastUpdate:'2024.08.05',status:'수정중',type:'카탈로그'},
+  {id:6,title:'안전 장비 사용 매뉴얼',version:'v1.5',lang:'한/영',lastUpdate:'2024.07.30',status:'최신',type:'매뉴얼'},
+];
+const PRODUCTS_P3 = [
+  {id:1,name:'게이트 밸브 GV-200',category:'산업용 밸브',price:'₩850,000',stock:120},
+  {id:2,name:'버터플라이 밸브 BV-150',category:'산업용 밸브',price:'₩420,000',stock:85},
+  {id:3,name:'90° 엘보 E-100',category:'배관 피팅',price:'₩35,000',stock:500},
+  {id:4,name:'유압 실린더 HC-50',category:'유압 실린더',price:'₩1,200,000',stock:30},
+  {id:5,name:'공압 실린더 PC-32',category:'공압 부품',price:'₩180,000',stock:200},
+  {id:6,name:'압력 트랜스미터 PT-10',category:'센서/계측',price:'₩650,000',stock:45},
+];
+const QUOTE_CHART = [{month:'3월',amount:45},{month:'4월',amount:62},{month:'5월',amount:58},{month:'6월',amount:78},{month:'7월',amount:92},{month:'8월',amount:85}];
+
+const NAV_ITEMS = [
+  {id:'dashboard',label:'통합 워크스페이스',icon:'📊'},
+  {id:'quote',label:'제품/견적',icon:'📋'},
+  {id:'dealer',label:'딜러 포털',icon:'🏢'},
+  {id:'docs',label:'기술 문서',icon:'📄'},
+  {id:'settings',label:'시스템 설정',icon:'⚙️'},
+];
+
+/* ─── Components ─── */
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:20,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(124,58,237,0.3)',fontSize:14,border:`1px solid ${C.primary}`}}>{message}</div>;
+}
+
+function Modal({title,onClose,children,width=580}){
+  return <>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:500,animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:20,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'18px 24px',borderBottom:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:16,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </>;
+}
+
+function Badge({label,color}){
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:`${color}12`,color,border:`1px solid ${color}30`}}>{label}</span>;
+}
+
+function SideNavItem({icon,label,active,onClick}){
+  return <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'Pretendard',textAlign:'left'}}
+    onMouseEnter={e=>{if(!active)e.currentTarget.style.background=`${C.primary}08`}}
+    onMouseLeave={e=>{if(!active)e.currentTarget.style.background='transparent'}}>
+    <span style={{fontSize:17}}>{icon}</span>{label}
+  </button>;
+}
+
+function TabUnderline({label,active,onClick}){
+  return <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'Pretendard',fontSize:13,color:active?C.primary:C.textLight,fontWeight:active?600:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{label}</button>;
+}
+
+function Skeleton(){
+  return <div style={{display:'flex',minHeight:'100vh'}}><div style={{width:240,background:C.surface,borderRight:`1px solid ${C.border}`}}/><div style={{flex:1,padding:20}}>{[...Array(3)].map((_,i)=><div key={i} style={{height:100,borderRadius:20,marginBottom:12,background:'linear-gradient(90deg,#F5F3FF 25%,#EDE9FE 50%,#F5F3FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}</div></div>;
+}
+
+/* ═══ Dashboard — Master-Detail ═══ */
+function DashboardPage(){
+  const [selectedQuote,setSelectedQuote]=useState(QUOTES[0]);
+  const gradeColors={플래티넘:C.primary,골드:C.warning,실버:'#94A3B8',일반:C.textLight};
+  const statusColors={승인:C.success,검토중:C.primary,요청:C.warning,수정:C.accent};
+
+  return <div style={{animation:'fadeIn 300ms ease',display:'flex',height:'100%',overflow:'hidden'}}>
+    {/* Master — Quote List */}
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight}}>견적 현황</span>
+        <span style={{fontSize:12,color:C.textLight}}>{QUOTES.length}건</span>
+      </div>
+      {QUOTES.map((q,i)=><div key={q.id} onClick={()=>setSelectedQuote(q)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selectedQuote?.id===q.id?`${C.primary}08`:'transparent',borderLeft:selectedQuote?.id===q.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}
+        onMouseEnter={e=>{if(selectedQuote?.id!==q.id)e.currentTarget.style.background=`${C.primary}04`}}
+        onMouseLeave={e=>{if(selectedQuote?.id!==q.id)e.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+          <span style={{fontSize:13,fontWeight:600}}>{q.id}</span>
+          <Badge label={q.status} color={statusColors[q.status]||C.textLight}/>
+        </div>
+        <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{q.dealer}</div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textLight}}>
+          <span>{q.items}개 품목 · {q.total}</span>
+          <span>{q.date}</span>
+        </div>
+      </div>)}
+    </div>
+    {/* Detail — Quote Detail + Activity */}
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selectedQuote?<>
+        <div style={{marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <h2 style={{fontSize:20,fontWeight:700}}>{selectedQuote.id}</h2>
+            <Badge label={selectedQuote.grade} color={gradeColors[selectedQuote.grade]}/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+            {[['딜러',selectedQuote.dealer],['품목 수',`${selectedQuote.items}개`],['견적 금액',selectedQuote.total],['요청일',selectedQuote.date]].map(([k,v])=>
+              <div key={k} style={{padding:14,background:'#FAFAF9',borderRadius:16,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:11,color:C.textLight,marginBottom:2,textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:700}}>{k}</div>
+                <div style={{fontSize:15,fontWeight:600}}>{v}</div>
+              </div>)}
+          </div>
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>견적 품목</div>
+          {PRODUCTS_P3.slice(0,selectedQuote.items).map((p,i)=><div key={p.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderRadius:12,border:`1px solid ${C.border}`,marginBottom:8,background:C.surface,animation:`slideInRight 250ms ease ${i*50}ms both`}}>
+            <div><div style={{fontSize:14,fontWeight:600}}>{p.name}</div><div style={{fontSize:12,color:C.textLight}}>{p.category}</div></div>
+            <div style={{fontSize:14,fontWeight:700,color:C.primary}}>{p.price}</div>
+          </div>)}
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>견적 추이 (월별)</div>
+          <div style={{background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,padding:16}}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={QUOTE_CHART}><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="month" fontSize={11}/><YAxis fontSize={11}/><Tooltip/><Bar dataKey="amount" fill={C.primary} radius={[6,6,0,0]}/></BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </>:<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>견적을 선택해주세요</div>}
+    </div>
+  </div>;
+}
+
+/* ═══ Quote/Product Management ═══ */
+function QuotePage({showToast}){
+  const [subTab,setSubTab]=useState('products');
+  const [modal,setModal]=useState(null);
+  const statusColors={승인:C.success,검토중:C.primary,요청:C.warning,수정:C.accent};
+
+  return <div style={{animation:'fadeIn 300ms ease'}}>
+    {subTab==='products'&&<>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+        <button onClick={()=>setModal('product')} style={{padding:'7px 16px',borderRadius:8,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>+ 제품 등록</button>
+      </div>
+      <div style={{display:'flex',height:'calc(100vh - 220px)',overflow:'hidden'}}>
+        <div style={{width:'45%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          {PRODUCTS_P3.map((p,i)=><div key={p.id} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,animation:`slideUp 250ms ease ${i*40}ms both`,transition:'all 150ms',cursor:'pointer'}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='2px solid transparent'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div><div style={{fontSize:14,fontWeight:600}}>{p.name}</div><div style={{fontSize:12,color:C.textLight,marginTop:2}}>{p.category}</div></div>
+              <div style={{textAlign:'right'}}><div style={{fontSize:14,fontWeight:700,color:C.primary}}>{p.price}</div><div style={{fontSize:11,color:C.textLight}}>재고 {p.stock}</div></div>
+            </div>
+          </div>)}
+        </div>
+        <div style={{flex:1,overflowY:'auto'}}>
+          <div style={{padding:16}}>
+            <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>최근 견적 요청</div>
+            {QUOTES.map((q,i)=><div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderRadius:12,border:`1px solid ${C.border}`,marginBottom:8,animation:`slideInRight 250ms ease ${i*50}ms both`}}>
+              <div><div style={{fontSize:13,fontWeight:600}}>{q.id} · {q.dealer}</div><div style={{fontSize:12,color:C.textLight}}>{q.items}개 품목 · {q.total}</div></div>
+              <Badge label={q.status} color={statusColors[q.status]||C.textLight}/>
+            </div>)}
+          </div>
+        </div>
+      </div>
+    </>}
+    {subTab==='quotes'&&<div style={{overflowY:'auto',maxHeight:'calc(100vh - 200px)'}}>
+      {QUOTES.map((q,i)=><div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',borderBottom:`1px solid ${C.border}`,animation:`slideUp 300ms ease ${i*40}ms both`,transition:'all 150ms'}}
+        onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',gap:16,alignItems:'center'}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.primary,width:100}}>{q.id}</div>
+          <div><div style={{fontSize:14,fontWeight:600}}>{q.dealer}</div><div style={{fontSize:12,color:C.textLight}}>{q.items}개 품목 · {q.date}</div></div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{fontSize:15,fontWeight:700}}>{q.total}</div>
+          <Badge label={q.status} color={statusColors[q.status]||C.textLight}/>
+        </div>
+      </div>)}
+    </div>}
+
+    {modal==='product'&&<Modal title="제품 등록" onClose={()=>setModal(null)} width={520}>
+      {[['제품명','게이트 밸브 GV-300'],['카테고리','산업용 밸브'],['가격','₩950,000'],['재고','100']].map(([l,p])=>
+        <div key={l} style={{marginBottom:14}}><label style={{display:'block',fontSize:13,fontWeight:600,marginBottom:6}}>{l}</label>
+        <input placeholder={p} style={{width:'100%',padding:'10px 14px',borderRadius:12,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'Pretendard',outline:'none'}}/></div>)}
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <button onClick={()=>setModal(null)} style={{padding:'8px 16px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>취소</button>
+        <button onClick={()=>{setModal(null);showToast('제품이 등록되었습니다')}} style={{padding:'8px 16px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>등록</button>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+/* ═══ Dealer Portal ═══ */
+function DealerPage({showToast}){
+  const [selected,setSelected]=useState(DEALERS[0]);
+  const gradeColors={플래티넘:C.primary,골드:C.warning,실버:'#94A3B8',일반:C.textLight};
+
+  return <div style={{animation:'fadeIn 300ms ease',display:'flex',height:'100%',overflow:'hidden'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`}}>
+        <span style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight}}>딜러 목록</span>
+      </div>
+      {DEALERS.map((d,i)=><div key={d.id} onClick={()=>setSelected(d)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===d.id?`${C.primary}08`:'transparent',borderLeft:selected?.id===d.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+          <span style={{fontSize:14,fontWeight:600}}>{d.name}</span>
+          <Badge label={d.grade} color={gradeColors[d.grade]}/>
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textLight}}>
+          <span>누적 {d.totalAmount}</span>
+          <span>주문 {d.orders}건</span>
+        </div>
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected?<>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h2 style={{fontSize:20,fontWeight:700}}>{selected.name}</h2>
+          <div style={{display:'flex',gap:8}}>
+            <Badge label={selected.grade} color={gradeColors[selected.grade]}/>
+            <Badge label={selected.status} color={C.success}/>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}}>
+          {[['누적 거래 금액',selected.totalAmount],['총 주문 건수',`${selected.orders}건`],['할인율',selected.discount],['최근 주문일',selected.lastOrder]].map(([k,v])=>
+            <div key={k} style={{padding:14,borderRadius:16,border:`1px solid ${C.border}`,background:'#FAFAF9'}}>
+              <div style={{fontSize:11,color:C.textLight,marginBottom:2,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k}</div>
+              <div style={{fontSize:16,fontWeight:700}}>{v}</div>
+            </div>)}
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>최근 견적 이력</div>
+          {QUOTES.filter(q=>q.dealer===selected.name).map((q,i)=><div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',borderRadius:12,border:`1px solid ${C.border}`,marginBottom:8,animation:`slideInRight 250ms ease ${i*50}ms both`}}>
+            <div><div style={{fontSize:13,fontWeight:600}}>{q.id}</div><div style={{fontSize:12,color:C.textLight}}>{q.date} · {q.items}개 품목</div></div>
+            <div style={{fontSize:14,fontWeight:700}}>{q.total}</div>
+          </div>)}
+          {QUOTES.filter(q=>q.dealer===selected.name).length===0&&<div style={{padding:20,textAlign:'center',color:C.textLight,fontSize:13}}>해당 딜러의 견적 이력이 없습니다</div>}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div style={{padding:16,borderRadius:16,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>등급 기준</div>
+            {[{grade:'플래티넘',min:'₩300,000,000+'},{grade:'골드',min:'₩100,000,000+'},{grade:'실버',min:'₩50,000,000+'},{grade:'일반',min:'₩50,000,000 미만'}].map(g=>
+              <div key={g.grade} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:13}}>
+                <Badge label={g.grade} color={gradeColors[g.grade]}/><span style={{color:C.textLight}}>{g.min}</span>
+              </div>)}
+          </div>
+          <div style={{padding:16,borderRadius:16,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>할인율 정책</div>
+            {[{grade:'플래티넘',rate:'15%'},{grade:'골드',rate:'10%'},{grade:'실버',rate:'5%'},{grade:'일반',rate:'0%'}].map(g=>
+              <div key={g.grade} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:13}}>
+                <Badge label={g.grade} color={gradeColors[g.grade]}/><span style={{fontWeight:700,color:C.primary}}>{g.rate}</span>
+              </div>)}
+          </div>
+        </div>
+      </>:<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>딜러를 선택해주세요</div>}
+    </div>
+  </div>;
+}
+
+/* ═══ Docs Management ═══ */
+function DocsPage({showToast}){
+  const [selected,setSelected]=useState(DOCS[0]);
+  const statusColors={최신:C.success,번역필요:C.warning,수정중:C.accent};
+
+  return <div style={{animation:'fadeIn 300ms ease',display:'flex',height:'100%',overflow:'hidden'}}>
+    <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight}}>기술 문서</span>
+        <button onClick={()=>showToast('문서 등록 모달이 열립니다')} style={{fontSize:12,color:C.primary,background:'none',border:'none',cursor:'pointer',fontWeight:600,fontFamily:'Pretendard'}}>+ 등록</button>
+      </div>
+      {DOCS.map((d,i)=><div key={d.id} onClick={()=>setSelected(d)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===d.id?`${C.primary}08`:'transparent',borderLeft:selected?.id===d.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+          <span style={{fontSize:14,fontWeight:600}}>{d.title}</span>
+        </div>
+        <div style={{display:'flex',gap:6,fontSize:12,color:C.textLight}}>
+          <span>{d.version}</span>·<span>{d.lang}</span>·<Badge label={d.status} color={statusColors[d.status]||C.textLight}/>
+        </div>
+      </div>)}
+    </div>
+    <div style={{flex:1,overflowY:'auto',padding:20}}>
+      {selected?<>
+        <h2 style={{fontSize:20,fontWeight:700,marginBottom:16}}>{selected.title}</h2>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}}>
+          {[['버전',selected.version],['언어',selected.lang],['유형',selected.type],['최종 수정',selected.lastUpdate]].map(([k,v])=>
+            <div key={k} style={{padding:14,borderRadius:16,border:`1px solid ${C.border}`,background:'#FAFAF9'}}>
+              <div style={{fontSize:11,color:C.textLight,marginBottom:2,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k}</div>
+              <div style={{fontSize:15,fontWeight:600}}>{v}</div>
+            </div>)}
+        </div>
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>버전 이력</div>
+          <div style={{position:'relative',paddingLeft:20}}>
+            <div style={{position:'absolute',left:5,top:4,bottom:4,width:2,background:C.border}}/>
+            {[{v:selected.version,date:selected.lastUpdate,note:'최신 버전'},{v:'v'+(parseFloat(selected.version.slice(1))-0.1).toFixed(1),date:'2024.07.15',note:'오타 수정'},{v:'v'+(parseFloat(selected.version.slice(1))-0.5).toFixed(1),date:'2024.06.01',note:'초기 작성'}].map((h,i)=>
+              <div key={i} style={{display:'flex',gap:12,marginBottom:16,position:'relative',animation:`slideUp 300ms ease ${i*80}ms both`}}>
+                <div style={{width:12,height:12,borderRadius:6,background:i===0?C.primary:C.border,border:`2px solid ${C.surface}`,position:'absolute',left:-20,top:4,zIndex:1}}/>
+                <div><div style={{fontSize:14,fontWeight:i===0?600:400}}>{h.v} — {h.note}</div><div style={{fontSize:12,color:C.textLight}}>{h.date}</div></div>
+              </div>)}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>showToast('PDF 다운로드를 시작합니다')} style={{padding:'8px 16px',borderRadius:10,fontSize:13,fontWeight:600,border:`1px solid ${C.border}`,background:C.surface,cursor:'pointer',fontFamily:'Pretendard'}}>📥 PDF 다운로드</button>
+          <button onClick={()=>showToast('편집 모드로 전환합니다')} style={{padding:'8px 16px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>✏️ 편집</button>
+        </div>
+      </>:<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>문서를 선택해주세요</div>}
+    </div>
+  </div>;
+}
+
+/* ═══ Settings ═══ */
+function SettingsPage({showToast}){
+  return <div style={{animation:'fadeIn 300ms ease',padding:20}}>
+    <div style={{maxWidth:600}}>
+      <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>시스템 설정</h3>
+      <div style={{background:C.surface,borderRadius:20,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+        <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>등급 산정 기준</h4>
+        {[{grade:'플래티넘',min:'300,000,000'},{grade:'골드',min:'100,000,000'},{grade:'실버',min:'50,000,000'}].map(g=>
+          <div key={g.grade} style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+            <Badge label={g.grade} color={g.grade==='플래티넘'?C.primary:g.grade==='골드'?C.warning:'#94A3B8'}/>
+            <span style={{fontSize:13,color:C.textLight}}>누적 거래 ₩</span>
+            <input value={g.min} style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,width:160,fontFamily:'Pretendard',outline:'none'}} readOnly/>
+            <span style={{fontSize:13,color:C.textLight}}>이상</span>
+          </div>)}
+      </div>
+      <div style={{background:C.surface,borderRadius:20,border:`1px solid ${C.border}`,padding:24,marginBottom:16}}>
+        <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>권한 관리</h4>
+        {[{role:'관리자',desc:'모든 기능 접근 가능'},{role:'편집자',desc:'문서·제품 편집 가능'},{role:'뷰어',desc:'조회만 가능'},{role:'딜러',desc:'견적 요청·문서 조회만 가능'}].map(r=>
+          <div key={r.role} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+            <div><span style={{fontSize:14,fontWeight:600}}>{r.role}</span><span style={{fontSize:12,color:C.textLight,marginLeft:8}}>{r.desc}</span></div>
+            <button style={{fontSize:12,color:C.primary,background:'none',border:'none',cursor:'pointer',fontFamily:'Pretendard'}}>편집</button>
+          </div>)}
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <button onClick={()=>showToast('설정이 저장되었습니다')} style={{padding:'8px 20px',borderRadius:10,fontSize:13,fontWeight:600,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontFamily:'Pretendard'}}>저장</button>
+      </div>
+    </div>
+  </div>;
+}
+
+/* ═══ App ═══ */
+function App(){
+  const [section,setSection]=useState('dashboard');
+  const [subTab,setSubTab]=useState(0);
+  const [loading,setLoading]=useState(true);
+  const [toast,setToast]=useState(null);
+  const showToast=(msg)=>setToast(msg);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setSubTab(0)},[section]);
+
+  const SECTION_TABS={
+    dashboard:[{id:'overview',label:'견적 현황'},{id:'activity',label:'딜러 활동'}],
+    quote:[{id:'products',label:'제품 카탈로그'},{id:'quotes',label:'견적 요청'}],
+    dealer:[{id:'list',label:'딜러 목록'},{id:'grade',label:'등급 관리'}],
+    docs:[{id:'all',label:'전체 문서'},{id:'translate',label:'번역 현황'}],
+    settings:[{id:'grade',label:'등급 기준'},{id:'auth',label:'권한 관리'}],
+  };
+  const sectionLabel={dashboard:'통합 워크스페이스',quote:'제품/견적',dealer:'딜러 포털',docs:'기술 문서',settings:'시스템 설정'};
+
+  if(loading) return <Skeleton/>;
+
+  return <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+    {/* Bright Sidebar */}
+    <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+      <div style={{padding:'0 16px 16px',fontWeight:800,fontSize:17,color:C.primary,letterSpacing:'-0.01em',display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontSize:20}}>🏭</span> 메이커허브
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+        {NAV_ITEMS.map(item=><SideNavItem key={item.id} icon={item.icon} label={item.label} active={section===item.id} onClick={()=>setSection(item.id)}/>)}
+      </div>
+      <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:32,height:32,borderRadius:8,background:C.primaryBg,display:'flex',alignItems:'center',justifyContent:'center',color:C.primary,fontSize:13,fontWeight:700}}>관</div>
+        <div><div style={{fontSize:13,fontWeight:600}}>김관리</div><div style={{fontSize:11,color:C.textLight}}>관리자</div></div>
+      </div>
+    </nav>
+
+    {/* Main */}
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',marginLeft:240}}>
+      {/* Appbar */}
+      <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+        <span style={{fontSize:12,color:C.textLight}}>메이커허브</span>
+        <span style={{fontSize:12,color:C.textLight}}>›</span>
+        <span style={{fontSize:12,fontWeight:600}}>{sectionLabel[section]}</span>
+        {SECTION_TABS[section]?.[subTab]&&<><span style={{fontSize:12,color:C.textLight}}>›</span><span style={{fontSize:12,color:C.textLight}}>{SECTION_TABS[section][subTab].label}</span></>}
+        <div style={{flex:1}}/>
+        <div style={{position:'relative'}}>
+          <input placeholder="검색..." style={{padding:'5px 12px 5px 28px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,width:160,outline:'none',fontFamily:'Pretendard'}}/>
+          <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:12}}>🔍</span>
+        </div>
+        <div style={{position:'relative',cursor:'pointer'}}>🔔<span style={{position:'absolute',top:-4,right:-6,width:14,height:14,borderRadius:7,background:C.danger,color:'#fff',fontSize:8,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>4</span></div>
+      </header>
+
+      {/* Tab Strip */}
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',gap:0,background:C.surface,flexShrink:0}}>
+        {(SECTION_TABS[section]||[]).map((t,i)=><TabUnderline key={t.id} label={t.label} active={subTab===i} onClick={()=>setSubTab(i)}/>)}
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,overflow:'hidden'}}>
+        {section==='dashboard'&&<DashboardPage/>}
+        {section==='quote'&&<QuotePage showToast={showToast}/>}
+        {section==='dealer'&&<DealerPage showToast={showToast}/>}
+        {section==='docs'&&<DocsPage showToast={showToast}/>}
+        {section==='settings'&&<SettingsPage showToast={showToast}/>}
+      </div>
+    </div>
+
+    {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

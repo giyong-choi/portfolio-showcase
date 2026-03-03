@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>스튜디오예약 — 통합 예약 관리 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.skeleton{background:linear-gradient(90deg,#F3E8FF 25%,#E9D5FF 50%,#F3E8FF 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── 디자인 토큰 (Berry Luxe / bold-vibrant) ── */
+const C = {
+  primary:'#7C3AED', primaryDark:'#5B21B6', primaryLight:'#EDE9FE',
+  secondary:'#1E1B4B', accent:'#A78BFA',
+  bg:'#FAF5FF', surface:'#FFFFFF', border:'#E5E7EB',
+  text:'#1E1B4B', textSub:'#6B7280', textLight:'#94A3B8',
+  success:'#059669', warning:'#D97706', danger:'#DC2626', info:'#0284C7',
+  card:{ borderRadius:16, boxShadow:'0 4px 16px rgba(0,0,0,0.10)', padding:20 },
+};
+
+/* ── 더미 데이터 ── */
+const SPACES = [
+  { id:1, name:'스튜디오 A (화이트)', type:'촬영 스튜디오', capacity:10, hourlyRate:50000, rating:4.8, reviews:42, bookingsToday:3, utilization:75, image:'📷' },
+  { id:2, name:'스튜디오 B (블랙)', type:'촬영 스튜디오', capacity:8, hourlyRate:60000, rating:4.9, reviews:38, bookingsToday:2, utilization:60, image:'🎬' },
+  { id:3, name:'회의실 101', type:'공유 오피스', capacity:12, hourlyRate:30000, rating:4.5, reviews:67, bookingsToday:5, utilization:90, image:'💼' },
+  { id:4, name:'연습실 1 (방음)', type:'연습실', capacity:6, hourlyRate:25000, rating:4.7, reviews:55, bookingsToday:4, utilization:80, image:'🎵' },
+  { id:5, name:'세미나룸', type:'공유 오피스', capacity:30, hourlyRate:80000, rating:4.6, reviews:23, bookingsToday:1, utilization:40, image:'🎓' },
+  { id:6, name:'스튜디오 C (자연광)', type:'촬영 스튜디오', capacity:6, hourlyRate:70000, rating:4.9, reviews:31, bookingsToday:2, utilization:65, image:'🌿' },
+];
+
+const BOOKINGS = [
+  { id:1, space:'스튜디오 A (화이트)', guest:'김민수', date:'2025-07-07', time:'09:00-12:00', type:'프로필 촬영', amount:150000, status:'확정', phone:'010-1111-2222' },
+  { id:2, space:'회의실 101', guest:'이준호', date:'2025-07-07', time:'10:00-12:00', type:'팀 미팅', amount:60000, status:'확정', phone:'010-2222-3333' },
+  { id:3, space:'연습실 1 (방음)', guest:'박서진', date:'2025-07-07', time:'14:00-17:00', type:'밴드 연습', amount:75000, status:'확정', phone:'010-3333-4444' },
+  { id:4, space:'스튜디오 B (블랙)', guest:'정하윤', date:'2025-07-07', time:'13:00-16:00', type:'상품 촬영', amount:180000, status:'대기', phone:'010-4444-5555' },
+  { id:5, space:'세미나룸', guest:'최우진', date:'2025-07-08', time:'09:00-13:00', type:'워크숍', amount:320000, status:'확정', phone:'010-5555-6666' },
+  { id:6, space:'스튜디오 A (화이트)', guest:'강민재', date:'2025-07-08', time:'14:00-18:00', type:'유튜브 촬영', amount:200000, status:'확정', phone:'010-6666-7777' },
+  { id:7, space:'회의실 101', guest:'김서연', date:'2025-07-08', time:'15:00-17:00', type:'클라이언트 미팅', amount:60000, status:'대기', phone:'010-7777-8888' },
+  { id:8, space:'연습실 1 (방음)', guest:'이지은', date:'2025-07-09', time:'10:00-13:00', type:'보컬 레슨', amount:75000, status:'취소', phone:'010-8888-9999' },
+];
+
+const CUSTOMERS = [
+  { id:1, name:'김민수', grade:'VIP', visits:28, lastVisit:'2025-07-07', favoriteSpace:'스튜디오 A', totalSpent:3800000, phone:'010-1111-2222', email:'minsu@email.com', joinDate:'2024-06-15' },
+  { id:2, name:'이준호', grade:'골드', visits:15, lastVisit:'2025-07-07', favoriteSpace:'회의실 101', totalSpent:1200000, phone:'010-2222-3333', email:'junho@email.com', joinDate:'2024-09-20' },
+  { id:3, name:'박서진', grade:'실버', visits:8, lastVisit:'2025-07-07', favoriteSpace:'연습실 1', totalSpent:600000, phone:'010-3333-4444', email:'seojin@email.com', joinDate:'2025-01-10' },
+  { id:4, name:'정하윤', grade:'VIP', visits:35, lastVisit:'2025-07-07', favoriteSpace:'스튜디오 B', totalSpent:5200000, phone:'010-4444-5555', email:'hayun@email.com', joinDate:'2024-03-05' },
+  { id:5, name:'최우진', grade:'골드', visits:12, lastVisit:'2025-07-08', favoriteSpace:'세미나룸', totalSpent:2400000, phone:'010-5555-6666', email:'woojin@email.com', joinDate:'2024-11-01' },
+  { id:6, name:'강민재', grade:'실버', visits:6, lastVisit:'2025-07-08', favoriteSpace:'스튜디오 A', totalSpent:480000, phone:'010-6666-7777', email:'minjae@email.com', joinDate:'2025-03-15' },
+];
+
+const REVIEWS = [
+  { id:1, space:'스튜디오 A (화이트)', author:'김민수', rating:5, date:'2025-07-05', content:'조명 세팅이 완벽하고, 소품도 다양해서 만족스러운 촬영이었습니다. 다음에도 이용할게요!', sentiment:'긍정' },
+  { id:2, space:'회의실 101', author:'이준호', rating:4, date:'2025-07-04', content:'깔끔하고 프로젝터 성능이 좋습니다. 에어컨이 조금 시끄러운 점이 아쉽네요.', sentiment:'긍정' },
+  { id:3, space:'연습실 1 (방음)', author:'박서진', rating:5, date:'2025-07-03', content:'방음이 완벽해서 마음 놓고 연습할 수 있었어요. 앰프도 상태가 좋아요.', sentiment:'긍정' },
+  { id:4, space:'스튜디오 B (블랙)', author:'정하윤', rating:3, date:'2025-07-02', content:'공간 자체는 좋은데 주차가 불편합니다. 주차 안내를 좀 더 해주시면 좋겠어요.', sentiment:'부정' },
+  { id:5, space:'세미나룸', author:'최우진', rating:5, date:'2025-07-01', content:'30인 규모 워크숍에 딱 맞는 공간이었습니다. 음향 장비도 잘 되어있어요.', sentiment:'긍정' },
+  { id:6, space:'스튜디오 C (자연광)', author:'강민재', rating:4, date:'2025-06-30', content:'자연광이 들어와서 사진이 정말 예쁘게 나왔어요. 오후에는 빛이 좀 약해지네요.', sentiment:'긍정' },
+];
+
+const TABS = [
+  { id:'home', label:'홈', icon:'🏠' },
+  { id:'booking', label:'예약 관리', icon:'📅' },
+  { id:'customer', label:'고객 관리', icon:'👥' },
+  { id:'review', label:'리뷰/피드백', icon:'⭐' },
+  { id:'pricing', label:'가격/정산', icon:'💰' },
+];
+
+const HOURS = ['09','10','11','12','13','14','15','16','17','18','19','20'];
+const WEEKDAYS = ['월 7/7','화 7/8','수 7/9','목 7/10','금 7/11','토 7/12','일 7/13'];
+
+/* ── 유틸 컴포넌트 ── */
+function Badge({ children, color=C.primary, bg }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'3px 12px', borderRadius:20, fontSize:12, fontWeight:600, color, background:bg||color+'18' }}>{children}</span>;
+}
+function StatusBadge({ status }) {
+  const m = { '확정':{c:C.success,b:'#D1FAE5'}, '대기':{c:C.warning,b:'#FEF3C7'}, '취소':{c:C.danger,b:'#FEE2E2'} };
+  const s = m[status]||{c:C.textSub,b:'#F1F5F9'};
+  return <Badge color={s.c} bg={s.b}>{status}</Badge>;
+}
+function GradeBadge({ grade }) {
+  const m = { 'VIP':{c:'#B45309',b:'#FEF3C7'}, '골드':{c:C.primary,b:C.primaryLight}, '실버':{c:C.textSub,b:'#F1F5F9'} };
+  const s = m[grade]||{c:C.textSub,b:'#F1F5F9'};
+  return <Badge color={s.c} bg={s.b}>{grade}</Badge>;
+}
+function CountUp({ end, suffix='', prefix='' }) {
+  const [val, setVal] = useState(0);
+  useEffect(()=>{ let s=0; const step=end/50; const t=setInterval(()=>{ s+=step; if(s>=end){setVal(end);clearInterval(t);} else setVal(Math.floor(s)); },24); return ()=>clearInterval(t); },[end]);
+  return <span style={{ animation:'countUp 400ms ease' }}>{prefix}{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({ message, onClose }) {
+  useEffect(()=>{ const t=setTimeout(onClose,3000); return ()=>clearTimeout(t); },[]);
+  return <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, background:C.primary, color:'#fff', padding:'12px 24px', borderRadius:12, animation:'slideUp 300ms ease', boxShadow:'0 4px 16px rgba(124,58,237,0.3)', fontSize:14 }}>{message}</div>;
+}
+function Modal({ open, onClose, title, width=560, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:500 }} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width, maxWidth:'90vw', maxHeight:'85vh', overflowY:'auto', background:C.surface, borderRadius:20, boxShadow:'0 20px 60px rgba(0,0,0,0.2)', zIndex:501, animation:'fadeInScale 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:800 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+function Drawer({ open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:200 }} />
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:480, background:C.surface, boxShadow:'-8px 0 40px rgba(0,0,0,0.15)', zIndex:201, overflowY:'auto', animation:'slideInRight 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:800 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+function InputField({ label, value, onChange, type='text', placeholder, textarea, readOnly }) {
+  const s = { width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', background:readOnly?'#F9FAFB':C.surface };
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>{label}</label>
+      {textarea ? <textarea value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} rows={4} style={{...s, resize:'vertical'}} /> : <input type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} style={s} />}
+    </div>
+  );
+}
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>{label}</label>
+      <select value={value} onChange={onChange} style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontFamily:'inherit', outline:'none', background:C.surface, cursor:'pointer' }}>
+        {options.map(o => <option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+      </select>
+    </div>
+  );
+}
+function Btn({ children, onClick, variant='primary', size='md', style:sx={} }) {
+  const base = { border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:700, borderRadius:12, display:'inline-flex', alignItems:'center', gap:6, transition:'all 200ms' };
+  const sizes = { sm:{padding:'6px 14px',fontSize:12}, md:{padding:'10px 20px',fontSize:13}, lg:{padding:'12px 24px',fontSize:14} };
+  const variants = { primary:{background:`linear-gradient(135deg,${C.primary},${C.accent})`,color:'#fff'}, secondary:{background:C.primaryLight,color:C.primary}, danger:{background:C.danger,color:'#fff'}, ghost:{background:'transparent',color:C.textSub} };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant],...sx}} onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 4px 16px rgba(124,58,237,0.25)';}} onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow='none';}}>{children}</button>;
+}
+
+/* ── 히어로 배너 ── */
+function HeroBanner({ tab }) {
+  const meta = {
+    home:{ title:'홈 대시보드', sub:'전체 공간 운영 현황을 한눈에', kpis:[{l:'오늘 예약',v:17,s:'건'},{l:'오늘 매출',v:1120,s:'천원'},{l:'평균 가동률',v:68,s:'%'}] },
+    booking:{ title:'예약 관리', sub:'공간별 시간대 예약 현황 관리', kpis:[{l:'이번 주 예약',v:32,s:'건'},{l:'확정률',v:87,s:'%'},{l:'취소',v:2,s:'건'}] },
+    customer:{ title:'고객 관리', sub:'고객 정보 및 방문 이력 관리', kpis:[{l:'전체 고객',v:148,s:'명'},{l:'VIP',v:12,s:'명'},{l:'신규(이번달)',v:8,s:'명'}] },
+    review:{ title:'리뷰/피드백', sub:'고객 리뷰 분석 및 답변 관리', kpis:[{l:'전체 리뷰',v:256,s:'개'},{l:'평균 별점',v:4.6,s:'점'},{l:'미답변',v:3,s:'건'}] },
+    pricing:{ title:'가격/정산', sub:'공간별 요금 설정 및 정산 관리', kpis:[{l:'이번 달 매출',v:8420,s:'천원'},{l:'미정산',v:540,s:'천원'},{l:'공간 수',v:6,s:'개'}] },
+  };
+  const m = meta[tab];
+  return (
+    <div style={{ background:`linear-gradient(135deg, ${C.primary}, ${C.accent})`, padding:'28px 32px', color:'#fff', flexShrink:0 }}>
+      <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', opacity:0.8, marginBottom:4 }}>{m.sub}</div>
+      <h1 style={{ fontSize:28, fontWeight:800, letterSpacing:'-0.03em', marginBottom:16 }}>{m.title}</h1>
+      <div style={{ display:'flex', gap:32 }}>
+        {m.kpis.map((k,i) => (
+          <div key={i} style={{ background:'rgba(255,255,255,0.15)', backdropFilter:'blur(8px)', borderRadius:12, padding:'12px 20px', minWidth:120 }}>
+            <div style={{ fontSize:11, opacity:0.8, marginBottom:4 }}>{k.l}</div>
+            <div style={{ fontSize:22, fontWeight:800 }}><CountUp end={k.v} suffix={k.s} /></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── 홈 대시보드 ── */
+function HomePage({ setDrawer }) {
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:24 }}>
+        {SPACES.map((s,i) => (
+          <div key={s.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, cursor:'pointer', transition:'all 200ms', animation:`slideUp 400ms ease ${i*80}ms both` }}
+               onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';}}
+               onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}
+               onClick={()=>setDrawer(s)}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+              <div>
+                <span style={{ fontSize:28 }}>{s.image}</span>
+                <h4 style={{ fontSize:15, fontWeight:700, marginTop:8 }}>{s.name}</h4>
+                <div style={{ fontSize:12, color:C.textSub, marginTop:2 }}>{s.type} · 최대 {s.capacity}인</div>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.primary }}>{s.hourlyRate.toLocaleString()}원/h</div>
+                <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>⭐ {s.rating} ({s.reviews})</div>
+              </div>
+            </div>
+            <div style={{ marginBottom:8 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:4 }}>
+                <span style={{ color:C.textSub }}>오늘 예약 {s.bookingsToday}건</span>
+                <span style={{ color:C.primary, fontWeight:600 }}>가동률 {s.utilization}%</span>
+              </div>
+              <div style={{ height:6, borderRadius:3, background:C.border }}>
+                <div style={{ width:`${s.utilization}%`, height:'100%', borderRadius:3, background:`linear-gradient(90deg,${C.primary},${C.accent})`, animation:`barGrow 1000ms ease ${i*100}ms both`, '--target-width':`${s.utilization}%` }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+        <h3 style={{ fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:16 }}>오늘 예약 타임라인</h3>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {BOOKINGS.filter(b=>b.date==='2025-07-07').map((b,i) => (
+            <div key={b.id} style={{ display:'flex', alignItems:'center', gap:16, padding:14, borderRadius:12, background:C.bg, cursor:'pointer', transition:'all 200ms', animation:`slideInRight 300ms ease ${i*60}ms both` }}
+                 onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;}}
+                 onMouseOut={e=>{e.currentTarget.style.background=C.bg;e.currentTarget.style.borderLeft='none';}}
+                 onClick={()=>setDrawer(b)}>
+              <span style={{ fontSize:13, fontWeight:700, color:C.primary, minWidth:80 }}>{b.time.split('-')[0]}</span>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{b.guest} — {b.type}</div>
+                <div style={{ fontSize:12, color:C.textSub }}>{b.space}</div>
+              </div>
+              <div style={{ fontSize:13, fontWeight:600, color:C.textSub }}>{b.amount.toLocaleString()}원</div>
+              <StatusBadge status={b.status} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 예약 관리 ── */
+function BookingPage({ showToast, setDrawer }) {
+  const [view, setView] = useState('timeline');
+  const [modal, setModal] = useState(null);
+
+  function getBookingForCell(dayIdx, hour) {
+    const dateMap = { 0:'2025-07-07', 1:'2025-07-08', 2:'2025-07-09' };
+    return BOOKINGS.find(b => {
+      if (b.date !== dateMap[dayIdx]) return false;
+      const startH = parseInt(b.time.split('-')[0].split(':')[0]);
+      const endH = parseInt(b.time.split('-')[1].split(':')[0]);
+      return parseInt(hour) >= startH && parseInt(hour) < endH;
+    });
+  }
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn variant={view==='timeline'?'primary':'secondary'} size="sm" onClick={()=>setView('timeline')}>타임라인</Btn>
+          <Btn variant={view==='list'?'primary':'secondary'} size="sm" onClick={()=>setView('list')}>목록</Btn>
+        </div>
+        <Btn onClick={()=>setModal('create')}>+ 예약 등록</Btn>
+      </div>
+
+      {view === 'timeline' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:16, overflowX:'auto' }}>
+          <h3 style={{ fontSize:14, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12, padding:'0 4px' }}>2025년 7월 — 주간 타임라인</h3>
+          <div style={{ display:'grid', gridTemplateColumns:'60px repeat(7,1fr)', gap:0, fontSize:11 }}>
+            <div style={{ padding:4, borderBottom:`2px solid ${C.border}` }}></div>
+            {WEEKDAYS.map(d => <div key={d} style={{ padding:'6px 4px', textAlign:'center', fontWeight:700, borderBottom:`2px solid ${C.border}`, fontSize:11, color:C.textSub }}>{d}</div>)}
+            {HOURS.map(h => (
+              <React.Fragment key={h}>
+                <div style={{ padding:'8px 4px', fontSize:11, fontWeight:500, color:C.textLight, borderBottom:`1px solid ${C.border}`, textAlign:'right', paddingRight:8 }}>{h}:00</div>
+                {[0,1,2,3,4,5,6].map(dayIdx => {
+                  const b = getBookingForCell(dayIdx, h);
+                  return <div key={dayIdx} style={{ padding:2, borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.border}30`, background:b?(b.status==='확정'?C.primaryLight+'80':b.status==='대기'?'#FEF3C7':'#FEE2E2'):'transparent', cursor:b?'pointer':'default', minHeight:32, borderRadius:b?4:0, display:'flex', alignItems:'center', justifyContent:'center' }}
+                              onClick={()=>b&&setDrawer(b)}>
+                    {b && <span style={{ fontSize:10, fontWeight:600, color:b.status==='확정'?C.primary:b.status==='대기'?C.warning:C.danger }}>{b.guest}</span>}
+                  </div>;
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view === 'list' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          {BOOKINGS.map((b,i) => (
+            <div key={b.id} style={{ display:'flex', alignItems:'center', gap:16, padding:14, borderRadius:12, marginBottom:8, background:C.bg, cursor:'pointer', transition:'all 200ms', animation:`slideInRight 300ms ease ${i*50}ms both` }}
+                 onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;}}
+                 onMouseOut={e=>{e.currentTarget.style.background=C.bg;e.currentTarget.style.borderLeft='none';}}
+                 onClick={()=>setDrawer(b)}>
+              <div style={{ minWidth:80 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:C.primary }}>{b.date.slice(5)}</div>
+                <div style={{ fontSize:11, color:C.textLight }}>{b.time}</div>
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{b.guest}</div>
+                <div style={{ fontSize:12, color:C.textSub }}>{b.space} · {b.type}</div>
+              </div>
+              <div style={{ fontSize:13, fontWeight:600 }}>{b.amount.toLocaleString()}원</div>
+              <StatusBadge status={b.status} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="예약 등록" width={500}>
+        <InputField label="예약자명" value="" onChange={()=>{}} placeholder="고객명" />
+        <SelectField label="공간" value="" onChange={()=>{}} options={['공간 선택',...SPACES.map(s=>s.name)]} />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="날짜" value="" onChange={()=>{}} type="date" />
+          <InputField label="시간" value="" onChange={()=>{}} placeholder="09:00-12:00" />
+        </div>
+        <SelectField label="이용 목적" value="" onChange={()=>{}} options={['이용 목적 선택','프로필 촬영','상품 촬영','유튜브 촬영','팀 미팅','워크숍','밴드 연습','보컬 레슨']} />
+        <InputField label="연락처" value="" onChange={()=>{}} placeholder="010-0000-0000" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('예약이 등록되었습니다');}}>등록</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 고객 관리 ── */
+function CustomerPage({ setDrawer }) {
+  const [search, setSearch] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('전체');
+  const filtered = CUSTOMERS.filter(c => {
+    if (gradeFilter !== '전체' && c.grade !== gradeFilter) return false;
+    return c.name.includes(search) || c.email.includes(search);
+  });
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="고객명/이메일 검색" style={{ padding:'10px 16px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:13, width:240, outline:'none', fontFamily:'inherit' }} />
+          {['전체','VIP','골드','실버'].map(g => (
+            <button key={g} onClick={()=>setGradeFilter(g)} style={{ padding:'8px 16px', borderRadius:20, border:`1px solid ${gradeFilter===g?C.primary:C.border}`, background:gradeFilter===g?C.primaryLight:'transparent', color:gradeFilter===g?C.primary:C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{g}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+        {filtered.map((c,i) => (
+          <div key={c.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, cursor:'pointer', transition:'all 200ms', animation:`slideUp 400ms ease ${i*80}ms both` }}
+               onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)';}}
+               onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}
+               onClick={()=>setDrawer({type:'customer',...c})}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ width:40, height:40, borderRadius:20, background:`linear-gradient(135deg,${C.primary},${C.accent})`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:15 }}>{c.name[0]}</div>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:700 }}>{c.name}</div>
+                  <div style={{ fontSize:11, color:C.textLight }}>{c.email}</div>
+                </div>
+              </div>
+              <GradeBadge grade={c.grade} />
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <div style={{ fontSize:12, color:C.textSub }}>방문 <b style={{ color:C.text }}>{c.visits}회</b></div>
+              <div style={{ fontSize:12, color:C.textSub }}>누적 <b style={{ color:C.text }}>{(c.totalSpent/10000).toFixed(0)}만원</b></div>
+              <div style={{ fontSize:12, color:C.textSub }}>최근 <b style={{ color:C.text }}>{c.lastVisit.slice(5)}</b></div>
+              <div style={{ fontSize:12, color:C.textSub }}>선호 <b style={{ color:C.text, fontSize:11 }}>{c.favoriteSpace.split(' ')[0]}</b></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── 리뷰/피드백 ── */
+function ReviewPage({ showToast }) {
+  const [modal, setModal] = useState(null);
+  const ratingDist = [0,0,1,2,3]; // 1star~5star counts
+  const avgRating = 4.6;
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20, marginBottom:24 }}>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:14, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:16 }}>최근 리뷰</h3>
+          {REVIEWS.map((r,i) => (
+            <div key={r.id} style={{ padding:16, borderRadius:12, background:C.bg, marginBottom:8, cursor:'pointer', transition:'all 200ms', animation:`slideInRight 300ms ease ${i*60}ms both` }}
+                 onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;}}
+                 onMouseOut={e=>{e.currentTarget.style.background=C.bg;}}
+                 onClick={()=>setModal(r)}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontWeight:700, fontSize:14 }}>{r.author}</span>
+                  <Badge color={r.sentiment==='긍정'?C.success:C.danger}>{r.sentiment}</Badge>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  {'⭐'.repeat(r.rating)}
+                  <span style={{ fontSize:12, color:C.textLight, marginLeft:4 }}>{r.date.slice(5)}</span>
+                </div>
+              </div>
+              <div style={{ fontSize:13, color:C.textSub, lineHeight:1.6 }}>{r.content}</div>
+              <div style={{ fontSize:11, color:C.textLight, marginTop:4 }}>{r.space}</div>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, marginBottom:16, textAlign:'center' }}>
+            <div style={{ fontSize:42, fontWeight:800, color:C.primary }}>{avgRating}</div>
+            <div style={{ fontSize:20, marginBottom:8 }}>{'⭐'.repeat(Math.round(avgRating))}</div>
+            <div style={{ fontSize:12, color:C.textSub }}>{REVIEWS.length}개 리뷰</div>
+          </div>
+          <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+            <h4 style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>별점 분포</h4>
+            {[5,4,3,2,1].map(star => (
+              <div key={star} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                <span style={{ fontSize:12, minWidth:24 }}>{star}점</span>
+                <div style={{ flex:1, height:8, borderRadius:4, background:C.border }}>
+                  <div style={{ width:`${(ratingDist[star-1]/REVIEWS.length)*100}%`, height:'100%', borderRadius:4, background:C.primary, animation:`barGrow 800ms ease ${(5-star)*100}ms both`, '--target-width':`${(ratingDist[star-1]/REVIEWS.length)*100}%` }} />
+                </div>
+                <span style={{ fontSize:11, color:C.textLight, minWidth:20 }}>{ratingDist[star-1]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <Modal open={!!modal} onClose={()=>setModal(null)} title="리뷰 상세 / 답변" width={520}>
+        {modal && (
+          <>
+            <div style={{ padding:16, background:C.bg, borderRadius:12, marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontWeight:700 }}>{modal.author}</span>
+                <span>{'⭐'.repeat(modal.rating)}</span>
+              </div>
+              <div style={{ fontSize:13, color:C.textSub, lineHeight:1.6 }}>{modal.content}</div>
+              <div style={{ fontSize:11, color:C.textLight, marginTop:8 }}>{modal.space} · {modal.date}</div>
+            </div>
+            <InputField label="답변 작성" value="" onChange={()=>{}} textarea placeholder="리뷰에 대한 답변을 작성하세요" />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('답변이 등록되었습니다');}}>답변 등록</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 가격/정산 ── */
+function PricingPage({ showToast }) {
+  const [subTab, setSubTab] = useState('pricing');
+  const [editModal, setEditModal] = useState(null);
+
+  const settlements = [
+    { month:'2025년 6월', revenue:7800000, commission:780000, net:7020000, status:'정산완료' },
+    { month:'2025년 5월', revenue:6500000, commission:650000, net:5850000, status:'정산완료' },
+    { month:'2025년 7월', revenue:3200000, commission:320000, net:2880000, status:'정산대기' },
+  ];
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <Btn variant={subTab==='pricing'?'primary':'secondary'} size="sm" onClick={()=>setSubTab('pricing')}>가격 설정</Btn>
+        <Btn variant={subTab==='settlement'?'primary':'secondary'} size="sm" onClick={()=>setSubTab('settlement')}>정산 관리</Btn>
+      </div>
+
+      {subTab === 'pricing' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
+          {SPACES.map((s,i) => (
+            <div key={s.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, animation:`slideUp 400ms ease ${i*80}ms both` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <div>
+                  <span style={{ fontSize:24 }}>{s.image}</span>
+                  <h4 style={{ fontSize:15, fontWeight:700, marginTop:4 }}>{s.name}</h4>
+                  <div style={{ fontSize:12, color:C.textSub }}>{s.type}</div>
+                </div>
+                <Btn variant="secondary" size="sm" onClick={()=>setEditModal(s)}>편집</Btn>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, padding:12, background:C.bg, borderRadius:8 }}>
+                <div style={{ fontSize:12, color:C.textSub }}>시간당 요금</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.primary, textAlign:'right' }}>{s.hourlyRate.toLocaleString()}원</div>
+                <div style={{ fontSize:12, color:C.textSub }}>최대 수용</div>
+                <div style={{ fontSize:14, fontWeight:600, textAlign:'right' }}>{s.capacity}인</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'settlement' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
+                {['기간','매출','수수료','정산금액','상태'].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:'12px 8px', fontSize:12, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:C.textLight }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.map((s,i) => (
+                <tr key={i} style={{ borderBottom:`1px solid ${C.border}`, transition:'background 150ms' }}
+                    onMouseOver={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`;}}
+                    onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none';}}>
+                  <td style={{ padding:'14px 8px', fontWeight:600 }}>{s.month}</td>
+                  <td style={{ padding:'14px 8px' }}>{s.revenue.toLocaleString()}원</td>
+                  <td style={{ padding:'14px 8px', color:C.danger }}>{s.commission.toLocaleString()}원</td>
+                  <td style={{ padding:'14px 8px', fontWeight:700, color:C.primary }}>{s.net.toLocaleString()}원</td>
+                  <td style={{ padding:'14px 8px' }}><Badge color={s.status==='정산완료'?C.success:C.warning}>{s.status}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Modal open={!!editModal} onClose={()=>setEditModal(null)} title="요금 설정" width={440}>
+        {editModal && (
+          <>
+            <InputField label="공간명" value={editModal.name} readOnly />
+            <InputField label="시간당 요금 (원)" value={editModal.hourlyRate} onChange={()=>{}} type="number" />
+            <InputField label="최대 수용 인원" value={editModal.capacity} onChange={()=>{}} type="number" />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setEditModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setEditModal(null);showToast('요금이 저장되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 메인 앱 ── */
+function MainApp() {
+  const [tab, setTab] = useState('home');
+  const [drawer, setDrawer] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const showToast = (msg) => setToast(msg);
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:C.bg }}>
+      {/* 상단 네비 */}
+      <header style={{ zIndex:100, background:C.surface, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', height:56, padding:'0 24px', gap:8, flexShrink:0 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:C.primary, marginRight:8 }}>📷 스튜디오예약</div>
+        <div style={{ display:'flex', gap:0 }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              padding:'16px 16px', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13,
+              fontWeight:tab===t.id?700:400, color:tab===t.id?C.primary:C.textSub,
+              borderBottom:tab===t.id?`2px solid ${C.primary}`:'2px solid transparent',
+              background:'transparent', transition:'all 150ms', display:'flex', alignItems:'center', gap:6,
+            }}>
+              <span style={{ fontSize:14 }}>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ flex:1 }} />
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <input placeholder="검색..." style={{ padding:'8px 14px', border:`1px solid ${C.border}`, borderRadius:12, fontSize:13, width:180, outline:'none', fontFamily:'inherit' }} />
+          <div style={{ position:'relative' }}>
+            <span onClick={()=>setNotifOpen(!notifOpen)} style={{ fontSize:18, cursor:'pointer', position:'relative' }}>🔔<span style={{ position:'absolute', top:-2, right:-2, width:8, height:8, borderRadius:4, background:C.danger }} /></span>
+            {notifOpen && (
+              <div style={{ position:'absolute', top:'100%', right:0, marginTop:8, width:320, background:C.surface, borderRadius:C.card.borderRadius, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:`1px solid ${C.border}`, zIndex:200, animation:'slideDown 200ms ease' }}>
+                <div style={{ padding:'12px 16px', borderBottom:`1px solid ${C.border}`, fontWeight:700, fontSize:14 }}>알림</div>
+                {[
+                  { msg:'김민수님 프로필 촬영 예약이 확정되었습니다', time:'10분 전' },
+                  { msg:'스튜디오 B 이용 후기가 등록되었습니다', time:'1시간 전' },
+                  { msg:'정하윤님 상품 촬영 예약 대기 중', time:'2시간 전' },
+                ].map((n,i) => (
+                  <div key={i} onClick={()=>{setNotifOpen(false);setTab('booking');}} style={{ padding:'12px 16px', borderBottom:`1px solid ${C.border}`, cursor:'pointer', transition:'background 150ms' }}
+                       onMouseOver={e=>e.currentTarget.style.background=C.primaryLight}
+                       onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                    <div style={{ fontSize:13 }}>{n.msg}</div>
+                    <div style={{ fontSize:11, color:C.textLight, marginTop:4 }}>{n.time}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ width:32, height:32, borderRadius:16, background:`linear-gradient(135deg,${C.primary},${C.accent})`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:13, fontWeight:700 }}>관</div>
+        </div>
+      </header>
+
+      <HeroBanner tab={tab} />
+
+      <main style={{ padding:'24px 32px', flex:1, overflow:'auto' }}>
+        {tab==='home' && <HomePage setDrawer={setDrawer} />}
+        {tab==='booking' && <BookingPage showToast={showToast} setDrawer={setDrawer} />}
+        {tab==='customer' && <CustomerPage setDrawer={setDrawer} />}
+        {tab==='review' && <ReviewPage showToast={showToast} />}
+        {tab==='pricing' && <PricingPage showToast={showToast} />}
+      </main>
+
+      {/* Drawer */}
+      <Drawer open={!!drawer} onClose={()=>setDrawer(null)} title={drawer?.type==='customer'?'고객 상세':drawer?.guest?'예약 상세':'공간 상세'}>
+        {drawer && drawer.hourlyRate !== undefined && (
+          <div>
+            <div style={{ textAlign:'center', fontSize:48, marginBottom:16 }}>{drawer.image}</div>
+            <h3 style={{ fontSize:18, fontWeight:800, marginBottom:4 }}>{drawer.name}</h3>
+            <div style={{ fontSize:13, color:C.textSub, marginBottom:20 }}>{drawer.type} · 최대 {drawer.capacity}인</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>시간당 요금</div>
+                <div style={{ fontSize:18, fontWeight:800, color:C.primary }}>{drawer.hourlyRate.toLocaleString()}원</div>
+              </div>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>평점</div>
+                <div style={{ fontSize:18, fontWeight:800 }}>⭐ {drawer.rating}</div>
+              </div>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>오늘 예약</div>
+                <div style={{ fontSize:18, fontWeight:800 }}>{drawer.bookingsToday}건</div>
+              </div>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>가동률</div>
+                <div style={{ fontSize:18, fontWeight:800 }}>{drawer.utilization}%</div>
+              </div>
+            </div>
+          </div>
+        )}
+        {drawer && drawer.guest && (
+          <div>
+            <InputField label="예약자" value={drawer.guest} readOnly />
+            <InputField label="공간" value={drawer.space} readOnly />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="날짜" value={drawer.date} readOnly />
+              <InputField label="시간" value={drawer.time} readOnly />
+            </div>
+            <InputField label="이용 목적" value={drawer.type} readOnly />
+            <InputField label="금액" value={`${drawer.amount.toLocaleString()}원`} readOnly />
+            <div style={{ marginBottom:16 }}><StatusBadge status={drawer.status} /></div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>{setDrawer(null);showToast('예약이 수정되었습니다');}}>수정</Btn>
+              {drawer.status === '대기' && <Btn onClick={()=>{setDrawer(null);showToast('예약이 확정되었습니다');}}>확정</Btn>}
+              {drawer.status !== '취소' && <Btn variant="danger" size="sm" onClick={()=>{setDrawer(null);showToast('예약이 취소되었습니다');}}>취소</Btn>}
+            </div>
+          </div>
+        )}
+        {drawer && drawer.type === 'customer' && (
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+              <div style={{ width:56, height:56, borderRadius:28, background:`linear-gradient(135deg,${C.primary},${C.accent})`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:22, fontWeight:800 }}>{drawer.name[0]}</div>
+              <div>
+                <div style={{ fontSize:18, fontWeight:800 }}>{drawer.name}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}><GradeBadge grade={drawer.grade} /><span style={{ fontSize:12, color:C.textLight }}>가입 {drawer.joinDate}</span></div>
+              </div>
+            </div>
+            <InputField label="이메일" value={drawer.email} readOnly />
+            <InputField label="연락처" value={drawer.phone} readOnly />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>총 방문</div>
+                <div style={{ fontSize:20, fontWeight:800 }}>{drawer.visits}회</div>
+              </div>
+              <div style={{ padding:16, background:C.bg, borderRadius:12, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:C.textSub }}>누적 금액</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.primary }}>{(drawer.totalSpent/10000).toFixed(0)}만원</div>
+              </div>
+            </div>
+            <InputField label="선호 공간" value={drawer.favoriteSpace} readOnly />
+            <InputField label="최근 방문" value={drawer.lastVisit} readOnly />
+          </div>
+        )}
+      </Drawer>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+/* ── 스켈레톤 + 엔트리 ── */
+function SkeletonLoader() {
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg }}>
+      <div style={{ height:56, background:C.surface, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', padding:'0 24px', gap:16 }}>
+        <div className="skeleton" style={{ height:24, width:140 }} />
+        {[...Array(5)].map((_,i) => <div key={i} className="skeleton" style={{ height:16, width:60 }} />)}
+      </div>
+      <div className="skeleton" style={{ height:116, margin:0 }} />
+      <div style={{ padding:24 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
+          {[...Array(6)].map((_,i) => <div key={i} className="skeleton" style={{ height:180 }} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+  if (loading) return <SkeletonLoader />;
+  return <MainApp />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

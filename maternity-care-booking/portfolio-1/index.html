@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>맘스케어 — 통합 운영 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#F0FDFA;color:#0F172A;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.skeleton{background:linear-gradient(90deg,#CCFBF1 25%,#99F6E4 50%,#CCFBF1 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ── 디자인 토큰 ── */
+const C = {
+  primary:'#0D7377', primaryDark:'#095B5E', primaryLight:'#CCFBF1',
+  secondary:'#14532D', accent:'#2DD4BF',
+  bg:'#F0FDFA', surface:'#FFFFFF', sidebar:'#0A3D3F', sidebarHover:'#0D5355',
+  border:'#E2E8F0', text:'#0F172A', textSub:'#475569', textLight:'#94A3B8',
+  success:'#059669', warning:'#D97706', danger:'#DC2626', info:'#0284C7',
+  card:{ borderRadius:12, boxShadow:'0 1px 3px rgba(0,0,0,0.08)', padding:24 },
+};
+
+/* ── 더미 데이터 ── */
+const ROOMS = [
+  { id:1, name:'스위트 A', type:'스위트', status:'입실중', guest:'김서연', checkIn:'2025-03-01', checkOut:'2025-03-15', price:4200000 },
+  { id:2, name:'스위트 B', type:'스위트', status:'예약확정', guest:'이지은', checkIn:'2025-03-05', checkOut:'2025-03-19', price:4200000 },
+  { id:3, name:'패밀리 A', type:'패밀리', status:'입실중', guest:'박하나', checkIn:'2025-02-25', checkOut:'2025-03-11', price:3500000 },
+  { id:4, name:'패밀리 B', type:'패밀리', status:'청소중', guest:'-', checkIn:'-', checkOut:'-', price:3500000 },
+  { id:5, name:'스탠다드 1', type:'스탠다드', status:'입실중', guest:'정수민', checkIn:'2025-02-28', checkOut:'2025-03-14', price:2800000 },
+  { id:6, name:'스탠다드 2', type:'스탠다드', status:'공실', guest:'-', checkIn:'-', checkOut:'-', price:2800000 },
+  { id:7, name:'스탠다드 3', type:'스탠다드', status:'예약확정', guest:'최예린', checkIn:'2025-03-10', checkOut:'2025-03-24', price:2800000 },
+  { id:8, name:'프리미엄', type:'프리미엄', status:'입실중', guest:'강유진', checkIn:'2025-02-20', checkOut:'2025-03-06', price:5500000 },
+];
+
+const MOTHERS = [
+  { id:1, name:'김서연', age:32, room:'스위트 A', baby:'김지호', babyGender:'남', dueDate:'2025-02-28', checkIn:'2025-03-01', checkOut:'2025-03-15', program:'프리미엄 케어', phone:'010-1234-5678', note:'제왕절개', status:'입실중' },
+  { id:2, name:'박하나', age:29, room:'패밀리 A', baby:'박서윤', babyGender:'여', dueDate:'2025-02-22', checkIn:'2025-02-25', checkOut:'2025-03-11', program:'스탠다드 케어', phone:'010-2345-6789', note:'자연분만, 둘째', status:'입실중' },
+  { id:3, name:'정수민', age:35, room:'스탠다드 1', baby:'정민준', babyGender:'남', dueDate:'2025-02-25', checkIn:'2025-02-28', checkOut:'2025-03-14', program:'프리미엄 케어', phone:'010-3456-7890', note:'쌍둥이', status:'입실중' },
+  { id:4, name:'강유진', age:31, room:'프리미엄', baby:'강하은', babyGender:'여', dueDate:'2025-02-18', checkIn:'2025-02-20', checkOut:'2025-03-06', program:'VIP 케어', phone:'010-4567-8901', note:'첫째', status:'입실중' },
+  { id:5, name:'이지은', age:28, room:'스위트 B', baby:'-', babyGender:'-', dueDate:'2025-03-03', checkIn:'2025-03-05', checkOut:'2025-03-19', program:'스탠다드 케어', phone:'010-5678-9012', note:'자연분만 예정', status:'예약확정' },
+  { id:6, name:'최예린', age:33, room:'스탠다드 3', baby:'-', babyGender:'-', dueDate:'2025-03-08', checkIn:'2025-03-10', checkOut:'2025-03-24', program:'프리미엄 케어', phone:'010-6789-0123', note:'', status:'예약확정' },
+];
+
+const PROGRAMS = [
+  { id:1, name:'산후 요가', time:'10:00-11:00', days:'월·수·금', instructor:'이민지', max:8, current:5 },
+  { id:2, name:'모유 수유 교실', time:'14:00-15:00', days:'화·목', instructor:'김영희', max:6, current:4 },
+  { id:3, name:'신생아 마사지', time:'11:00-12:00', days:'월·수·금', instructor:'박지혜', max:6, current:6 },
+  { id:4, name:'산후 필라테스', time:'15:00-16:00', days:'화·목·토', instructor:'최수진', max:8, current:3 },
+  { id:5, name:'영양 상담', time:'09:00-10:00', days:'수', instructor:'정은주 영양사', max:4, current:2 },
+];
+
+const MEALS = {
+  mon:{ breakfast:'현미밥, 미역국, 연어구이, 시금치나물, 배추김치', lunch:'잡곡밥, 소고기무국, 닭가슴살샐러드, 브로콜리볶음, 깍두기', dinner:'흰쌀밥, 한우미역국, 고등어조림, 도라지무침, 깍두기' },
+  tue:{ breakfast:'흰쌀밥, 콩나물국, 계란말이, 오이소박이, 깍두기', lunch:'보리밥, 된장찌개, 돼지불고기, 감자조림, 배추김치', dinner:'잡곡밥, 북어국, 갈비찜, 미나리나물, 총각김치' },
+  wed:{ breakfast:'현미밥, 시금치된장국, 두부구이, 호박볶음, 배추김치', lunch:'흰쌀밥, 갈비탕, 잡채, 콩나물무침, 깍두기', dinner:'보리밥, 쇠고기미역국, 고추장불고기, 열무김치, 동치미' },
+  thu:{ breakfast:'잡곡밥, 북어국, 멸치볶음, 깻잎장아찌, 배추김치', lunch:'현미밥, 청국장, 제육볶음, 도라지나물, 깍두기', dinner:'흰쌀밥, 감자수제비, 닭갈비, 부추무침, 배추김치' },
+  fri:{ breakfast:'흰쌀밥, 조개미역국, 생선전, 무나물, 깍두기', lunch:'잡곡밥, 순두부찌개, 소불고기, 시금치나물, 배추김치', dinner:'현미밥, 삼계탕, 잡채, 오이무침, 깍두기' },
+};
+const DAY_LABELS = ['월','화','수','목','금'];
+const MEAL_LABELS = ['breakfast','lunch','dinner'];
+const MEAL_KR = { breakfast:'아침', lunch:'점심', dinner:'저녁' };
+
+const NOTIFICATIONS = [
+  { id:1, type:'입실안내', target:'이지은', template:'입실 안내', channel:'알림톡', sentAt:'2025-03-03 10:00', status:'발송완료' },
+  { id:2, type:'퇴실안내', target:'강유진', template:'퇴실 안내', channel:'SMS', sentAt:'2025-03-04 09:00', status:'발송예정' },
+  { id:3, type:'프로그램', target:'전체', template:'프로그램 일정', channel:'알림톡', sentAt:'2025-03-01 08:00', status:'발송완료' },
+  { id:4, type:'예약확인', target:'최예린', template:'예약 확인', channel:'알림톡', sentAt:'2025-02-28 14:00', status:'발송완료' },
+  { id:5, type:'식단안내', target:'전체', template:'주간 식단표', channel:'알림톡', sentAt:'2025-03-03 07:00', status:'발송완료' },
+  { id:6, type:'입실안내', target:'최예린', template:'입실 안내', channel:'알림톡', sentAt:'2025-03-08 10:00', status:'발송예정' },
+  { id:7, type:'검진안내', target:'김서연', template:'검진 안내', channel:'SMS', sentAt:'2025-03-05 09:00', status:'발송실패' },
+  { id:8, type:'퇴실안내', target:'박하나', template:'퇴실 안내', channel:'알림톡', sentAt:'2025-03-09 09:00', status:'발송예정' },
+];
+
+const TEMPLATES = [
+  { id:1, name:'입실 안내', variables:['산모명','입실일','객실명'], content:'{{산모명}}님, {{입실일}}에 {{객실명}} 입실이 예정되어 있습니다.', channel:'알림톡' },
+  { id:2, name:'퇴실 안내', variables:['산모명','퇴실일'], content:'{{산모명}}님, {{퇴실일}} 퇴실 예정입니다. 준비사항을 안내드립니다.', channel:'SMS' },
+  { id:3, name:'예약 확인', variables:['산모명','예약일','객실타입'], content:'{{산모명}}님, {{예약일}} {{객실타입}} 예약이 확정되었습니다.', channel:'알림톡' },
+  { id:4, name:'프로그램 일정', variables:['프로그램명','시간','장소'], content:'오늘 {{시간}}에 {{프로그램명}}이 {{장소}}에서 진행됩니다.', channel:'알림톡' },
+];
+
+const PAGES = [
+  { key:'dashboard', label:'대시보드', icon:'📊' },
+  { key:'reservation', label:'예약 관리', icon:'📅' },
+  { key:'mother', label:'산모 관리', icon:'👶' },
+  { key:'notification', label:'알림 관리', icon:'🔔' },
+  { key:'settings', label:'시설 설정', icon:'⚙️' },
+];
+
+const RESERVATIONS = [
+  { id:1, guest:'김서연', room:'스위트 A', checkIn:'2025-03-01', checkOut:'2025-03-15', status:'입실', program:'프리미엄 케어', amount:4200000, paid:true },
+  { id:2, guest:'이지은', room:'스위트 B', checkIn:'2025-03-05', checkOut:'2025-03-19', status:'확정', program:'스탠다드 케어', amount:4200000, paid:true },
+  { id:3, guest:'박하나', room:'패밀리 A', checkIn:'2025-02-25', checkOut:'2025-03-11', status:'입실', program:'스탠다드 케어', amount:3500000, paid:true },
+  { id:4, guest:'정수민', room:'스탠다드 1', checkIn:'2025-02-28', checkOut:'2025-03-14', status:'입실', program:'프리미엄 케어', amount:2800000, paid:true },
+  { id:5, guest:'강유진', room:'프리미엄', checkIn:'2025-02-20', checkOut:'2025-03-06', status:'입실', program:'VIP 케어', amount:5500000, paid:true },
+  { id:6, guest:'최예린', room:'스탠다드 3', checkIn:'2025-03-10', checkOut:'2025-03-24', status:'확정', program:'프리미엄 케어', amount:2800000, paid:false },
+  { id:7, guest:'한소희', room:'패밀리 B', checkIn:'2025-03-15', checkOut:'2025-03-29', status:'대기', program:'스탠다드 케어', amount:3500000, paid:false },
+  { id:8, guest:'윤미래', room:'스위트 A', checkIn:'2025-03-16', checkOut:'2025-03-30', status:'대기', program:'프리미엄 케어', amount:4200000, paid:false },
+];
+
+/* ── 유틸 컴포넌트 ── */
+function Badge({ children, color=C.primary, bg }) {
+  return <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:600, color, background:bg||color+'18' }}>{children}</span>;
+}
+function StatusBadge({ status }) {
+  const m = { '입실중':{c:C.success,b:'#D1FAE5'}, '입실':{c:C.success,b:'#D1FAE5'}, '예약확정':{c:C.info,b:'#E0F2FE'}, '확정':{c:C.info,b:'#E0F2FE'}, '청소중':{c:C.warning,b:'#FEF3C7'}, '공실':{c:C.textLight,b:'#F1F5F9'}, '대기':{c:C.warning,b:'#FEF3C7'}, '발송완료':{c:C.success,b:'#D1FAE5'}, '발송예정':{c:C.info,b:'#E0F2FE'}, '발송실패':{c:C.danger,b:'#FEE2E2'} };
+  const s = m[status]||{c:C.textSub,b:'#F1F5F9'};
+  return <Badge color={s.c} bg={s.b}>{status}</Badge>;
+}
+function CountUp({ end, suffix='', prefix='' }) {
+  const [val, setVal] = useState(0);
+  useEffect(()=>{ let s=0; const step=end/50; const t=setInterval(()=>{ s+=step; if(s>=end){setVal(end);clearInterval(t);} else setVal(Math.floor(s)); },24); return ()=>clearInterval(t); },[end]);
+  return <span style={{ animation:'countUp 400ms ease' }}>{prefix}{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({ message, onClose }) {
+  useEffect(()=>{ const t=setTimeout(onClose,3000); return ()=>clearTimeout(t); },[]);
+  return <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, background:C.primary, color:'#fff', padding:'12px 24px', borderRadius:8, animation:'slideUp 300ms ease', boxShadow:'0 4px 16px rgba(0,0,0,0.2)', fontSize:14 }}>{message}</div>;
+}
+function Modal({ open, onClose, title, width=560, children }) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:500 }} />
+      <div style={{ position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width, maxWidth:'90vw', maxHeight:'85vh', overflowY:'auto', background:C.surface, borderRadius:16, boxShadow:'0 20px 60px rgba(0,0,0,0.2)', zIndex:501, animation:'fadeInScale 200ms ease' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
+          <h3 style={{ fontSize:18, fontWeight:700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:C.textLight }}>✕</button>
+        </div>
+        <div style={{ padding:24 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+function InputField({ label, value, onChange, type='text', placeholder, textarea, readOnly }) {
+  const s = { width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', background:readOnly?'#F8FAFC':C.surface, transition:'border-color 150ms' };
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>{label}</label>
+      {textarea ? <textarea value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} rows={4} style={{...s, resize:'vertical'}} /> : <input type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly} style={s} />}
+    </div>
+  );
+}
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>{label}</label>
+      <select value={value} onChange={onChange} style={{ width:'100%', padding:'10px 14px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:14, fontFamily:'inherit', outline:'none', background:C.surface, cursor:'pointer' }}>
+        {options.map(o => <option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}
+      </select>
+    </div>
+  );
+}
+function Btn({ children, onClick, variant='primary', size='md', style:sx={} }) {
+  const base = { border:'none', cursor:'pointer', fontFamily:'inherit', fontWeight:600, borderRadius:8, display:'inline-flex', alignItems:'center', gap:6, transition:'all 150ms' };
+  const sizes = { sm:{padding:'6px 12px',fontSize:12}, md:{padding:'8px 16px',fontSize:13}, lg:{padding:'10px 20px',fontSize:14} };
+  const variants = { primary:{background:C.primary,color:'#fff'}, secondary:{background:C.bg,color:C.primary,border:`1px solid ${C.border}`}, danger:{background:C.danger,color:'#fff'}, ghost:{background:'transparent',color:C.textSub} };
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant],...sx}} onMouseOver={e=>{if(variant==='primary')e.target.style.filter='brightness(1.05)';}} onMouseOut={e=>e.target.style.filter='none'}>{children}</button>;
+}
+
+/* ── 대시보드 ── */
+function DashboardPage() {
+  const kpis = [
+    { label:'현재 입실', value:4, suffix:'명', icon:'🏥', color:C.primary },
+    { label:'이번 달 예약', value:8, suffix:'건', icon:'📅', color:C.info },
+    { label:'객실 가동률', value:75, suffix:'%', icon:'🛏️', color:C.success },
+    { label:'이번 달 매출', value:30700, suffix:'만원', icon:'💰', color:C.warning },
+  ];
+  const todayEvents = [
+    { time:'09:00', event:'강유진님 퇴실 예정', type:'퇴실', room:'프리미엄' },
+    { time:'10:00', event:'산후 요가 프로그램', type:'프로그램', room:'프로그램실' },
+    { time:'14:00', event:'모유 수유 교실', type:'프로그램', room:'교육실' },
+    { time:'15:00', event:'이지은님 입실 예정', type:'입실', room:'스위트 B' },
+  ];
+  const chartData = [
+    { month:'1월', reservations:12, revenue:28 },
+    { month:'2월', reservations:15, revenue:35 },
+    { month:'3월', reservations:18, revenue:42 },
+  ];
+  const maxRev = Math.max(...chartData.map(d=>d.revenue));
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:20, marginBottom:28 }}>
+        {kpis.map((k,i) => (
+          <div key={i} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, animation:`slideUp 400ms ease ${i*80}ms both` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div>
+                <div style={{ fontSize:13, color:C.textSub, marginBottom:8 }}>{k.label}</div>
+                <div style={{ fontSize:28, fontWeight:800, color:k.color }}><CountUp end={k.value} suffix={k.suffix} /></div>
+              </div>
+              <span style={{ fontSize:28 }}>{k.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:20 }}>
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:16, fontWeight:700, marginBottom:20 }}>월별 예약 · 매출 추이</h3>
+          <div style={{ display:'flex', gap:16, alignItems:'flex-end', height:200 }}>
+            {chartData.map((d,i) => (
+              <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+                <div style={{ width:'100%', display:'flex', gap:6, alignItems:'flex-end', justifyContent:'center', height:160 }}>
+                  <div style={{ width:32, background:C.primary, borderRadius:'4px 4px 0 0', animation:`barGrow 800ms ease ${i*150}ms both`, '--target-width':'100%', height:`${(d.reservations/20)*160}px` }} />
+                  <div style={{ width:32, background:C.accent, borderRadius:'4px 4px 0 0', animation:`barGrow 800ms ease ${i*150+100}ms both`, '--target-width':'100%', height:`${(d.revenue/maxRev)*160}px` }} />
+                </div>
+                <span style={{ fontSize:12, color:C.textSub }}>{d.month}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:20, justifyContent:'center', marginTop:16 }}>
+            <span style={{ fontSize:12, color:C.textSub }}><span style={{ display:'inline-block', width:10, height:10, borderRadius:2, background:C.primary, marginRight:6 }}/>예약 건수</span>
+            <span style={{ fontSize:12, color:C.textSub }}><span style={{ display:'inline-block', width:10, height:10, borderRadius:2, background:C.accent, marginRight:6 }}/>매출 (백만)</span>
+          </div>
+        </div>
+
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>오늘 일정</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {todayEvents.map((e,i) => (
+              <div key={i} style={{ display:'flex', gap:12, padding:12, borderRadius:8, background:C.bg, animation:`slideInRight 300ms ease ${i*60}ms both` }}>
+                <span style={{ fontSize:12, fontWeight:600, color:C.primary, minWidth:44 }}>{e.time}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{e.event}</div>
+                  <div style={{ fontSize:11, color:C.textLight, marginTop:2 }}>{e.room}</div>
+                </div>
+                <Badge color={e.type==='입실'?C.success:e.type==='퇴실'?C.warning:C.info}>{e.type}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding, marginTop:20 }}>
+        <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>객실 현황</h3>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+          {ROOMS.map((r,i) => (
+            <div key={r.id} style={{ padding:16, borderRadius:8, border:`1px solid ${C.border}`, background:r.status==='입실중'?'#F0FDF4':r.status==='예약확정'?'#EFF6FF':r.status==='청소중'?'#FFFBEB':'#F8FAFC', animation:`slideUp 300ms ease ${i*50}ms both` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontWeight:600, fontSize:14 }}>{r.name}</span>
+                <StatusBadge status={r.status} />
+              </div>
+              <div style={{ fontSize:12, color:C.textSub }}>{r.guest !== '-' ? r.guest : '빈 객실'}</div>
+              {r.checkIn !== '-' && <div style={{ fontSize:11, color:C.textLight, marginTop:4 }}>{r.checkIn} ~ {r.checkOut}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 예약 관리 ── */
+function ReservationPage({ showToast }) {
+  const [view, setView] = useState('table');
+  const [modal, setModal] = useState(null);
+  const [filter, setFilter] = useState('전체');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PER_PAGE = 5;
+
+  const filtered = filter === '전체' ? RESERVATIONS : RESERVATIONS.filter(r => r.status === filter);
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paged = filtered.slice((currentPage-1)*PER_PAGE, currentPage*PER_PAGE);
+
+  const calDays = Array.from({length:31}, (_,i) => i+1);
+  const roomTypes = ['스위트 A','스위트 B','패밀리 A','패밀리 B','스탠다드 1','스탠다드 2','스탠다드 3','프리미엄'];
+
+  function getReservationForCell(room, day) {
+    return RESERVATIONS.find(r => {
+      if (r.room !== room) return false;
+      const inDay = parseInt(r.checkIn.split('-')[2]);
+      const outDay = parseInt(r.checkOut.split('-')[2]);
+      const inMonth = parseInt(r.checkIn.split('-')[1]);
+      const outMonth = parseInt(r.checkOut.split('-')[1]);
+      if (inMonth === 3 && outMonth === 3) return day >= inDay && day <= outDay;
+      if (inMonth < 3 && outMonth === 3) return day <= outDay;
+      if (inMonth === 3 && outMonth > 3) return day >= inDay;
+      return false;
+    });
+  }
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn variant={view==='table'?'primary':'secondary'} size="sm" onClick={()=>setView('table')}>📋 테이블</Btn>
+          <Btn variant={view==='calendar'?'primary':'secondary'} size="sm" onClick={()=>setView('calendar')}>📅 캘린더</Btn>
+        </div>
+        <Btn onClick={()=>setModal('create')}>+ 예약 등록</Btn>
+      </div>
+
+      {view === 'table' ? (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+            {['전체','입실','확정','대기'].map(f => (
+              <button key={f} onClick={()=>{setFilter(f);setCurrentPage(1);}} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${filter===f?C.primary:C.border}`, background:filter===f?C.primaryLight:'transparent', color:filter===f?C.primary:C.textSub, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>{f}</button>
+            ))}
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
+                {['예약자','객실','입실일','퇴실일','프로그램','금액','결제','상태',''].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:'12px 8px', fontSize:12, fontWeight:600, color:C.textLight, textTransform:'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r,i) => (
+                <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, cursor:'pointer', transition:'background 150ms' }}
+                    onMouseOver={e=>e.currentTarget.style.background=C.primaryLight+'40'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                    onClick={()=>setModal(r)}>
+                  <td style={{ padding:'14px 8px', fontSize:14, fontWeight:500 }}>{r.guest}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{r.room}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{r.checkIn}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{r.checkOut}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{r.program}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{(r.amount/10000).toLocaleString()}만원</td>
+                  <td style={{ padding:'14px 8px' }}><Badge color={r.paid?C.success:C.warning}>{r.paid?'완료':'미결제'}</Badge></td>
+                  <td style={{ padding:'14px 8px' }}><StatusBadge status={r.status} /></td>
+                  <td style={{ padding:'14px 8px' }}><Btn variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setModal(r);}}>상세</Btn></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {totalPages > 1 && (
+            <div style={{ display:'flex', justifyContent:'center', gap:4, marginTop:16 }}>
+              <button onClick={()=>setCurrentPage(p=>Math.max(1,p-1))} disabled={currentPage===1} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===1?C.textLight:C.text }}>‹</button>
+              {Array.from({length:totalPages},(_,i)=>i+1).map(p => (
+                <button key={p} onClick={()=>setCurrentPage(p)} style={{ padding:'6px 12px', border:`1px solid ${p===currentPage?C.primary:C.border}`, borderRadius:6, background:p===currentPage?C.primary:'transparent', color:p===currentPage?'#fff':C.text, cursor:'pointer', fontSize:13, fontWeight:p===currentPage?600:400, fontFamily:'inherit' }}>{p}</button>
+              ))}
+              <button onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===totalPages?C.textLight:C.text }}>›</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:16, overflowX:'auto' }}>
+          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:12, padding:'0 8px' }}>2025년 3월 예약 캘린더</h3>
+          <div style={{ display:'grid', gridTemplateColumns:`100px repeat(31, minmax(28px, 1fr))`, gap:0, fontSize:11 }}>
+            <div style={{ padding:4, fontWeight:600, borderBottom:`2px solid ${C.border}` }}></div>
+            {calDays.map(d => <div key={d} style={{ padding:4, textAlign:'center', fontWeight:600, borderBottom:`2px solid ${C.border}`, color:C.textSub }}>{d}</div>)}
+            {roomTypes.map(room => (
+              <React.Fragment key={room}>
+                <div style={{ padding:'8px 4px', fontWeight:500, fontSize:11, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center' }}>{room}</div>
+                {calDays.map(d => {
+                  const res = getReservationForCell(room, d);
+                  return <div key={d} style={{ padding:2, borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.border}20`, background:res ? (res.status==='입실'?'#D1FAE5':res.status==='확정'?'#DBEAFE':'#FEF3C7') : 'transparent', cursor:res?'pointer':'default', minHeight:28 }} onClick={()=>res&&setModal(res)} />;
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:16, marginTop:12, padding:'0 8px' }}>
+            <span style={{ fontSize:11, color:C.textSub }}><span style={{ display:'inline-block', width:10, height:10, borderRadius:2, background:'#D1FAE5', marginRight:4 }}/>입실</span>
+            <span style={{ fontSize:11, color:C.textSub }}><span style={{ display:'inline-block', width:10, height:10, borderRadius:2, background:'#DBEAFE', marginRight:4 }}/>확정</span>
+            <span style={{ fontSize:11, color:C.textSub }}><span style={{ display:'inline-block', width:10, height:10, borderRadius:2, background:'#FEF3C7', marginRight:4 }}/>대기</span>
+          </div>
+        </div>
+      )}
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="예약 등록" width={600}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="예약자명" value="" onChange={()=>{}} placeholder="산모 이름" />
+          <SelectField label="객실" value="" onChange={()=>{}} options={['객실 선택',...roomTypes]} />
+          <InputField label="입실일" value="" onChange={()=>{}} type="date" />
+          <InputField label="퇴실일" value="" onChange={()=>{}} type="date" />
+          <SelectField label="프로그램" value="" onChange={()=>{}} options={['프로그램 선택','프리미엄 케어','스탠다드 케어','VIP 케어']} />
+          <InputField label="연락처" value="" onChange={()=>{}} placeholder="010-0000-0000" />
+        </div>
+        <InputField label="비고" value="" onChange={()=>{}} textarea placeholder="특이사항을 입력하세요" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('예약이 등록되었습니다');}}>등록</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal !== 'create'} onClose={()=>setModal(null)} title="예약 상세" width={560}>
+        {modal && modal !== 'create' && (
+          <>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="예약자" value={modal.guest} readOnly />
+              <InputField label="객실" value={modal.room} readOnly />
+              <InputField label="입실일" value={modal.checkIn} readOnly />
+              <InputField label="퇴실일" value={modal.checkOut} readOnly />
+              <InputField label="프로그램" value={modal.program} readOnly />
+              <InputField label="금액" value={`${(modal.amount/10000).toLocaleString()}만원`} readOnly />
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <StatusBadge status={modal.status} />
+              <Badge color={modal.paid?C.success:C.warning}>{modal.paid?'결제완료':'미결제'}</Badge>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:20 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('예약이 수정되었습니다');}}>수정 저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 산모 관리 ── */
+function MotherPage({ showToast }) {
+  const [subTab, setSubTab] = useState('list');
+  const [modal, setModal] = useState(null);
+  const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PER_PAGE = 5;
+
+  const filtered = MOTHERS.filter(m => m.name.includes(search) || m.room.includes(search));
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paged = filtered.slice((currentPage-1)*PER_PAGE, currentPage*PER_PAGE);
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {[{k:'list',l:'산모 목록'},{k:'program',l:'프로그램'},{k:'meal',l:'식단 관리'}].map(t => (
+          <button key={t.k} onClick={()=>setSubTab(t.k)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${subTab===t.k?C.primary:C.border}`, background:subTab===t.k?C.primary:'transparent', color:subTab===t.k?'#fff':C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t.l}</button>
+        ))}
+      </div>
+
+      {subTab === 'list' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <input value={search} onChange={e=>{setSearch(e.target.value);setCurrentPage(1);}} placeholder="산모명/객실 검색" style={{ padding:'8px 14px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, width:240, outline:'none', fontFamily:'inherit' }} />
+            <Btn onClick={()=>setModal('create')}>+ 산모 등록</Btn>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
+                {['이름','나이','객실','아기','출산예정일','프로그램','상태',''].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:'12px 8px', fontSize:12, fontWeight:600, color:C.textLight }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map(m => (
+                <tr key={m.id} style={{ borderBottom:`1px solid ${C.border}`, cursor:'pointer', transition:'background 150ms' }}
+                    onMouseOver={e=>e.currentTarget.style.background=C.primaryLight+'40'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                    onClick={()=>setModal(m)}>
+                  <td style={{ padding:'14px 8px', fontSize:14, fontWeight:500 }}>{m.name}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{m.age}세</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{m.room}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{m.baby}{m.babyGender !== '-' ? ` (${m.babyGender})` : ''}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{m.dueDate}</td>
+                  <td style={{ padding:'14px 8px' }}><Badge>{m.program}</Badge></td>
+                  <td style={{ padding:'14px 8px' }}><StatusBadge status={m.status} /></td>
+                  <td style={{ padding:'14px 8px' }}><Btn variant="ghost" size="sm" onClick={e=>{e.stopPropagation();setModal(m);}}>상세</Btn></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {totalPages > 1 && (
+            <div style={{ display:'flex', justifyContent:'center', gap:4, marginTop:16 }}>
+              <button onClick={()=>setCurrentPage(p=>Math.max(1,p-1))} disabled={currentPage===1} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===1?C.textLight:C.text }}>‹</button>
+              {Array.from({length:totalPages},(_,i)=>i+1).map(p => (
+                <button key={p} onClick={()=>setCurrentPage(p)} style={{ padding:'6px 12px', border:`1px solid ${p===currentPage?C.primary:C.border}`, borderRadius:6, background:p===currentPage?C.primary:'transparent', color:p===currentPage?'#fff':C.text, cursor:'pointer', fontSize:13, fontWeight:p===currentPage?600:400, fontFamily:'inherit' }}>{p}</button>
+              ))}
+              <button onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===totalPages?C.textLight:C.text }}>›</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === 'program' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16 }}>
+          {PROGRAMS.map((p,i) => (
+            <div key={p.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:20, animation:`slideUp 400ms ease ${i*80}ms both`, cursor:'pointer', transition:'all 200ms' }}
+                 onMouseOver={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';}}
+                 onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}
+                 onClick={()=>setModal({type:'program',...p})}>
+              <h4 style={{ fontSize:15, fontWeight:700, marginBottom:8 }}>{p.name}</h4>
+              <div style={{ fontSize:13, color:C.textSub, marginBottom:4 }}>🕒 {p.time} · {p.days}</div>
+              <div style={{ fontSize:13, color:C.textSub, marginBottom:12 }}>👩‍🏫 {p.instructor}</div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:12, color:C.textLight }}>{p.current}/{p.max}명</span>
+                <div style={{ width:80, height:6, borderRadius:3, background:C.border }}>
+                  <div style={{ width:`${(p.current/p.max)*100}%`, height:'100%', borderRadius:3, background:p.current===p.max?C.warning:C.primary, transition:'width 300ms' }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'meal' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>이번 주 식단표</h3>
+          <div style={{ display:'grid', gridTemplateColumns:'60px repeat(5,1fr)', gap:0 }}>
+            <div style={{ padding:8 }}></div>
+            {DAY_LABELS.map(d => <div key={d} style={{ padding:8, textAlign:'center', fontWeight:700, fontSize:13, borderBottom:`2px solid ${C.primary}`, color:C.primary }}>{d}</div>)}
+            {MEAL_LABELS.map(ml => (
+              <React.Fragment key={ml}>
+                <div style={{ padding:12, fontWeight:600, fontSize:12, color:C.textSub, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center' }}>{MEAL_KR[ml]}</div>
+                {['mon','tue','wed','thu','fri'].map(day => (
+                  <div key={day} style={{ padding:10, fontSize:12, lineHeight:1.6, borderBottom:`1px solid ${C.border}`, borderLeft:`1px solid ${C.border}20`, color:C.textSub }}>{MEALS[day][ml]}</div>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <Modal open={modal==='create'} onClose={()=>setModal(null)} title="산모 등록" width={600}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="산모명" value="" onChange={()=>{}} placeholder="이름" />
+          <InputField label="나이" value="" onChange={()=>{}} type="number" placeholder="만 나이" />
+          <InputField label="연락처" value="" onChange={()=>{}} placeholder="010-0000-0000" />
+          <SelectField label="객실" value="" onChange={()=>{}} options={['객실 선택','스위트 A','스위트 B','패밀리 A','패밀리 B','스탠다드 1','스탠다드 2','스탠다드 3','프리미엄']} />
+          <InputField label="출산예정일" value="" onChange={()=>{}} type="date" />
+          <SelectField label="프로그램" value="" onChange={()=>{}} options={['프로그램 선택','프리미엄 케어','스탠다드 케어','VIP 케어']} />
+        </div>
+        <InputField label="특이사항" value="" onChange={()=>{}} textarea placeholder="분만 방법, 알레르기 등" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('산모가 등록되었습니다');}}>등록</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal !== 'create' && !modal.type} onClose={()=>setModal(null)} title="산모 상세" width={600}>
+        {modal && modal !== 'create' && !modal.type && (
+          <>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="산모명" value={modal.name} readOnly />
+              <InputField label="나이" value={`${modal.age}세`} readOnly />
+              <InputField label="객실" value={modal.room} readOnly />
+              <InputField label="아기" value={`${modal.baby} (${modal.babyGender})`} readOnly />
+              <InputField label="입실일" value={modal.checkIn} readOnly />
+              <InputField label="퇴실일" value={modal.checkOut} readOnly />
+              <InputField label="프로그램" value={modal.program} readOnly />
+              <InputField label="연락처" value={modal.phone} readOnly />
+            </div>
+            <InputField label="특이사항" value={modal.note} readOnly />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('산모 정보가 수정되었습니다');}}>수정 저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modal && modal.type === 'program'} onClose={()=>setModal(null)} title="프로그램 상세">
+        {modal && modal.type === 'program' && (
+          <>
+            <InputField label="프로그램명" value={modal.name} readOnly />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="시간" value={modal.time} readOnly />
+              <InputField label="요일" value={modal.days} readOnly />
+              <InputField label="강사" value={modal.instructor} readOnly />
+              <InputField label="정원" value={`${modal.current}/${modal.max}명`} readOnly />
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>닫기</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('프로그램이 수정되었습니다');}}>수정</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 알림 관리 ── */
+function NotificationPage({ showToast }) {
+  const [subTab, setSubTab] = useState('history');
+  const [modal, setModal] = useState(null);
+  const [filter, setFilter] = useState('전체');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PER_PAGE = 5;
+
+  const filtered = filter === '전체' ? NOTIFICATIONS : NOTIFICATIONS.filter(n => n.status === filter);
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paged = filtered.slice((currentPage-1)*PER_PAGE, currentPage*PER_PAGE);
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {[{k:'history',l:'발송 이력'},{k:'template',l:'템플릿 관리'},{k:'auto',l:'자동 발송 설정'}].map(t => (
+          <button key={t.k} onClick={()=>setSubTab(t.k)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${subTab===t.k?C.primary:C.border}`, background:subTab===t.k?C.primary:'transparent', color:subTab===t.k?'#fff':C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t.l}</button>
+        ))}
+      </div>
+
+      {subTab === 'history' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ display:'flex', gap:8 }}>
+              {['전체','발송완료','발송예정','발송실패'].map(f => (
+                <button key={f} onClick={()=>{setFilter(f);setCurrentPage(1);}} style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${filter===f?C.primary:C.border}`, background:filter===f?C.primaryLight:'transparent', color:filter===f?C.primary:C.textSub, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'inherit' }}>{f}</button>
+              ))}
+            </div>
+            <Btn onClick={()=>setModal('send')}>+ 알림 발송</Btn>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
+                {['유형','대상','템플릿','채널','발송일시','상태'].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:'12px 8px', fontSize:12, fontWeight:600, color:C.textLight }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((n,i) => (
+                <tr key={n.id} style={{ borderBottom:`1px solid ${C.border}`, transition:'background 150ms' }}
+                    onMouseOver={e=>e.currentTarget.style.background=C.primaryLight+'40'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{n.type}</td>
+                  <td style={{ padding:'14px 8px', fontSize:14, fontWeight:500 }}>{n.target}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{n.template}</td>
+                  <td style={{ padding:'14px 8px' }}><Badge color={n.channel==='알림톡'?C.warning:C.info}>{n.channel}</Badge></td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{n.sentAt}</td>
+                  <td style={{ padding:'14px 8px' }}><StatusBadge status={n.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {totalPages > 1 && (
+            <div style={{ display:'flex', justifyContent:'center', gap:4, marginTop:16 }}>
+              <button onClick={()=>setCurrentPage(p=>Math.max(1,p-1))} disabled={currentPage===1} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===1?C.textLight:C.text }}>‹</button>
+              {Array.from({length:totalPages},(_,i)=>i+1).map(p => (
+                <button key={p} onClick={()=>setCurrentPage(p)} style={{ padding:'6px 12px', border:`1px solid ${p===currentPage?C.primary:C.border}`, borderRadius:6, background:p===currentPage?C.primary:'transparent', color:p===currentPage?'#fff':C.text, cursor:'pointer', fontSize:13, fontWeight:p===currentPage?600:400, fontFamily:'inherit' }}>{p}</button>
+              ))}
+              <button onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))} disabled={currentPage===totalPages} style={{ padding:'6px 10px', border:`1px solid ${C.border}`, borderRadius:6, background:'transparent', cursor:'pointer', fontSize:13, fontFamily:'inherit', color:currentPage===totalPages?C.textLight:C.text }}>›</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {subTab === 'template' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:16 }}>
+          {TEMPLATES.map((t,i) => (
+            <div key={t.id} style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:20, animation:`slideUp 400ms ease ${i*80}ms both`, cursor:'pointer', transition:'all 200ms' }}
+                 onMouseOver={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';}}
+                 onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=C.card.boxShadow;}}
+                 onClick={()=>setModal({type:'template',...t})}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <h4 style={{ fontSize:15, fontWeight:700 }}>{t.name}</h4>
+                <Badge color={t.channel==='알림톡'?C.warning:C.info}>{t.channel}</Badge>
+              </div>
+              <div style={{ fontSize:13, color:C.textSub, padding:12, background:C.bg, borderRadius:8, marginBottom:8, lineHeight:1.6 }}>{t.content}</div>
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                {t.variables.map(v => <span key={v} style={{ fontSize:11, padding:'2px 8px', borderRadius:4, background:C.primaryLight, color:C.primary, fontFamily:'monospace' }}>{`{{${v}}}`}</span>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'auto' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:16, fontWeight:700, marginBottom:20 }}>자동 발송 규칙</h3>
+          {[
+            { name:'입실 3일 전 안내', trigger:'입실일 3일 전', template:'입실 안내', channel:'알림톡', active:true },
+            { name:'퇴실 2일 전 안내', trigger:'퇴실일 2일 전', template:'퇴실 안내', channel:'SMS', active:true },
+            { name:'예약 확인', trigger:'예약 확정 즉시', template:'예약 확인', channel:'알림톡', active:true },
+            { name:'주간 식단 안내', trigger:'매주 월요일 07:00', template:'주간 식단표', channel:'알림톡', active:false },
+          ].map((rule,i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:16, borderRadius:8, border:`1px solid ${C.border}`, marginBottom:8, animation:`slideInRight 300ms ease ${i*60}ms both` }}>
+              <div>
+                <div style={{ fontWeight:600, fontSize:14, marginBottom:4 }}>{rule.name}</div>
+                <div style={{ fontSize:12, color:C.textSub }}>트리거: {rule.trigger} · 템플릿: {rule.template}</div>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <Badge color={rule.channel==='알림톡'?C.warning:C.info}>{rule.channel}</Badge>
+                <div onClick={()=>showToast('규칙이 업데이트되었습니다')} style={{ width:44, height:24, borderRadius:12, background:rule.active?C.primary:C.border, cursor:'pointer', position:'relative', transition:'background 200ms' }}>
+                  <div style={{ width:20, height:20, borderRadius:10, background:'#fff', position:'absolute', top:2, left:rule.active?22:2, transition:'left 200ms', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={modal==='send'} onClose={()=>setModal(null)} title="알림 발송" width={500}>
+        <SelectField label="템플릿" value="" onChange={()=>{}} options={['템플릿 선택',...TEMPLATES.map(t=>t.name)]} />
+        <SelectField label="대상" value="" onChange={()=>{}} options={['전체','입실 중 산모','예약 확정 산모',...MOTHERS.map(m=>m.name)]} />
+        <SelectField label="채널" value="" onChange={()=>{}} options={['알림톡','SMS']} />
+        <InputField label="예약 발송 시간" value="" onChange={()=>{}} type="datetime-local" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn variant="secondary" onClick={()=>showToast('테스트 발송 완료')}>테스트 발송</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('알림 발송이 등록되었습니다');}}>발송</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'template'} onClose={()=>setModal(null)} title="템플릿 편집" width={500}>
+        {modal && modal.type === 'template' && (
+          <>
+            <InputField label="템플릿명" value={modal.name} onChange={()=>{}} />
+            <SelectField label="채널" value={modal.channel} onChange={()=>{}} options={['알림톡','SMS']} />
+            <InputField label="내용" value={modal.content} onChange={()=>{}} textarea />
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:'block', fontSize:13, fontWeight:600, color:C.textSub, marginBottom:6 }}>사용 가능 변수</label>
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                {modal.variables.map(v => <span key={v} style={{ fontSize:12, padding:'4px 10px', borderRadius:4, background:C.primaryLight, color:C.primary, cursor:'pointer', fontFamily:'monospace' }}>{`{{${v}}}`}</span>)}
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('템플릿이 저장되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 시설 설정 ── */
+function SettingsPage({ showToast }) {
+  const [subTab, setSubTab] = useState('rooms');
+  const [modal, setModal] = useState(null);
+
+  return (
+    <div style={{ animation:'fadeIn 300ms ease' }}>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        {[{k:'rooms',l:'객실 관리'},{k:'programs',l:'프로그램 설정'},{k:'info',l:'운영 정보'}].map(t => (
+          <button key={t.k} onClick={()=>setSubTab(t.k)} style={{ padding:'8px 16px', borderRadius:8, border:`1px solid ${subTab===t.k?C.primary:C.border}`, background:subTab===t.k?C.primary:'transparent', color:subTab===t.k?'#fff':C.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t.l}</button>
+        ))}
+      </div>
+
+      {subTab === 'rooms' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <h3 style={{ fontSize:16, fontWeight:700 }}>객실 목록</h3>
+            <Btn onClick={()=>setModal('addRoom')}>+ 객실 추가</Btn>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom:`2px solid ${C.border}` }}>
+                {['객실명','타입','상태','입실자','가격(2주)'].map(h => (
+                  <th key={h} style={{ textAlign:'left', padding:'12px 8px', fontSize:12, fontWeight:600, color:C.textLight }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ROOMS.map(r => (
+                <tr key={r.id} style={{ borderBottom:`1px solid ${C.border}`, transition:'background 150ms' }}
+                    onMouseOver={e=>e.currentTarget.style.background=C.primaryLight+'40'}
+                    onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{ padding:'14px 8px', fontSize:14, fontWeight:500 }}>{r.name}</td>
+                  <td style={{ padding:'14px 8px' }}><Badge>{r.type}</Badge></td>
+                  <td style={{ padding:'14px 8px' }}><StatusBadge status={r.status} /></td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{r.guest}</td>
+                  <td style={{ padding:'14px 8px', fontSize:13 }}>{(r.price/10000).toLocaleString()}만원</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {subTab === 'programs' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+            <h3 style={{ fontSize:16, fontWeight:700 }}>프로그램 설정</h3>
+            <Btn onClick={()=>setModal('addProgram')}>+ 프로그램 추가</Btn>
+          </div>
+          {PROGRAMS.map((p,i) => (
+            <div key={p.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:16, borderRadius:8, border:`1px solid ${C.border}`, marginBottom:8, animation:`slideInRight 300ms ease ${i*60}ms both` }}>
+              <div>
+                <div style={{ fontWeight:600, fontSize:14 }}>{p.name}</div>
+                <div style={{ fontSize:12, color:C.textSub, marginTop:4 }}>{p.time} · {p.days} · {p.instructor}</div>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <Btn variant="secondary" size="sm" onClick={()=>setModal({type:'editProgram',...p})}>편집</Btn>
+                <Btn variant="ghost" size="sm" onClick={()=>setModal({type:'deleteProgram',...p})}>삭제</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {subTab === 'info' && (
+        <div style={{ background:C.surface, borderRadius:C.card.borderRadius, boxShadow:C.card.boxShadow, padding:C.card.padding }}>
+          <h3 style={{ fontSize:16, fontWeight:700, marginBottom:20 }}>운영 정보</h3>
+          <InputField label="조리원명" value="맘스케어 산후조리원" onChange={()=>{}} />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+            <InputField label="대표 연락처" value="02-1234-5678" onChange={()=>{}} />
+            <InputField label="이메일" value="info@momscare.co.kr" onChange={()=>{}} />
+          </div>
+          <InputField label="주소" value="서울시 강남구 역삼동 123-45 맘스케어빌딩 2~5층" onChange={()=>{}} />
+          <InputField label="운영 시간" value="24시간 상시 운영 (면회: 10:00~20:00)" onChange={()=>{}} />
+          <InputField label="소개" value="맘스케어 산후조리원은 산모와 신생아를 위한 프리미엄 케어 서비스를 제공합니다. 전문 간호사와 영양사가 상주하며, 쾌적한 시설에서 건강한 산후 회복을 도와드립니다." onChange={()=>{}} textarea />
+          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:8 }}>
+            <Btn onClick={()=>showToast('운영 정보가 저장되었습니다')}>저장</Btn>
+          </div>
+        </div>
+      )}
+
+      <Modal open={modal==='addRoom'} onClose={()=>setModal(null)} title="객실 추가" width={480}>
+        <InputField label="객실명" value="" onChange={()=>{}} placeholder="예: 스위트 C" />
+        <SelectField label="타입" value="" onChange={()=>{}} options={['타입 선택','스위트','패밀리','스탠다드','프리미엄']} />
+        <InputField label="가격 (2주, 원)" value="" onChange={()=>{}} type="number" placeholder="0" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('객실이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal==='addProgram'} onClose={()=>setModal(null)} title="프로그램 추가" width={480}>
+        <InputField label="프로그램명" value="" onChange={()=>{}} placeholder="프로그램 이름" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+          <InputField label="시간" value="" onChange={()=>{}} placeholder="10:00-11:00" />
+          <InputField label="요일" value="" onChange={()=>{}} placeholder="월·수·금" />
+        </div>
+        <InputField label="강사" value="" onChange={()=>{}} placeholder="강사명" />
+        <InputField label="정원" value="" onChange={()=>{}} type="number" placeholder="최대 인원" />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+          <Btn onClick={()=>{setModal(null);showToast('프로그램이 추가되었습니다');}}>추가</Btn>
+        </div>
+      </Modal>
+
+      <Modal open={modal && modal.type === 'editProgram'} onClose={()=>setModal(null)} title="프로그램 편집" width={480}>
+        {modal && modal.type === 'editProgram' && (
+          <>
+            <InputField label="프로그램명" value={modal.name} onChange={()=>{}} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
+              <InputField label="시간" value={modal.time} onChange={()=>{}} />
+              <InputField label="요일" value={modal.days} onChange={()=>{}} />
+            </div>
+            <InputField label="강사" value={modal.instructor} onChange={()=>{}} />
+            <InputField label="정원" value={modal.current + '/' + modal.max + '명'} onChange={()=>{}} />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn onClick={()=>{setModal(null);showToast('프로그램이 수정되었습니다');}}>저장</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal open={modal && modal.type === 'deleteProgram'} onClose={()=>setModal(null)} title="프로그램 삭제" width={400}>
+        {modal && modal.type === 'deleteProgram' && (
+          <>
+            <div style={{ textAlign:'center', padding:'16px 0' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>⚠️</div>
+              <div style={{ fontSize:15, fontWeight:600, marginBottom:8 }}>정말 삭제하시겠습니까?</div>
+              <div style={{ fontSize:13, color:C.textSub }}>'{modal.name}' 프로그램이 삭제됩니다.</div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'center', gap:8 }}>
+              <Btn variant="secondary" onClick={()=>setModal(null)}>취소</Btn>
+              <Btn variant="danger" onClick={()=>{setModal(null);showToast('프로그램이 삭제되었습니다');}}>삭제</Btn>
+            </div>
+          </>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+/* ── 메인 앱 ── */
+function MainApp() {
+  const [page, setPage] = useState('dashboard');
+  const [toast, setToast] = useState(null);
+  const showToast = (msg) => setToast(msg);
+
+  const PAGE_TITLES = { dashboard:'대시보드', reservation:'예약 관리', mother:'산모 관리', notification:'알림 관리', settings:'시설 설정' };
+
+  return (
+    <div style={{ display:'flex', minHeight:'100vh' }}>
+      {/* 사이드바 */}
+      <aside style={{ width:260, background:C.sidebar, flexShrink:0, display:'flex', flexDirection:'column' }}>
+        <div style={{ padding:'24px 20px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize:20, fontWeight:800, color:'#fff' }}>🏥 맘스케어</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', marginTop:4 }}>통합 운영 플랫폼</div>
+        </div>
+        <nav style={{ flex:1, padding:'12px 8px', display:'flex', flexDirection:'column', gap:2 }}>
+          {PAGES.map(p => (
+            <button key={p.key} onClick={()=>setPage(p.key)} style={{
+              display:'flex', alignItems:'center', gap:12, width:'100%', padding:'12px 16px',
+              borderRadius:8, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:14,
+              background:page===p.key ? 'rgba(45,212,191,0.15)' : 'transparent',
+              color:page===p.key ? C.accent : 'rgba(255,255,255,0.6)',
+              fontWeight:page===p.key ? 600 : 400, transition:'all 150ms',
+            }}
+            onMouseOver={e=>{if(page!==p.key)e.target.style.background='rgba(255,255,255,0.05)';}}
+            onMouseOut={e=>{if(page!==p.key)e.target.style.background='transparent';}}
+            >
+              <span style={{ fontSize:18 }}>{p.icon}</span>{p.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ padding:'16px 20px', borderTop:'1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:36, height:36, borderRadius:18, background:'rgba(45,212,191,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, color:C.accent }}>관</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:600, color:'#fff' }}>관리자</div>
+              <div style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>admin@momscare.co.kr</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* 메인 */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <header style={{ height:56, background:C.surface, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 24px', flexShrink:0 }}>
+          <h1 style={{ fontSize:18, fontWeight:700 }}>{PAGE_TITLES[page]}</h1>
+          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <div style={{ position:'relative' }}>
+              <input placeholder="검색..." style={{ padding:'8px 14px 8px 36px', border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, width:200, outline:'none', fontFamily:'inherit' }} />
+              <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:14, color:C.textLight }}>🔍</span>
+            </div>
+            <span onClick={()=>setPage('notification')} style={{ fontSize:20, cursor:'pointer', position:'relative' }}>🔔<span style={{ position:'absolute', top:-2, right:-2, width:8, height:8, borderRadius:4, background:C.danger }} /></span>
+          </div>
+        </header>
+        <main style={{ flex:1, overflow:'auto', padding:24 }}>
+          {page==='dashboard' && <DashboardPage />}
+          {page==='reservation' && <ReservationPage showToast={showToast} />}
+          {page==='mother' && <MotherPage showToast={showToast} />}
+          {page==='notification' && <NotificationPage showToast={showToast} />}
+          {page==='settings' && <SettingsPage showToast={showToast} />}
+        </main>
+      </div>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+/* ── 스켈레톤 + 엔트리 ── */
+function SkeletonLoader() {
+  return (
+    <div style={{ display:'flex', minHeight:'100vh' }}>
+      <div style={{ width:260, background:C.sidebar, flexShrink:0 }}>
+        <div style={{ padding:20 }}>
+          <div className="skeleton" style={{ height:32, width:140, marginBottom:32 }} />
+          {[...Array(5)].map((_,i) => <div key={i} className="skeleton" style={{ height:20, width:180, marginBottom:16, opacity:0.3 }} />)}
+        </div>
+      </div>
+      <div style={{ flex:1, padding:24 }}>
+        <div className="skeleton" style={{ height:32, width:200, marginBottom:24 }} />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:20, marginBottom:24 }}>
+          {[...Array(4)].map((_,i) => <div key={i} className="skeleton" style={{ height:100 }} />)}
+        </div>
+        <div className="skeleton" style={{ height:300 }} />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { setTimeout(() => setLoading(false), 1500); }, []);
+  if (loading) return <SkeletonLoader />;
+  return <MainApp />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
