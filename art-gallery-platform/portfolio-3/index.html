@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아트리빙 — AI 아트 어드바이저 통합 플랫폼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#F8FAFC;color:#1A1A2E;word-break:keep-all;overflow-wrap:break-word}
+:root{
+  --primary:#334155;--primary-dark:#0F172A;--primary-light:#475569;
+  --accent:#06B6D4;--accent-light:#CFFAFE;--accent-dark:#0891B2;
+  --bg:#F8FAFC;--surface:#FFFFFF;
+  --text:#1A1A2E;--text2:#64748B;--text3:#94A3B8;
+  --border:#E2E8F0;--border2:#F1F5F9;
+  --sidebar-w:240px;
+  --cyan:#06B6D4;--cyan-light:#ECFEFF;
+}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:#1E293B;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:20px 16px 16px}
+.logo-row{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#06B6D4,#0891B2);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0}
+.logo-name{font-size:15px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.logo-sub{font-size:9px;color:#94A3B8;font-weight:500;margin-top:1px;letter-spacing:0.5px}
+.sidebar-nav{padding:8px;flex:1}
+.nav-group{margin-bottom:24px}
+.nav-group-title{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;padding:0 10px;margin-bottom:6px}
+.nav-item{width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:500;color:#94A3B8;transition:all 0.15s;display:flex;align-items:center;gap:10px;font-family:inherit;white-space:nowrap;overflow:hidden}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#CBD5E1}
+.nav-item.active{background:rgba(6,182,212,0.15);color:#06B6D4;font-weight:600}
+.nav-item.active .nav-icon-wrap{background:rgba(6,182,212,0.2)}
+.nav-icon-wrap{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(255,255,255,0.06);flex-shrink:0;transition:background 0.15s}
+.nav-badge{margin-left:auto;background:#06B6D4;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0}
+.sidebar-footer{padding:12px;border-top:1px solid rgba(255,255,255,0.07)}
+.user-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.05)}
+.user-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#06B6D4,#0891B2);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:11px;flex-shrink:0}
+.user-name{font-size:12px;font-weight:600;color:#CBD5E1}
+.user-role{font-size:10px;color:#64748B}
+
+/* Main area */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#F8FAFC}
+.topbar{height:54px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 22px;flex-shrink:0}
+.topbar-left{display:flex;align-items:center;gap:8px}
+.breadcrumb{font-size:12px;color:var(--text3)}
+.breadcrumb span{color:var(--accent);font-weight:600}
+.topbar-title{font-size:15px;font-weight:700;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.tb-btn{width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all 0.15s}
+.tb-btn:hover{background:var(--accent-light);border-color:var(--accent)}
+.tb-badge{background:var(--primary-dark);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px}
+.content{flex:1;overflow-y:auto;padding:20px}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi-card{background:#fff;border-radius:10px;padding:16px;border:1px solid var(--border);position:relative}
+.kpi-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px}
+.kpi-label{font-size:11px;color:var(--text2);font-weight:500;margin-bottom:5px}
+.kpi-val{font-size:22px;font-weight:800;color:var(--text);margin-bottom:3px}
+.kpi-sub{font-size:11px;color:var(--text3)}
+.kpi-trend{position:absolute;top:14px;right:14px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px}
+.trend-up{background:#CFFAFE;color:#0E7490}
+.trend-neutral{background:#F1F5F9;color:#64748B}
+
+/* Charts */
+.chart-row{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:20px}
+.chart-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:18px}
+.chart-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.chart-sub{font-size:11px;color:var(--text2);font-weight:400;margin-left:4px}
+
+/* AI Advisor */
+.ai-layout{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}
+.ai-upload-zone{background:#fff;border-radius:12px;border:2px dashed var(--border);padding:32px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:14px}
+.ai-upload-zone:hover{border-color:var(--accent);background:var(--cyan-light)}
+.ai-upload-icon{font-size:40px;margin-bottom:12px}
+.ai-upload-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px}
+.ai-upload-sub{font-size:12px;color:var(--text2)}
+.analysis-result{background:#fff;border-radius:12px;border:1px solid var(--border);padding:20px}
+.analysis-header{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border2)}
+.artwork-preview{width:70px;height:70px;border-radius:10px;background:linear-gradient(135deg,#CFFAFE,#A5F3FC);display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0}
+.analysis-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px}
+.analysis-meta{font-size:11px;color:var(--text2)}
+.confidence-badge{background:#CFFAFE;color:#0E7490;font-size:11px;font-weight:700;padding:3px 10px;border-radius:5px;margin-left:auto;flex-shrink:0}
+.provenance-chain{display:flex;flex-direction:column;gap:0}
+.chain-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;position:relative}
+.chain-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:3px}
+.chain-line{position:absolute;left:4px;top:20px;bottom:-8px;width:2px;background:linear-gradient(180deg,var(--accent),rgba(6,182,212,0.2))}
+.chain-item:last-child .chain-line{display:none}
+.chain-text{font-size:12px;color:var(--text);font-weight:500}
+.chain-sub{font-size:11px;color:var(--text2)}
+.chain-date{font-size:10px;color:var(--text3);margin-top:2px}
+.recommend-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.rec-card{background:#F8FAFC;border-radius:9px;border:1px solid var(--border);padding:12px;cursor:pointer;transition:all 0.15s}
+.rec-card:hover{border-color:var(--accent);background:var(--cyan-light)}
+.rec-img{font-size:24px;margin-bottom:6px}
+.rec-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+.rec-artist{font-size:10px;color:var(--text2)}
+.rec-sim{font-size:10px;color:var(--accent);font-weight:600;background:var(--cyan-light);padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px}
+.ai-side-panel{display:flex;flex-direction:column;gap:14px}
+.score-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px}
+.score-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.score-bar-item{margin-bottom:10px}
+.score-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px}
+.score-row span{color:var(--text);font-weight:600}
+.score-bar{height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),#0891B2)}
+.style-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.style-tag{font-size:11px;font-weight:600;padding:4px 10px;border-radius:5px;background:var(--cyan-light);color:var(--accent-dark)}
+
+/* Artfair */
+.artfair-layout{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.fair-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.fair-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all 0.15s}
+.fair-card:hover{border-color:var(--accent);box-shadow:0 3px 10px rgba(6,182,212,0.1)}
+.fair-card.active{border-color:var(--accent);background:#ECFEFF}
+.fair-date-block{background:var(--primary-dark);color:#fff;border-radius:8px;padding:8px 12px;text-align:center;min-width:54px;flex-shrink:0}
+.fair-month{font-size:9px;font-weight:700;text-transform:uppercase;color:#94A3B8;margin-bottom:2px}
+.fair-day{font-size:20px;font-weight:900;color:#fff}
+.fair-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.fair-venue{font-size:11px;color:var(--text2)}
+.fair-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.fair-tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px}
+.tag-open{background:#CFFAFE;color:#0E7490}
+.tag-reg{background:#FEF3C7;color:#92400E}
+.tag-end{background:#F1F5F9;color:#64748B}
+.booth-map{background:#fff;border-radius:10px;border:1px solid var(--border);padding:16px;margin-bottom:14px}
+.booth-map-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.booth-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.booth{border-radius:7px;padding:8px 4px;text-align:center;cursor:pointer;transition:all 0.15s;border:1.5px solid transparent}
+.booth-l{background:#CFFAFE;border-color:#67E8F9;min-height:56px}
+.booth-m{background:#DBEAFE;border-color:#93C5FD;min-height:46px}
+.booth-s{background:#F1F5F9;border-color:#CBD5E1;min-height:38px}
+.booth-empty{background:#fff;border:1.5px dashed #E2E8F0;opacity:0.5}
+.booth-selected{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(6,182,212,0.3)}
+.booth-name{font-size:9px;font-weight:600;color:var(--text2)}
+.booth-size{font-size:8px;color:var(--text3)}
+.fair-stats{display:flex;flex-direction:column;gap:8px}
+.fair-stat-row{display:flex;justify-content:space-between;padding:8px;background:#F8FAFC;border-radius:7px;font-size:12px}
+.fair-stat-key{color:var(--text2)}
+.fair-stat-val{color:var(--text);font-weight:600}
+
+/* Settlement */
+.settlement-layout{display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start}
+.settlement-table{background:#fff;border-radius:10px;border:1px solid var(--border);overflow:hidden}
+.tbl-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.tbl-title{font-size:13px;font-weight:700;color:var(--text)}
+table{width:100%;border-collapse:collapse}
+th{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding:9px 16px;background:#F8FAFC;text-align:left;white-space:nowrap}
+td{font-size:12px;color:var(--text);padding:11px 16px;border-bottom:1px solid var(--border2)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#ECFEFF}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600}
+.badge-green{background:#D1FAE5;color:#065F46}
+.badge-cyan{background:#CFFAFE;color:#0E7490}
+.badge-yellow{background:#FEF3C7;color:#92400E}
+.badge-slate{background:#F1F5F9;color:#475569}
+.royalty-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:18px;margin-bottom:14px}
+.royalty-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.royalty-summary{background:linear-gradient(135deg,#ECFEFF,#CFFAFE);border-radius:9px;padding:14px;margin-bottom:14px}
+.royalty-amount{font-size:24px;font-weight:900;color:var(--accent-dark);margin-bottom:3px}
+.royalty-desc{font-size:11px;color:#0E7490}
+.royalty-rows{display:flex;flex-direction:column;gap:6px}
+.royalty-row{display:flex;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border2)}
+.royalty-row:last-child{border-bottom:none}
+.royalty-key{color:var(--text2)}
+.royalty-val{color:var(--text);font-weight:600}
+.royalty-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:12px}
+
+/* Gallery Management */
+.gallery-mgmt-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.gallery-list-table{background:#fff;border-radius:10px;border:1px solid var(--border);overflow:hidden}
+.search-filter{display:flex;gap:8px;margin-bottom:14px}
+.search-inp{flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:12px;font-family:inherit;color:var(--text)}
+.search-inp:focus{outline:none;border-color:var(--accent)}
+.btn-sm{padding:7px 13px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff;border:none}
+.btn-primary:hover{background:var(--accent-dark)}
+.btn-outline{background:#fff;color:var(--text2);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--cyan-light);border-color:var(--accent);color:var(--accent)}
+.detail-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:18px}
+.detail-card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.gallery-avatar{width:60px;height:60px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px}
+.detail-info-rows{display:flex;flex-direction:column;gap:0}
+.detail-info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2);font-size:12px}
+.detail-info-row:last-child{border-bottom:none}
+.detail-key{color:var(--text2)}
+.detail-val{color:var(--text);font-weight:600}
+.pagination{display:flex;align-items:center;justify-content:center;gap:5px;padding:12px 0}
+.page-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;color:var(--text2);transition:all 0.15s}
+.page-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.page-btn:hover:not(.active){background:var(--cyan-light);border-color:var(--accent);color:var(--accent)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:14px;padding:24px;max-width:420px;width:90%;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);animation:fadeInScale 0.2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal h3{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal p{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;margin-top:8px}
+.modal-cancel{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)}
+.modal-confirm{flex:1;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {AreaChart,Area,BarChart,Bar,LineChart,Line,RadarChart,Radar,PolarGrid,PolarAngleAxis,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,PieChart,Pie,Cell} = Recharts;
+
+const TREND_DATA = [
+  {m:'9월',거래액:48,입점:7,아트페어:1},{m:'10월',거래액:62,입점:9,아트페어:0},
+  {m:'11월',거래액:74,입점:11,아트페어:1},{m:'12월',거래액:98,입점:14,아트페어:1},
+  {m:'1월',거래액:88,입점:12,아트페어:0},{m:'2월',거래액:124,입점:18,아트페어:1},
+];
+const RADAR_DATA = [
+  {subj:'진위성',A:88},{subj:'출처',A:74},{subj:'시장가치',A:91},
+  {subj:'스타일 일관성',A:82},{subj:'작가 특성',A:96},{subj:'희소성',A:65},
+];
+const SETTLEMENT_DATA = [
+  {gallery:'아트스페이스 서울',sales:'₩48,200,000',royalty:'₩1,446,000',status:'완료',month:'2025.02'},
+  {gallery:'현대갤러리 강남',sales:'₩32,600,000',royalty:'₩978,000',status:'완료',month:'2025.02'},
+  {gallery:'갤러리 나눔',sales:'₩18,900,000',royalty:'₩567,000',status:'처리중',month:'2025.02'},
+  {gallery:'블루아트홀',sales:'₩24,100,000',royalty:'₩723,000',status:'완료',month:'2025.02'},
+  {gallery:'스페이스 아트리움',sales:'₩8,400,000',royalty:'₩252,000',status:'대기',month:'2025.02'},
+  {gallery:'갤러리 온',sales:'₩15,700,000',royalty:'₩471,000',status:'완료',month:'2025.02'},
+];
+const GALLERY_LIST = [
+  {name:'아트스페이스 서울',owner:'김정수',works:128,status:'active',icon:'🏛️',bg:'linear-gradient(135deg,#ECFEFF,#CFFAFE)',joined:'2024.09',sales:'₩48.2M'},
+  {name:'현대갤러리 강남',owner:'이미란',works:96,status:'active',icon:'🎨',bg:'linear-gradient(135deg,#F0FDFF,#CFFAFE)',joined:'2024.10',sales:'₩32.6M'},
+  {name:'갤러리 나눔',owner:'박성준',works:74,status:'active',icon:'🖼️',bg:'linear-gradient(135deg,#ECFEFF,#A5F3FC)',joined:'2024.11',sales:'₩18.9M'},
+  {name:'블루아트홀',owner:'최유진',works:52,status:'active',icon:'💎',bg:'linear-gradient(135deg,#CFFAFE,#67E8F9)',joined:'2024.12',sales:'₩24.1M'},
+  {name:'스페이스 아트리움',owner:'정현우',works:38,status:'pending',icon:'✨',bg:'linear-gradient(135deg,#F1F5F9,#E2E8F0)',joined:'2025.01',sales:'₩8.4M'},
+  {name:'갤러리 온',owner:'한소미',works:61,status:'active',icon:'🌟',bg:'linear-gradient(135deg,#ECFEFF,#CFFAFE)',joined:'2025.01',sales:'₩15.7M'},
+];
+const ARTFAIRS = [
+  {name:'2025 봄 아트페어',venue:'코엑스 B홀',date:{m:'MAR',d:'15'},status:'open',booths:{L:4,M:8,S:12},registered:18},
+  {name:'아트 서울 2025 S/S',venue:'DDP 디자인홀',date:{m:'APR',d:'28'},status:'reg',booths:{L:3,M:6,S:10},registered:9},
+  {name:'갤러리위크 2025',venue:'킨텍스 제1전시장',date:{m:'JUN',d:'10'},status:'reg',booths:{L:5,M:10,S:16},registered:4},
+];
+
+function App() {
+  const [menu, setMenu] = useState('main');
+  const [loading, setLoading] = useState(true);
+  const [selFair, setSelFair] = useState(0);
+  const [selGallery, setSelGallery] = useState(0);
+  const [selBooth, setSelBooth] = useState(null);
+  const [modal, setModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [analysisState, setAnalysisState] = useState('idle'); // idle | analyzing | done
+
+  useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(t);
+  }, [menu]);
+
+  const navItems = [
+    {key:'main',icon:'📊',label:'통합 대시보드'},
+    {key:'ai-advisor',icon:'🤖',label:'AI 작품 분석 & 추천'},
+    {key:'artfair',icon:'🎪',label:'아트페어 스케줄 관리',badge:'3'},
+    {key:'settlement',icon:'💰',label:'정산 & 추급권 현황'},
+    {key:'gallery',icon:'🏛️',label:'갤러리 입점 관리'},
+  ];
+
+  const pageLabel = navItems.find(n=>n.key===menu)?.label || '';
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-row">
+            <div className="logo-icon">A</div>
+            <div>
+              <div className="logo-name">ARTLIVING</div>
+              <div className="logo-sub">AI Art Advisory Platform</div>
+            </div>
+          </div>
+        </div>
+        <nav className="sidebar-nav">
+          <div className="nav-group">
+            <div className="nav-group-title">플랫폼 관리</div>
+            {navItems.map(n=>(
+              <button key={n.key} className={`nav-item${menu===n.key?' active':''}`} onClick={()=>setMenu(n.key)}>
+                <div className="nav-icon-wrap">{n.icon}</div>
+                <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{n.label}</span>
+                {n.badge && <div className="nav-badge">{n.badge}</div>}
+              </button>
+            ))}
+          </div>
+          <div className="nav-group">
+            <div className="nav-group-title">시스템</div>
+            {[{icon:'🔔',label:'알림 관리'},{icon:'⚙️',label:'시스템 설정'}].map(n=>(
+              <button key={n.label} className="nav-item">
+                <div className="nav-icon-wrap">{n.icon}</div>
+                {n.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-row">
+            <div className="user-av">김</div>
+            <div>
+              <div className="user-name">김아트 어드민</div>
+              <div className="user-role">마스터 관리자</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div className="main-area">
+        <div className="topbar">
+          <div className="topbar-left">
+            <div className="breadcrumb">아트리빙 플랫폼 › <span>{pageLabel}</span></div>
+          </div>
+          <div className="topbar-right">
+            <div className="tb-badge">AI Ready</div>
+            <button className="tb-btn">🔔</button>
+            <button className="tb-btn">⚙️</button>
+          </div>
+        </div>
+        <div className="content">
+          {loading ? <SkeletonView/> : (
+            <>
+              {menu==='main' && <DashboardView/>}
+              {menu==='ai-advisor' && <AIAdvisorView analysisState={analysisState} setAnalysisState={setAnalysisState}/>}
+              {menu==='artfair' && <ArtfairView selFair={selFair} setSelFair={setSelFair} selBooth={selBooth} setSelBooth={setSelBooth}/>}
+              {menu==='settlement' && <SettlementView setModal={setModal}/>}
+              {menu==='gallery' && <GalleryMgmtView selGallery={selGallery} setSelGallery={setSelGallery} page={page} setPage={setPage}/>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {modal && (
+        <div className="modal-overlay" onClick={()=>setModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>📄 보고서 생성 완료</h3>
+            <p>2025년 2월 정산 보고서 PDF가 생성되었습니다.<br/>추급권 총 지급액: <strong>₩4,437,000</strong><br/>갤러리 6개사 정산 내역이 포함되어 있습니다.</p>
+            <div style={{background:'#ECFEFF',borderRadius:8,padding:12,fontSize:12,color:'#0E7490',fontWeight:600,marginBottom:4}}>
+              📧 담당자 이메일로 자동 발송 완료
+            </div>
+            <div className="modal-actions">
+              <button className="modal-cancel" onClick={()=>setModal(false)}>닫기</button>
+              <button className="modal-confirm" onClick={()=>setModal(false)}>다운로드</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonView() {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {[1,2,3,4].map(i=><div key={i} className="skel" style={{height:90}}/>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:20}}>
+        <div className="skel" style={{height:200}}/><div className="skel" style={{height:200}}/>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView() {
+  const COLORS = ['#06B6D4','#0891B2','#0E7490','#164E63'];
+  const pieData = [{name:'작품 판매',value:58},{name:'아트페어',value:22},{name:'세컨더리',value:14},{name:'B2B',value:6}];
+  return (
+    <>
+      <div className="kpi-grid">
+        {[
+          {icon:'💰',bg:'#ECFEFF',label:'이번 달 거래액',val:'₩124M',sub:'전월 대비 +41%',trend:'trend-up',trendVal:'▲ 41%'},
+          {icon:'🏛️',bg:'#EFF6FF',label:'활성 갤러리',val:'91',sub:'신규 입점 신청 5건',trend:'trend-neutral',trendVal:'신규 5'},
+          {icon:'🤖',bg:'#F0FDFF',label:'AI 분석 완료',val:'284건',sub:'이번 달 처리',trend:'trend-up',trendVal:'▲ 12%'},
+          {icon:'⚖️',bg:'#F0FDFF',label:'추급권 지급 합산',val:'₩4.4M',sub:'6개 갤러리, 38건',trend:'trend-neutral',trendVal:'38건'},
+        ].map((k,i)=>(
+          <div key={i} className="kpi-card">
+            <div className="kpi-icon" style={{background:k.bg}}>{k.icon}</div>
+            <div className="kpi-label">{k.label}</div>
+            <div className="kpi-val">{k.val}</div>
+            <div className="kpi-sub">{k.sub}</div>
+            <div className={`kpi-trend ${k.trend}`}>{k.trendVal}</div>
+          </div>
+        ))}
+      </div>
+      <div className="chart-row">
+        <div className="chart-card">
+          <div className="chart-title">📈 월별 거래액 추이 <span className="chart-sub">(단위: 백만 원)</span></div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={TREND_DATA}>
+              <defs>
+                <linearGradient id="colorGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.25}/>
+                  <stop offset="95%" stopColor="#06B6D4" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+              <XAxis dataKey="m" tick={{fontSize:11}}/>
+              <YAxis tick={{fontSize:11}} tickFormatter={v=>`${v}M`}/>
+              <Tooltip formatter={(v,n)=>n==='거래액'?`₩${v}M`:v}/>
+              <Area type="monotone" dataKey="거래액" stroke="#06B6D4" strokeWidth={2} fill="url(#colorGrad)"/>
+              <Line type="monotone" dataKey="입점" stroke="#334155" strokeWidth={1.5} dot={false} strokeDasharray="4 4"/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-card">
+          <div className="chart-title">🥧 수익 구조</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value">
+                {pieData.map((_,i)=><Cell key={i} fill={COLORS[i]}/>)}
+              </Pie>
+              <Tooltip formatter={(v)=>`${v}%`}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8}}>
+            {pieData.map((p,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'#64748B'}}>
+                <div style={{width:8,height:8,borderRadius:2,background:COLORS[i],flexShrink:0}}/>
+                {p.name} {p.value}%
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="chart-card" style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',padding:18}}>
+        <div className="chart-title">🎪 아트페어 일정 (2025년)</div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {ARTFAIRS.map((f,i)=>(
+            <div key={i} style={{background:'#F8FAFC',borderRadius:9,padding:'10px 14px',border:'1px solid #E2E8F0',flex:'1 1 200px'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#06B6D4',marginBottom:4}}>{f.date.m} {f.date.d}</div>
+              <div style={{fontSize:13,fontWeight:600,color:'#1A1A2E',marginBottom:3}}>{f.name}</div>
+              <div style={{fontSize:11,color:'#64748B'}}>{f.venue}</div>
+              <div style={{fontSize:10,color:'#06B6D4',background:'#ECFEFF',padding:'2px 8px',borderRadius:5,display:'inline-block',marginTop:6,fontWeight:600}}>
+                {f.status==='open'?'모집중':f.status==='reg'?'사전 등록':'마감'}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AIAdvisorView({analysisState,setAnalysisState}) {
+  function runAnalysis() {
+    setAnalysisState('analyzing');
+    setTimeout(()=>setAnalysisState('done'),2000);
+  }
+  return (
+    <>
+      <div className="ai-layout">
+        <div>
+          {analysisState==='idle' && (
+            <div className="ai-upload-zone" onClick={runAnalysis}>
+              <div className="ai-upload-icon">🖼️</div>
+              <div className="ai-upload-title">작품 이미지 또는 PDF 업로드</div>
+              <div className="ai-upload-sub" style={{marginBottom:12}}>PNG, JPG, PDF 지원 · 최대 50MB</div>
+              <button className="btn-sm btn-primary" style={{fontSize:12}} onClick={runAnalysis}>분석 시작</button>
+            </div>
+          )}
+          {analysisState==='analyzing' && (
+            <div className="ai-upload-zone" style={{background:'#ECFEFF',borderColor:'#06B6D4'}}>
+              <div className="ai-upload-icon">⚙️</div>
+              <div className="ai-upload-title" style={{color:'#0E7490'}}>AI 분석 중...</div>
+              <div className="ai-upload-sub">프로비넌스 구조화 · 스타일 분류 · 유사 작품 검색</div>
+              <div style={{height:4,background:'#CFFAFE',borderRadius:2,marginTop:12,overflow:'hidden'}}>
+                <div style={{height:'100%',background:'#06B6D4',borderRadius:2,width:'68%',animation:'shimmer 1s infinite'}}/>
+              </div>
+            </div>
+          )}
+          {analysisState==='done' && (
+            <div className="analysis-result">
+              <div className="analysis-header">
+                <div className="artwork-preview">🎨</div>
+                <div>
+                  <div className="analysis-title">새벽의 고요 (Dawn Silence)</div>
+                  <div className="analysis-meta">이현준 · 혼합 미디어 · 100×80cm · 2024</div>
+                </div>
+                <div className="confidence-badge">신뢰도 91%</div>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:'#1A1A2E',marginBottom:10}}>📋 Provenance 자동 구조화</div>
+              <div className="provenance-chain">
+                {[
+                  {text:'작품 창작 확인',sub:'작가 이현준 서명 문서 매칭',date:'2024.01'},
+                  {text:'갤러리 인증',sub:'아트스페이스 서울 전시 이력',date:'2024.09'},
+                  {text:'경매 낙찰 이력',sub:'K-Price DB — ₩3,200,000',date:'2024.10'},
+                  {text:'소유권 이전',sub:'보증서 #07 발급',date:'2024.10'},
+                ].map((c,i)=>(
+                  <div key={i} className="chain-item">
+                    <div style={{position:'relative'}}>
+                      <div className="chain-dot"/>
+                      {i<3&&<div className="chain-line"/>}
+                    </div>
+                    <div>
+                      <div className="chain-text">{c.text}</div>
+                      <div className="chain-sub">{c.sub}</div>
+                      <div className="chain-date">{c.date}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:'#1A1A2E',marginTop:16,marginBottom:10}}>🔍 유사 작품 추천 (벡터 유사도 검색)</div>
+              <div className="recommend-grid">
+                {[
+                  {name:'새벽 풍경 II',artist:'이현준',img:'🌅',sim:'유사도 94%'},
+                  {name:'고요한 달빛',artist:'박소연',img:'🌙',sim:'유사도 87%'},
+                  {name:'여명',artist:'김태우',img:'🌄',sim:'유사도 82%'},
+                  {name:'새벽 안개',artist:'이현준',img:'🌫️',sim:'유사도 79%'},
+                ].map((r,i)=>(
+                  <div key={i} className="rec-card">
+                    <div className="rec-img">{r.img}</div>
+                    <div className="rec-name">{r.name}</div>
+                    <div className="rec-artist">{r.artist}</div>
+                    <div className="rec-sim">{r.sim}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {analysisState==='idle'&&(
+            <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',padding:18,marginTop:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:'#1A1A2E',marginBottom:10}}>💡 AI 분석 기능</div>
+              {[
+                {icon:'📄',title:'프로비넌스 자동 구조화',desc:'텍스트/PDF 기반 소유권 이전 이력을 자동으로 파싱하고 구조화'},
+                {icon:'🔍',title:'Artnet/K-Price 낙찰 이력 검색',desc:'이미지 기반 유사 작품의 경매 낙찰가를 자동으로 검색'},
+                {icon:'📊',title:'시세 자동 분석',desc:'작가·작품 유형·거래 이력 기반 현재 시세 자동 산출'},
+                {icon:'⚖️',title:'추급권 재판매 감지',desc:'세컨더리 거래 시 추급권 대상 여부 자동 감지'},
+              ].map((f,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 0',borderBottom:i<3?'1px solid #F1F5F9':'none'}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{f.icon}</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:600,color:'#1A1A2E',marginBottom:2}}>{f.title}</div>
+                    <div style={{fontSize:11,color:'#64748B'}}>{f.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="ai-side-panel">
+          {analysisState==='done' && (
+            <div className="score-card">
+              <div className="score-title">📊 AI 신뢰도 분석</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <RadarChart data={RADAR_DATA}>
+                  <PolarGrid stroke="#E2E8F0"/>
+                  <PolarAngleAxis dataKey="subj" tick={{fontSize:10,fill:'#64748B'}}/>
+                  <Radar dataKey="A" stroke="#06B6D4" fill="#06B6D4" fillOpacity={0.2}/>
+                  <Tooltip/>
+                </RadarChart>
+              </ResponsiveContainer>
+              <div style={{fontSize:12,fontWeight:700,color:'#1A1A2E',margin:'12px 0 8px'}}>스타일 태그</div>
+              <div className="style-tags">
+                {['추상','혼합미디어','한국화','대형작','자연 모티프','블루 계열','2020s'].map(t=>(
+                  <div key={t} className="style-tag">{t}</div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="score-card">
+            <div className="score-title">⚖️ 추급권 시세 분석</div>
+            {[
+              {label:'현재 추정 시세',val:'₩3,640,000',pct:100},
+              {label:'Artnet 유사 낙찰가',val:'₩3,200,000 ~ ₩4,200,000',pct:80},
+              {label:'K-Price 최근 낙찰',val:'₩3,800,000',pct:90},
+              {label:'추급권 예상 금액 (3%)',val:'₩109,200',pct:30},
+            ].map((s,i)=>(
+              <div key={i} className="score-bar-item">
+                <div className="score-row">{s.label} <span>{s.val}</span></div>
+                {i<3 && <div className="score-bar"><div className="score-fill" style={{width:s.pct+'%'}}/></div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ArtfairView({selFair,setSelFair,selBooth,setSelBooth}) {
+  const fair = ARTFAIRS[selFair];
+  const boothLayout = [
+    {type:'l',name:'L부스'},{type:'l',name:'L부스'},{type:'m',name:'M부스'},{type:'m',name:'M부스'},
+    {type:'l',name:'L부스'},{type:'s',name:'S부스'},{type:'s',name:'S부스'},{type:'m',name:'M부스'},
+    {type:'m',name:'M부스'},{type:'s',name:'S부스'},{type:'empty',name:''},{type:'s',name:'S부스'},
+    {type:'s',name:'S부스'},{type:'m',name:'M부스'},{type:'s',name:'S부스'},{type:'l',name:'L부스'},
+  ];
+  const assignedBooths = {'0':'아트스페이스 서울','1':'현대갤러리 강남','4':'갤러리 나눔','7':'블루아트홀'};
+  return (
+    <div className="artfair-layout">
+      <div>
+        <div className="fair-list">
+          {ARTFAIRS.map((f,i)=>(
+            <div key={i} className={`fair-card${selFair===i?' active':''}`} onClick={()=>setSelFair(i)}>
+              <div className="fair-date-block">
+                <div className="fair-month">{f.date.m}</div>
+                <div className="fair-day">{f.date.d}</div>
+              </div>
+              <div style={{flex:1}}>
+                <div className="fair-name">{f.name}</div>
+                <div className="fair-venue">{f.venue}</div>
+                <div className="fair-tags">
+                  <span className={`fair-tag tag-${f.status}`}>
+                    {f.status==='open'?'갤러리 배정 중':f.status==='reg'?'사전 등록':'마감'}
+                  </span>
+                  <span className="fair-tag tag-end">L×{f.booths.L} M×{f.booths.M} S×{f.booths.S}</span>
+                </div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontSize:16,fontWeight:800,color:'#06B6D4'}}>{f.registered}</div>
+                <div style={{fontSize:10,color:'#94A3B8'}}>배정 완료</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="booth-map">
+          <div className="booth-map-title">🗺️ {fair.name} — 부스 배치도</div>
+          <div className="booth-grid">
+            {boothLayout.map((b,i)=>{
+              if(b.type==='empty') return <div key={i} className="booth booth-empty"/>;
+              const cls = b.type==='l'?'booth-l':b.type==='m'?'booth-m':'booth-s';
+              const assigned = assignedBooths[String(i)];
+              return (
+                <div key={i} className={`booth ${cls}${selBooth===i?' booth-selected':''}`} onClick={()=>setSelBooth(i)}>
+                  <div className="booth-name">{assigned||'─'}</div>
+                  <div className="booth-size">{b.name.replace('부스','')}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:'flex',gap:10,marginTop:12,flexWrap:'wrap'}}>
+            {[{bg:'#CFFAFE',bd:'#67E8F9',label:'L 대형 부스'},{bg:'#DBEAFE',bd:'#93C5FD',label:'M 중형 부스'},{bg:'#F1F5F9',bd:'#CBD5E1',label:'S 소형 부스'}].map((l,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:5,fontSize:10,color:'#64748B'}}>
+                <div style={{width:14,height:10,borderRadius:2,background:l.bg,border:`1.5px solid ${l.bd}`}}/>
+                {l.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <div className="booth-map" style={{marginBottom:14}}>
+          <div className="booth-map-title">📋 {fair.name} 현황</div>
+          <div className="fair-stats">
+            {[
+              {k:'개최일',v:`2025.${fair.date.m==='MAR'?'03':fair.date.m==='APR'?'04':'06'}.${fair.date.d}`},
+              {k:'장소',v:fair.venue},
+              {k:'총 부스',v:`L ${fair.booths.L} · M ${fair.booths.M} · S ${fair.booths.S}`},
+              {k:'배정 완료',v:`${fair.registered}개 갤러리`},
+              {k:'사전 등록',v:fair.status==='open'?'진행중':'오픈 예정'},
+            ].map((r,i)=>(
+              <div key={i} className="fair-stat-row">
+                <span className="fair-stat-key">{r.k}</span>
+                <span className="fair-stat-val">{r.v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',padding:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:'#1A1A2E',marginBottom:12}}>🎟️ 입장권 현황</div>
+          {[
+            {type:'VIP 입장권',count:48,status:'발급중',color:'#D97706'},
+            {type:'일반 입장권',count:320,status:'발급중',color:'#06B6D4'},
+            {type:'갤러리 스태프',count:92,status:'완료',color:'#065F46'},
+          ].map((t,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderBottom:i<2?'1px solid #F1F5F9':'none'}}>
+              <div style={{width:8,height:8,borderRadius:50,background:t.color,flexShrink:0}}/>
+              <span style={{flex:1,fontSize:12,color:'#475569'}}>{t.type}</span>
+              <span style={{fontSize:13,fontWeight:700,color:'#1A1A2E'}}>{t.count}장</span>
+              <span className={`badge ${t.status==='완료'?'badge-green':'badge-cyan'}`}>{t.status}</span>
+            </div>
+          ))}
+          <button style={{width:'100%',padding:'9px',background:'linear-gradient(135deg,#06B6D4,#0891B2)',color:'#fff',border:'none',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',marginTop:12}}>
+            추가 배정
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettlementView({setModal}) {
+  const totalRoyalty = '₩4,437,000';
+  const PIE_DATA = [{name:'작품 판매 수수료',value:68},{name:'추급권',value:18},{name:'플랫폼 이용료',value:14}];
+  const COLORS = ['#06B6D4','#0891B2','#164E63'];
+  return (
+    <div className="settlement-layout">
+      <div>
+        <div className="settlement-table" style={{marginBottom:14}}>
+          <div className="tbl-header">
+            <div className="tbl-title">2025년 2월 정산 내역</div>
+            <div style={{display:'flex',gap:7}}>
+              <button className="btn-sm btn-outline">필터</button>
+              <button className="btn-sm btn-primary" onClick={()=>setModal(true)}>📄 보고서 생성</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>갤러리</th><th>판매액</th><th>추급권</th><th>상태</th><th>정산월</th></tr>
+            </thead>
+            <tbody>
+              {SETTLEMENT_DATA.map((s,i)=>(
+                <tr key={i}>
+                  <td style={{fontWeight:600}}>{s.gallery}</td>
+                  <td style={{fontWeight:600,color:'#334155'}}>{s.sales}</td>
+                  <td style={{fontWeight:700,color:'#0E7490'}}>{s.royalty}</td>
+                  <td><span className={`badge ${s.status==='완료'?'badge-green':s.status==='처리중'?'badge-cyan':'badge-yellow'}`}>{s.status}</span></td>
+                  <td style={{color:'#94A3B8',fontSize:11}}>{s.month}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="chart-card" style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',padding:18}}>
+          <div className="chart-title">📈 월별 추급권 지급 추이</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={[
+              {m:'9월',royalty:1.2},{m:'10월',royalty:1.8},{m:'11월',royalty:2.4},
+              {m:'12월',royalty:3.1},{m:'1월',royalty:2.8},{m:'2월',royalty:4.4},
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+              <XAxis dataKey="m" tick={{fontSize:11}}/>
+              <YAxis tick={{fontSize:11}} tickFormatter={v=>`${v}M`}/>
+              <Tooltip formatter={v=>`₩${v}M`}/>
+              <Bar dataKey="royalty" fill="#06B6D4" name="추급권(M)" radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div>
+        <div className="royalty-card">
+          <div className="royalty-title">⚖️ 이번 달 추급권 현황</div>
+          <div className="royalty-summary">
+            <div className="royalty-amount">{totalRoyalty}</div>
+            <div className="royalty-desc">총 38건 세컨더리 거래 · 6개 갤러리</div>
+          </div>
+          <div className="royalty-rows">
+            {[
+              {k:'추급권 요율',v:'평균 3%'},
+              {k:'대상 거래 건수',v:'38건'},
+              {k:'최고 단건',v:'₩285,000'},
+              {k:'지급 완료',v:'24건 (₩2,892,000)'},
+              {k:'처리 예정',v:'14건 (₩1,545,000)'},
+              {k:'미술진흥법 적용',v:'2027년 기준 사전 적용'},
+            ].map((r,i)=>(
+              <div key={i} className="royalty-row">
+                <span className="royalty-key">{r.k}</span>
+                <span className="royalty-val" style={r.k==='미술진흥법 적용'?{color:'#06B6D4',fontSize:10}:{}}>{r.v}</span>
+              </div>
+            ))}
+          </div>
+          <button className="royalty-btn" onClick={()=>setModal(true)}>📄 정산 보고서 PDF 생성</button>
+        </div>
+        <div style={{background:'#fff',borderRadius:10,border:'1px solid #E2E8F0',padding:18}}>
+          <div style={{fontSize:13,fontWeight:700,color:'#1A1A2E',marginBottom:14}}>🥧 수익 구조</div>
+          <ResponsiveContainer width="100%" height={140}>
+            <PieChart>
+              <Pie data={PIE_DATA} cx="50%" cy="50%" outerRadius={55} dataKey="value">
+                {PIE_DATA.map((_,i)=><Cell key={i} fill={COLORS[i]}/>)}
+              </Pie>
+              <Tooltip formatter={v=>`${v}%`}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+            {PIE_DATA.map((p,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:11,color:'#64748B'}}>
+                <div style={{width:10,height:10,borderRadius:2,background:COLORS[i],flexShrink:0}}/>
+                <span style={{flex:1}}>{p.name}</span>
+                <span style={{fontWeight:600,color:'#1A1A2E'}}>{p.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GalleryMgmtView({selGallery,setSelGallery,page,setPage}) {
+  const PER=4;const total=Math.ceil(GALLERY_LIST.length/PER);
+  const rows=GALLERY_LIST.slice((page-1)*PER,page*PER);
+  const sel=GALLERY_LIST[selGallery];
+  return (
+    <>
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)',marginBottom:16}}>
+        {[
+          {icon:'🏛️',bg:'#ECFEFF',label:'총 입점 갤러리',val:'94',sub:'신규 신청 5건'},
+          {icon:'⏳',bg:'#FEF3C7',label:'승인 대기',val:'5건',sub:'평균 처리 1.2일'},
+          {icon:'💰',bg:'#F0FDFF',label:'이번 달 총 매출',val:'₩148M',sub:'갤러리당 ₩1.6M'},
+        ].map((k,i)=>(
+          <div key={i} className="kpi-card">
+            <div className="kpi-icon" style={{background:k.bg}}>{k.icon}</div>
+            <div className="kpi-label">{k.label}</div>
+            <div className="kpi-val">{k.val}</div>
+            <div className="kpi-sub">{k.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="gallery-mgmt-layout">
+        <div className="gallery-list-table">
+          <div style={{padding:'14px 16px 0'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#1A1A2E'}}>갤러리 목록</div>
+              <button className="btn-sm btn-primary">+ 갤러리 추가</button>
+            </div>
+            <div className="search-filter">
+              <input className="search-inp" placeholder="갤러리명 검색..."/>
+              <button className="btn-sm btn-outline">검색</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>갤러리</th><th>대표자</th><th>작품</th><th>매출</th><th>상태</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((g,i)=>{
+                const idx=(page-1)*PER+i;
+                return (
+                  <tr key={i} style={selGallery===idx?{background:'#ECFEFF'}:{}} onClick={()=>setSelGallery(idx)}>
+                    <td style={{fontWeight:600}}>{g.name}</td>
+                    <td>{g.owner}</td>
+                    <td>{g.works}점</td>
+                    <td style={{color:'#0891B2',fontWeight:600}}>{g.sales}</td>
+                    <td><span className={`badge ${g.status==='active'?'badge-green':'badge-yellow'}`}>
+                      {g.status==='active'?'운영중':'대기'}
+                    </span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="pagination">
+            <button className="page-btn" onClick={()=>setPage(p=>Math.max(1,p-1))}>‹</button>
+            {Array.from({length:total},(_,i)=>i+1).map(n=>(
+              <button key={n} className={`page-btn${page===n?' active':''}`} onClick={()=>setPage(n)}>{n}</button>
+            ))}
+            <button className="page-btn" onClick={()=>setPage(p=>Math.min(total,p+1))}>›</button>
+          </div>
+        </div>
+        <div className="detail-card">
+          <div className="detail-card-title">갤러리 상세 — {sel.name}</div>
+          <div className="gallery-avatar" style={{background:sel.bg}}>{sel.icon}</div>
+          <div className="detail-info-rows">
+            {[
+              {k:'갤러리명',v:sel.name},{k:'대표자',v:sel.owner},
+              {k:'등록 작품',v:sel.works+'점'},{k:'누적 매출',v:sel.sales},
+              {k:'입점일',v:sel.joined},{k:'상태',v:sel.status==='active'?'운영중':'승인 대기'},
+            ].map((r,i)=>(
+              <div key={i} className="detail-info-row">
+                <span className="detail-key">{r.k}</span>
+                <span className="detail-val">{r.v}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:7,marginTop:14}}>
+            <button className="btn-sm btn-outline" style={{flex:1}}>편집</button>
+            <button className="btn-sm btn-primary" style={{flex:1}}>작품 관리</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

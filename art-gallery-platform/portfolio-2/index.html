@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>크래프트루 — 럭셔리 핸드크래프트 한정판 마켓플레이스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#FAF5FF;color:#1A1A2E;word-break:keep-all;overflow-wrap:break-word;min-height:100vh}
+:root{
+  --primary:#7C3AED;--primary-light:#A78BFA;--primary-dark:#5B21B6;
+  --secondary:#1E1B4B;--accent:#A78BFA;
+  --bg:#FAF5FF;--surface:#FFFFFF;
+  --text:#1A1A2E;--text2:#6B7280;--text3:#9CA3AF;
+  --border:#E5D5FF;--border2:#F3F4F6;
+  --grad:linear-gradient(135deg,#7C3AED,#5B21B6);
+}
+.app{display:flex;flex-direction:column;min-height:100vh}
+
+/* Topnav */
+.topnav{background:#1E1B4B;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(124,58,237,0.18)}
+.nav-inner{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:0;height:60px}
+.nav-logo{display:flex;align-items:center;gap:10px;margin-right:36px;text-decoration:none}
+.nav-logo-icon{width:34px;height:34px;background:var(--grad);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px}
+.nav-logo-text{font-size:17px;font-weight:900;color:#fff;letter-spacing:-0.5px}
+.nav-logo-sub{font-size:9px;color:#A78BFA;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;margin-top:1px}
+.nav-tabs{display:flex;align-items:center;gap:2px;flex:1}
+.nav-tab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;color:#C4B5FD;border:none;background:none;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+.nav-tab:hover{background:rgba(167,139,250,0.12);color:#E9D5FF}
+.nav-tab.active{background:rgba(167,139,250,0.2);color:#fff;font-weight:700}
+.nav-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.nav-icon{width:34px;height:34px;border-radius:8px;background:rgba(167,139,250,0.15);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;color:#E9D5FF}
+.nav-cta{padding:8px 18px;background:var(--grad);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#1E1B4B 0%,#2E1065 60%,#3B0764 100%);padding:64px 24px 56px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-60px;right:-60px;width:340px;height:340px;background:radial-gradient(circle,rgba(167,139,250,0.18),transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-80px;left:-40px;width:280px;height:280px;background:radial-gradient(circle,rgba(124,58,237,0.14),transparent 70%);pointer-events:none}
+.hero-kicker{font-size:11px;font-weight:700;letter-spacing:2px;color:#A78BFA;text-transform:uppercase;margin-bottom:14px}
+.hero-title{font-size:42px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:16px;letter-spacing:-1px}
+.hero-title span{background:linear-gradient(90deg,#A78BFA,#C4B5FD);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:15px;color:#C4B5FD;max-width:560px;margin:0 auto 28px;line-height:1.6}
+.hero-btns{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.hero-btn-primary{padding:14px 32px;background:var(--grad);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.hero-btn-outline{padding:14px 32px;background:transparent;color:#E9D5FF;border:1.5px solid rgba(167,139,250,0.5);border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit}
+.hero-stats{display:flex;justify-content:center;gap:48px;margin-top:40px;padding-top:32px;border-top:1px solid rgba(167,139,250,0.2)}
+.hero-stat{text-align:center}
+.hero-stat-val{font-size:26px;font-weight:900;color:#fff}
+.hero-stat-label{font-size:11px;color:#A78BFA;margin-top:4px;text-transform:uppercase;letter-spacing:0.8px}
+
+/* Content wrapper */
+.content-wrap{max-width:1280px;margin:0 auto;padding:32px 24px}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,#F3F4F6 25%,#E5E7EB 50%,#F3F4F6 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* Cards */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.product-card{background:#fff;border-radius:16px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;position:relative}
+.product-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(124,58,237,0.14)}
+.product-img{height:200px;display:flex;align-items:center;justify-content:center;position:relative}
+.product-badge{position:absolute;top:10px;left:10px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px}
+.badge-limit{background:var(--primary);color:#fff}
+.badge-new{background:#1E1B4B;color:#A78BFA}
+.badge-sold{background:#F3F4F6;color:#9CA3AF}
+.product-edition-tag{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px}
+.product-info{padding:14px}
+.product-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.product-creator{font-size:11px;color:var(--text2);margin-bottom:10px}
+.product-footer{display:flex;align-items:center;justify-content:space-between}
+.product-price{font-size:16px;font-weight:800;color:var(--primary-dark)}
+.product-remaining{font-size:10px;color:var(--primary);background:#EDE9FE;padding:2px 8px;border-radius:10px;font-weight:600}
+
+/* Category tabs */
+.cat-tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.cat-tab{padding:8px 18px;border-radius:20px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text2);font-family:inherit;transition:all 0.15s}
+.cat-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+
+/* Section header */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.sec-title{font-size:18px;font-weight:800;color:var(--text)}
+.sec-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.sec-link{font-size:12px;color:var(--primary);font-weight:600;cursor:pointer;background:none;border:none;font-family:inherit}
+
+/* 3D Showroom */
+.showroom-layout{display:grid;grid-template-columns:1fr 420px;gap:28px;align-items:start}
+.showroom-stage{background:linear-gradient(160deg,#1E1B4B 0%,#2E1065 100%);border-radius:20px;padding:32px;min-height:460px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.showroom-grid-lines{position:absolute;inset:0;opacity:0.07;background-image:linear-gradient(rgba(167,139,250,1) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,1) 1px,transparent 1px);background-size:40px 40px}
+.showroom-object{width:220px;height:220px;position:relative;perspective:800px;cursor:grab}
+.object-3d{width:100%;height:100%;border-radius:16px;background:linear-gradient(145deg,#A78BFA,#7C3AED,#5B21B6);box-shadow:0 20px 60px rgba(124,58,237,0.5),inset 0 1px 1px rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:72px;transform:rotateY(-12deg) rotateX(8deg);transition:transform 0.4s ease;animation:rotate3d 6s infinite linear}
+@keyframes rotate3d{0%{transform:rotateY(-12deg) rotateX(8deg)}50%{transform:rotateY(12deg) rotateX(-4deg)}100%{transform:rotateY(-12deg) rotateX(8deg)}}
+.showroom-controls{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+.ctrl-btn{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid rgba(167,139,250,0.4);background:rgba(255,255,255,0.08);color:#E9D5FF;cursor:pointer;font-family:inherit}
+.ctrl-btn.active{background:rgba(167,139,250,0.3);border-color:#A78BFA;color:#fff}
+.showroom-angle{position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;font-size:11px;color:#C4B5FD;font-weight:600}
+.product-detail-panel{display:flex;flex-direction:column;gap:16px}
+.detail-header{border-bottom:1px solid var(--border);padding-bottom:16px}
+.detail-name{font-size:22px;font-weight:900;color:var(--text);margin-bottom:4px}
+.detail-creator-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.creator-chip{display:flex;align-items:center;gap:8px;background:#EDE9FE;border-radius:20px;padding:5px 12px}
+.creator-avatar{width:24px;height:24px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:10px;flex-shrink:0}
+.creator-name{font-size:12px;font-weight:600;color:var(--primary-dark)}
+.cert-badge{background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;margin-left:auto}
+.price-block{background:linear-gradient(135deg,#EDE9FE,#F5F3FF);border-radius:12px;padding:18px}
+.price-main{font-size:30px;font-weight:900;color:var(--primary-dark);margin-bottom:4px}
+.price-sub{font-size:12px;color:var(--text2)}
+.edition-picker{margin-top:12px}
+.edition-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.edition-dots{display:flex;gap:6px;flex-wrap:wrap}
+.ed-dot{width:32px;height:32px;border-radius:8px;border:2px solid var(--border);background:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);transition:all 0.15s;font-family:inherit}
+.ed-dot.sel{background:var(--primary);border-color:var(--primary);color:#fff}
+.ed-dot.sold{opacity:0.35;cursor:not-allowed;text-decoration:line-through;font-size:9px}
+.buy-row{display:flex;gap:8px;margin-top:4px}
+.btn-buy{flex:1;padding:13px;background:var(--grad);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-wish{width:46px;height:46px;border-radius:10px;border:1.5px solid var(--border);background:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.spec-list{display:flex;flex-direction:column;gap:6px}
+.spec-item{display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:7px 0;border-bottom:1px solid var(--border2)}
+.spec-item:last-child{border-bottom:none}
+.spec-key{color:var(--text2)}
+.spec-val{color:var(--text);font-weight:600}
+.cert-box{background:#fff;border-radius:10px;border:1.5px solid #A78BFA;padding:14px}
+.cert-title{font-size:12px;font-weight:700;color:var(--primary-dark);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.cert-row{font-size:11px;color:var(--text2);padding:4px 0;display:flex;justify-content:space-between}
+.cert-row span{color:var(--text);font-weight:600}
+
+/* Preorder */
+.preorder-layout{display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start}
+.countdown-card{background:linear-gradient(135deg,#1E1B4B,#2E1065);border-radius:14px;padding:24px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden}
+.countdown-card::before{content:'';position:absolute;right:-30px;top:-30px;width:160px;height:160px;background:radial-gradient(circle,rgba(167,139,250,0.2),transparent 70%)}
+.countdown-label{font-size:11px;font-weight:700;letter-spacing:1.5px;color:#A78BFA;text-transform:uppercase;margin-bottom:12px}
+.countdown-product{font-size:19px;font-weight:800;margin-bottom:16px}
+.countdown-timer{display:flex;gap:12px;margin-bottom:16px}
+.timer-unit{text-align:center}
+.timer-val{font-size:28px;font-weight:900;color:#fff;background:rgba(255,255,255,0.1);border-radius:8px;padding:8px 14px;min-width:56px;display:block}
+.timer-label{font-size:10px;color:#A78BFA;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px}
+.preorder-progress{margin-top:8px}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#C4B5FD;margin-bottom:6px}
+.progress-bar{height:6px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#A78BFA,#7C3AED);border-radius:3px;width:68%}
+.preorder-list{display:flex;flex-direction:column;gap:12px}
+.preorder-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:16px;display:flex;gap:14px;cursor:pointer;transition:all 0.2s;position:relative}
+.preorder-card:hover{border-color:var(--primary);box-shadow:0 4px 16px rgba(124,58,237,0.1)}
+.preorder-card.selected{border-color:var(--primary);background:#F5F3FF}
+.preorder-thumb{width:70px;height:70px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.preorder-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.preorder-meta{font-size:11px;color:var(--text2);margin-bottom:8px}
+.preorder-tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px}
+.tag-moq{background:#EDE9FE;color:#5B21B6}
+.tag-bep{background:#D1FAE5;color:#065F46}
+.tag-dday{background:#FEE2E2;color:#991B1B}
+.preorder-price{margin-left:auto;text-align:right;flex-shrink:0}
+.preorder-price-val{font-size:16px;font-weight:800;color:var(--primary-dark)}
+.preorder-price-sub{font-size:10px;color:var(--text3)}
+.order-form{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:20px}
+.form-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px}
+.form-row{margin-bottom:12px}
+.form-row label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px}
+.form-row input,.form-row select{width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;font-family:inherit;color:var(--text);background:#fff}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--primary)}
+.moq-bep-box{background:#F5F3FF;border-radius:10px;padding:14px;margin-bottom:14px}
+.moq-bep-title{font-size:11px;font-weight:700;color:var(--primary-dark);margin-bottom:10px}
+.moq-bep-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.moq-bep-row span{color:var(--primary-dark);font-weight:700}
+.moq-bar-wrap{margin-top:8px}
+.moq-bar-label{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:4px}
+.moq-bar{height:8px;background:#EDE9FE;border-radius:4px;overflow:hidden}
+.moq-fill{height:100%;background:var(--grad);border-radius:4px;width:68%}
+.preorder-submit{width:100%;padding:13px;background:var(--grad);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Creator */
+.creator-layout{display:grid;grid-template-columns:1fr 360px;gap:24px;align-items:start}
+.creator-cards{display:flex;flex-direction:column;gap:12px}
+.creator-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:16px;display:flex;gap:14px;align-items:center;cursor:pointer;transition:all 0.2s}
+.creator-card:hover{border-color:var(--primary);box-shadow:0 4px 14px rgba(124,58,237,0.1)}
+.creator-avatar-lg{width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.creator-info .creator-name{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
+.creator-info .creator-cat{font-size:11px;color:var(--text2);margin-bottom:8px}
+.creator-stats{display:flex;gap:12px}
+.creator-stat{text-align:center}
+.creator-stat .val{font-size:14px;font-weight:700;color:var(--primary-dark)}
+.creator-stat .lbl{font-size:10px;color:var(--text3)}
+.creator-badge{margin-left:auto;flex-shrink:0}
+.b2b-requests{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:18px;margin-top:16px}
+.b2b-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.b2b-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.b2b-item:last-child{border-bottom:none}
+.b2b-company{width:36px;height:36px;border-radius:8px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.b2b-name{font-size:13px;font-weight:600;color:var(--text)}
+.b2b-req{font-size:11px;color:var(--text2)}
+.b2b-status{font-size:10px;font-weight:600;padding:3px 9px;border-radius:10px;margin-left:auto;white-space:nowrap;flex-shrink:0}
+.status-review{background:#EDE9FE;color:#5B21B6}
+.status-estimate{background:#FEF3C7;color:#92400E}
+.status-contract{background:#D1FAE5;color:#065F46}
+.dashboard-panel{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:18px}
+.dash-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px}
+.dash-stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.dash-stat{background:#F5F3FF;border-radius:10px;padding:12px;text-align:center}
+.dash-stat .val{font-size:18px;font-weight:800;color:var(--primary-dark)}
+.dash-stat .lbl{font-size:10px;color:var(--text2);margin-top:3px}
+
+/* Collection tabs */
+.collection-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.collection-card{background:#fff;border-radius:16px;overflow:hidden;border:1.5px solid var(--border);cursor:pointer;transition:all 0.2s}
+.collection-card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(124,58,237,0.12)}
+.collection-img{height:220px;display:flex;align-items:center;justify-content:center;font-size:48px;position:relative}
+.collection-info{padding:16px}
+.collection-name{font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px}
+.collection-creator{font-size:12px;color:var(--text2);margin-bottom:12px}
+.collection-footer{display:flex;align-items:center;justify-content:space-between}
+.collection-price{font-size:16px;font-weight:800;color:var(--primary-dark)}
+.collection-count{font-size:11px;color:var(--primary);background:#EDE9FE;padding:3px 9px;border-radius:10px;font-weight:600}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:18px;padding:28px;max-width:440px;width:90%;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);animation:fadeInScale 0.2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal h3{font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal p{font-size:13px;color:var(--text2);margin-bottom:20px}
+.modal-btn-row{display:flex;gap:8px;margin-top:16px}
+.modal-cancel{flex:1;padding:11px;border-radius:9px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)}
+.modal-confirm{flex:1;padding:11px;border-radius:9px;border:none;background:var(--grad);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {AreaChart,Area,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line} = Recharts;
+
+const PRODUCTS = [
+  {id:1,name:'오브제 No.7 — 달항아리',creator:'하유리',price:'₩2,400,000',edition:'8/30',badge:'LIMITED',img:'🏺',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',sold:false},
+  {id:2,name:'실크 스카프 컬렉션 I',creator:'정민아',price:'₩580,000',edition:'15/50',badge:'NEW',img:'🧣',bg:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',sold:false},
+  {id:3,name:'핸드메이드 레더 백',creator:'이도현',price:'₩3,100,000',edition:'5/20',badge:'LIMITED',img:'👜',bg:'linear-gradient(135deg,#E0E7FF,#C7D2FE)',sold:false},
+  {id:4,name:'세라믹 다완 세트',creator:'강하나',price:'₩890,000',edition:'SOLD OUT',badge:'',img:'🍵',bg:'linear-gradient(135deg,#F5F3FF,#E9D5FF)',sold:true},
+  {id:5,name:'텍스타일 아트 패널',creator:'오세진',price:'₩1,650,000',edition:'12/25',badge:'HOT',img:'🖼️',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',sold:false},
+  {id:6,name:'브론즈 미니 조각상',creator:'박지현',price:'₩4,200,000',edition:'3/10',badge:'VIP',img:'🏆',bg:'linear-gradient(135deg,#DDD6FE,#C4B5FD)',sold:false},
+  {id:7,name:'천연 인디고 도자기',creator:'최현수',price:'₩1,200,000',edition:'20/40',badge:'',img:'🫙',bg:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',sold:false},
+  {id:8,name:'금박 캘리그래피',creator:'윤소희',price:'₩760,000',edition:'6/20',badge:'NEW',img:'✍️',bg:'linear-gradient(135deg,#E9D5FF,#DDD6FE)',sold:false},
+];
+const PREORDERS = [
+  {id:1,name:'봄 컬렉션 Vol.3 — 오브제 시리즈',creator:'하유리',price:'₩1,800,000',moq:30,bep:20,current:20,dday:'D-7',img:'🏺',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)'},
+  {id:2,name:'레더 크래프트 한정판 클러치',creator:'이도현',price:'₩2,600,000',moq:20,bep:14,current:14,dday:'D-14',img:'👜',bg:'linear-gradient(135deg,#F5F3FF,#EDE9FE)'},
+  {id:3,name:'자연 염색 홈 텍스타일 세트',creator:'정민아',price:'₩420,000',moq:50,bep:35,current:34,dday:'D-21',img:'🧶',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)'},
+];
+const CREATORS = [
+  {name:'하유리',cat:'도예·오브제',works:28,sales:'₩24M',orders:12,img:'🏺',bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',badge:'TOP',badgeColor:'#5B21B6'},
+  {name:'이도현',cat:'레더 크래프트',works:15,sales:'₩18M',orders:8,img:'👜',bg:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',badge:'HOT',badgeColor:'#DC2626'},
+  {name:'정민아',cat:'패브릭·텍스타일',works:22,sales:'₩12M',orders:15,img:'🧣',bg:'linear-gradient(135deg,#E0E7FF,#C7D2FE)',badge:'',badgeColor:''},
+  {name:'강하나',cat:'세라믹·도자기',works:19,sales:'₩16M',orders:9,img:'🍵',bg:'linear-gradient(135deg,#F5F3FF,#E9D5FF)',badge:'NEW',badgeColor:'#059669'},
+];
+const B2B = [
+  {company:'삼화홀딩스',name:'공간 아트 디렉팅',icon:'🏢',status:'review'},
+  {company:'투썸플레이스',name:'시즌 오브제 세트 제작',icon:'☕',status:'estimate'},
+  {company:'갤러리아백화점',name:'럭셔리 리미티드 콜라보',icon:'🏬',status:'contract'},
+  {company:'롯데호텔',name:'스위트룸 아트 큐레이션',icon:'🏨',status:'review'},
+];
+const MONTHLY_DATA = [
+  {month:'9월',revenue:4.2,orders:18},{month:'10월',revenue:6.8,orders:28},
+  {month:'11월',revenue:9.1,orders:36},{month:'12월',revenue:12.4,orders:48},
+  {month:'1월',revenue:10.8,orders:42},{month:'2월',revenue:15.2,orders:58},
+];
+
+function App() {
+  const [menu, setMenu] = useState('main');
+  const [loading, setLoading] = useState(true);
+  const [catSel, setCatSel] = useState('전체');
+  const [edSel, setEdSel] = useState(6);
+  const [ctrlSel, setCtrlSel] = useState('정면');
+  const [preorderSel, setPreorderSel] = useState(0);
+  const [modal, setModal] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(t);
+  }, [menu]);
+
+  const navTabs = [
+    {key:'main',label:'홈 & 컬렉션 탐색'},
+    {key:'showroom',label:'3D 쇼룸 & 제품 상세'},
+    {key:'preorder',label:'한정판 프리오더 & 결제'},
+    {key:'creator',label:'크리에이터 입점 & B2B 의뢰'},
+    {key:'collection',label:'컬렉션'},
+  ];
+
+  return (
+    <div className="app">
+      <nav className="topnav">
+        <div className="nav-inner">
+          <div className="nav-logo">
+            <div className="nav-logo-icon">C</div>
+            <div>
+              <div className="nav-logo-text">CRAFTRUE</div>
+              <div className="nav-logo-sub">Luxury Handcraft Market</div>
+            </div>
+          </div>
+          <div className="nav-tabs">
+            {navTabs.map(t=>(
+              <button key={t.key} className={`nav-tab${menu===t.key?' active':''}`} onClick={()=>setMenu(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="nav-right">
+            <button className="nav-icon">🔍</button>
+            <button className="nav-icon">🛒</button>
+            <button className="nav-cta">입점 신청</button>
+          </div>
+        </div>
+      </nav>
+
+      {loading ? (
+        <div style={{padding:'24px 24px 0'}}>
+          <div style={{background:'linear-gradient(135deg,#2E1065,#3B0764)',height:240,borderRadius:14,marginBottom:24,animation:'shimmer 1.4s infinite'}}/>
+          <div style={{maxWidth:1280,margin:'0 auto',display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+            {[1,2,3,4].map(i=><div key={i} className="skel" style={{height:240}}/>)}
+          </div>
+        </div>
+      ) : (
+        <>
+          {menu==='main' && <HomeView setMenu={setMenu} catSel={catSel} setCatSel={setCatSel}/>}
+          {menu==='showroom' && <ShowroomView edSel={edSel} setEdSel={setEdSel} ctrlSel={ctrlSel} setCtrlSel={setCtrlSel} setModal={setModal}/>}
+          {menu==='preorder' && <PreorderView preorderSel={preorderSel} setPreorderSel={setPreorderSel}/>}
+          {menu==='creator' && <CreatorView/>}
+          {menu==='collection' && <CollectionView/>}
+        </>
+      )}
+
+      {modal && (
+        <div className="modal-overlay" onClick={()=>setModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>구매 신청 완료</h3>
+            <p>에디션 #{String(edSel).padStart(2,'0')} — 오브제 No.7<br/>보증서 PDF가 이메일로 발송됩니다.</p>
+            <div style={{background:'#F5F3FF',borderRadius:10,padding:14,fontSize:12,color:'#5B21B6',fontWeight:600}}>
+              📄 보증서 자동 발급 → 이메일 수신 후 30분 내 도착
+            </div>
+            <div className="modal-btn-row">
+              <button className="modal-cancel" onClick={()=>setModal(false)}>닫기</button>
+              <button className="modal-confirm" onClick={()=>setModal(false)}>주문 내역 확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HomeView({setMenu, catSel, setCatSel}) {
+  const cats = ['전체','도예·오브제','레더 크래프트','패브릭','세라믹','조각'];
+  const filtered = catSel==='전체' ? PRODUCTS : PRODUCTS.filter(p=>
+    (catSel==='도예·오브제'&&(p.img==='🏺'||p.img==='🫙'))||
+    (catSel==='레더 크래프트'&&p.img==='👜')||
+    (catSel==='패브릭'&&(p.img==='🧣'||p.img==='🖼️'||p.img==='🧶'))||
+    (catSel==='세라믹'&&p.img==='🍵')||
+    (catSel==='조각'&&(p.img==='🏆'||p.img==='✍️'))
+  );
+  return (
+    <>
+      <div className="hero">
+        <div className="hero-kicker">Exclusive Limited Edition</div>
+        <div className="hero-title">
+          손으로 만든 <span>진짜 한정판</span><br/>크래프트의 가치를 소장하다
+        </div>
+        <div className="hero-sub">국내 최고의 수공예 크리에이터가 직접 입점하여 제작하는 진정성 있는 한정판 오리지널 굿즈. 에디션 넘버와 보증서가 함께 발급됩니다.</div>
+        <div className="hero-btns">
+          <button className="hero-btn-primary">컬렉션 탐색</button>
+          <button className="hero-btn-outline">크리에이터 소개</button>
+        </div>
+        <div className="hero-stats">
+          {[{val:'240+',label:'입점 크리에이터'},{val:'3,800+',label:'한정판 작품'},{val:'₩2.1B+',label:'총 거래액'},{val:'98%',label:'보증서 발급률'}].map((s,i)=>(
+            <div key={i} className="hero-stat">
+              <div className="hero-stat-val">{s.val}</div>
+              <div className="hero-stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="content-wrap">
+        <div style={{marginBottom:28}}>
+          <div className="sec-head">
+            <div>
+              <div className="sec-title">🔥 신규 한정판 작품</div>
+              <div className="sec-sub">에디션 소진 전 서두르세요</div>
+            </div>
+            <button className="sec-link">전체 보기 →</button>
+          </div>
+          <div className="cat-tabs">
+            {cats.map(c=>(
+              <button key={c} className={`cat-tab${catSel===c?' active':''}`} onClick={()=>setCatSel(c)}>{c}</button>
+            ))}
+          </div>
+          <div className="grid-4">
+            {(filtered.length>0?filtered:PRODUCTS).slice(0,8).map(p=>(
+              <div key={p.id} className="product-card">
+                <div className="product-img" style={{background:p.bg}}>
+                  {p.badge && <div className={`product-badge badge-${p.badge==='LIMITED'||p.badge==='VIP'?'limit':'new'}`}>{p.badge}</div>}
+                  {!p.sold && <div className="product-edition-tag">{p.edition}</div>}
+                  <span style={{fontSize:40}}>{p.img}</span>
+                </div>
+                <div className="product-info">
+                  <div className="product-name">{p.name}</div>
+                  <div className="product-creator">{p.creator}</div>
+                  <div className="product-footer">
+                    <div className="product-price" style={p.sold?{color:'#9CA3AF',fontSize:13}:{}}>{p.sold?'SOLD OUT':p.price}</div>
+                    {!p.sold && <div className="product-remaining">{p.edition.split('/')[0]}개 남음</div>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ShowroomView({edSel,setEdSel,ctrlSel,setCtrlSel,setModal}) {
+  const angles = ['정면','측면','후면','클로즈업'];
+  const edNums = [1,2,3,4,5,6,7,8,9,10];
+  const soldEd = [1,3,7];
+  return (
+    <div className="content-wrap">
+      <div className="sec-head"><div className="sec-title">🎯 3D 쇼룸 — 오브제 No.7 · 달항아리</div></div>
+      <div className="showroom-layout">
+        <div>
+          <div className="showroom-stage">
+            <div className="showroom-grid-lines"/>
+            <div className="showroom-angle">{ctrlSel} 뷰 · {ctrlSel==='클로즈업'?'3X':ctrlSel==='측면'?'90°':ctrlSel==='후면'?'180°':'0°'}</div>
+            <div className="showroom-object">
+              <div className="object-3d">🏺</div>
+            </div>
+            <div className="showroom-controls">
+              {angles.map(a=>(
+                <button key={a} className={`ctrl-btn${ctrlSel===a?' active':''}`} onClick={()=>setCtrlSel(a)}>{a}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:'flex',gap:10,marginTop:12}}>
+            {['🏺','🔍','📐','💫'].map((i,idx)=>(
+              <div key={idx} style={{flex:1,height:64,background:'linear-gradient(135deg,#EDE9FE,#DDD6FE)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,cursor:'pointer',border:'2px solid',borderColor:idx===0?'#7C3AED':'#E5D5FF'}}>
+                {i}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="product-detail-panel">
+          <div className="detail-header">
+            <div className="detail-name">오브제 No.7 — 달항아리</div>
+            <div style={{fontSize:12,color:'#6B7280',marginTop:3}}>도예·오브제 · 28×28cm · 2025 봄 컬렉션</div>
+            <div className="detail-creator-row">
+              <div className="creator-chip">
+                <div className="creator-avatar">하</div>
+                <div className="creator-name">하유리</div>
+              </div>
+              <div className="cert-badge">인증 크리에이터</div>
+            </div>
+          </div>
+          <div className="price-block">
+            <div className="price-main">₩2,400,000</div>
+            <div className="price-sub">에디션 번호 선택 후 보증서 자동 발급</div>
+            <div className="edition-picker">
+              <div className="edition-title">에디션 선택 (30부 한정)</div>
+              <div className="edition-dots">
+                {edNums.map(n=>(
+                  <button key={n} className={`ed-dot${edSel===n?' sel':''}${soldEd.includes(n)?' sold':''}`}
+                    disabled={soldEd.includes(n)} onClick={()=>setEdSel(n)}>
+                    {soldEd.includes(n)?'✕':String(n).padStart(2,'0')}
+                  </button>
+                ))}
+                <span style={{fontSize:11,color:'#9CA3AF',alignSelf:'center'}}>…+20</span>
+              </div>
+            </div>
+            <div className="buy-row" style={{marginTop:14}}>
+              <button className="btn-buy" onClick={()=>setModal(true)}>에디션 #{String(edSel).padStart(2,'0')} 구매</button>
+              <button className="btn-wish">♡</button>
+            </div>
+          </div>
+          <div className="cert-box">
+            <div className="cert-title">📄 보증서 발급 정보</div>
+            {[
+              {k:'에디션 넘버',v:`#${String(edSel).padStart(2,'0')} / 30`},
+              {k:'작가 서명',v:'하유리 (디지털 서명)'},
+              {k:'발급 형식',v:'PDF + 물리 인증서'},
+              {k:'등록 번호',v:'CR-2025-0831-' + String(edSel).padStart(3,'0')},
+            ].map((r,i)=>(
+              <div key={i} className="cert-row">{r.k} <span>{r.v}</span></div>
+            ))}
+          </div>
+          <div className="spec-list">
+            {[
+              {k:'소재',v:'백자토 / 청화 안료'},
+              {k:'크기',v:'직경 28cm × 높이 28cm'},
+              {k:'제작 기간',v:'약 3-4주'},
+              {k:'배송',v:'전문 포장 + 보험 포함'},
+            ].map((r,i)=>(
+              <div key={i} className="spec-item"><span className="spec-key">{r.k}</span><span className="spec-val">{r.v}</span></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreorderView({preorderSel,setPreorderSel}) {
+  const [cnt, setCnt] = useState(1);
+  const sel = PREORDERS[preorderSel];
+  const progress = Math.round((sel.current/sel.moq)*100);
+  return (
+    <div className="content-wrap">
+      <div className="sec-head"><div className="sec-title">⏰ 한정판 프리오더</div></div>
+      <div className="preorder-layout">
+        <div>
+          <div className="countdown-card">
+            <div className="countdown-label">🔥 마감 임박 프리오더</div>
+            <div className="countdown-product">{sel.name}</div>
+            <div className="countdown-timer">
+              {[{val:'06',lbl:'일'},{val:'14',lbl:'시간'},{val:'32',lbl:'분'},{val:'08',lbl:'초'}].map((t,i)=>(
+                <div key={i} className="timer-unit">
+                  <span className="timer-val">{t.val}</span>
+                  <div className="timer-label">{t.lbl}</div>
+                </div>
+              ))}
+            </div>
+            <div className="preorder-progress">
+              <div className="progress-label">
+                <span>현재 {sel.current}명 참여 / MOQ {sel.moq}명</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="progress-bar"><div className="progress-fill" style={{width:progress+'%'}}/></div>
+            </div>
+          </div>
+          <div className="preorder-list">
+            {PREORDERS.map((p,i)=>(
+              <div key={i} className={`preorder-card${preorderSel===i?' selected':''}`} onClick={()=>setPreorderSel(i)}>
+                <div className="preorder-thumb" style={{background:p.bg}}>{p.img}</div>
+                <div style={{flex:1}}>
+                  <div className="preorder-name">{p.name}</div>
+                  <div className="preorder-meta">{p.creator}</div>
+                  <div className="preorder-tags">
+                    <span className="tag tag-moq">MOQ {p.moq}</span>
+                    <span className="tag tag-bep">BEP {p.bep}</span>
+                    <span className="tag tag-dday">{p.dday}</span>
+                  </div>
+                </div>
+                <div className="preorder-price">
+                  <div className="preorder-price-val">{p.price}</div>
+                  <div className="preorder-price-sub">{p.current}명 참여중</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="order-form">
+            <div className="form-title">📝 사전 예약 신청</div>
+            <div className="moq-bep-box">
+              <div className="moq-bep-title">📊 MOQ / BEP 현황</div>
+              <div className="moq-bep-row">최소 제작 수량(MOQ) <span>{sel.moq}개</span></div>
+              <div className="moq-bep-row">손익분기점(BEP) <span>{sel.bep}개</span></div>
+              <div className="moq-bep-row">현재 신청 <span style={{color:'#059669'}}>{sel.current}개</span></div>
+              <div className="moq-bar-wrap">
+                <div className="moq-bar-label"><span>BEP 달성</span><span>{progress}%</span></div>
+                <div className="moq-bar"><div className="moq-fill" style={{width:progress+'%'}}/></div>
+              </div>
+            </div>
+            <div className="form-row">
+              <label>수량</label>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <button style={{width:34,height:34,borderRadius:8,border:'1.5px solid #E5D5FF',background:'#fff',fontSize:16,cursor:'pointer'}} onClick={()=>setCnt(c=>Math.max(1,c-1))}>−</button>
+                <span style={{flex:1,textAlign:'center',fontWeight:700,fontSize:15}}>{cnt}</span>
+                <button style={{width:34,height:34,borderRadius:8,border:'1.5px solid #E5D5FF',background:'#fff',fontSize:16,cursor:'pointer'}} onClick={()=>setCnt(c=>c+1)}>+</button>
+              </div>
+            </div>
+            <div className="form-row">
+              <label>이름</label>
+              <input type="text" defaultValue="김수집"/>
+            </div>
+            <div className="form-row">
+              <label>연락처</label>
+              <input type="text" defaultValue="010-8821-4432"/>
+            </div>
+            <div className="form-row">
+              <label>결제 수단</label>
+              <select><option>신용카드 (발매일 자동 결제)</option><option>무통장 입금</option></select>
+            </div>
+            <div style={{background:'#F5F3FF',borderRadius:9,padding:12,marginBottom:14}}>
+              <div style={{fontSize:11,color:'#5B21B6',fontWeight:600,marginBottom:4}}>📌 안내사항</div>
+              <div style={{fontSize:11,color:'#6B7280',lineHeight:1.5}}>
+                발매일({sel.dday.replace('D-','') === '7' ? '2025.02.21' : '2025.02.28'}) 자동 결제됩니다.<br/>
+                MOQ 미달 시 100% 환불됩니다.
+              </div>
+            </div>
+            <button className="preorder-submit">예약 신청 — {sel.price} × {cnt}개</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreatorView() {
+  const [selCreator, setSelCreator] = useState(0);
+  const c = CREATORS[selCreator];
+  return (
+    <div className="content-wrap">
+      <div className="sec-head"><div className="sec-title">✨ 크리에이터 & B2B 의뢰 관리</div></div>
+      <div className="creator-layout">
+        <div>
+          <div className="creator-cards">
+            {CREATORS.map((cr,i)=>(
+              <div key={i} className={`creator-card${selCreator===i?' ':''}`}
+                style={selCreator===i?{border:'1.5px solid #7C3AED',background:'#F5F3FF'}:{}}
+                onClick={()=>setSelCreator(i)}>
+                <div className="creator-avatar-lg" style={{background:cr.bg}}>{cr.img}</div>
+                <div className="creator-info" style={{flex:1}}>
+                  <div className="creator-name">{cr.name}</div>
+                  <div className="creator-cat">{cr.cat}</div>
+                  <div className="creator-stats">
+                    {[{val:cr.works+'점',lbl:'등록 작품'},{val:cr.sales,lbl:'누적 매출'},{val:cr.orders+'건',lbl:'B2B 의뢰'}].map((s,j)=>(
+                      <div key={j} className="creator-stat"><div className="val">{s.val}</div><div className="lbl">{s.lbl}</div></div>
+                    ))}
+                  </div>
+                </div>
+                {cr.badge && (
+                  <div className="creator-badge">
+                    <span style={{background:cr.badgeColor,color:'#fff',fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:5}}>{cr.badge}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="b2b-requests">
+            <div className="b2b-title">
+              <span>📋 B2B 기업 의뢰 현황</span>
+              <span style={{fontSize:12,color:'#6B7280',fontWeight:400}}>{B2B.length}건</span>
+            </div>
+            {B2B.map((b,i)=>(
+              <div key={i} className="b2b-item">
+                <div className="b2b-company">{b.icon}</div>
+                <div>
+                  <div className="b2b-name">{b.company}</div>
+                  <div className="b2b-req">{b.name}</div>
+                </div>
+                <div className={`b2b-status status-${b.status}`}>
+                  {b.status==='review'?'검토중':b.status==='estimate'?'견적 발송':'계약 완료'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="dashboard-panel">
+            <div className="dash-title">📊 {c.name} 크리에이터 대시보드</div>
+            <div className="dash-stat-row">
+              {[{val:c.works+'점',lbl:'등록 작품'},{val:c.sales,lbl:'누적 매출'},{val:c.orders+'건',lbl:'B2B 의뢰'},{val:'98%',lbl:'보증서 발급률'}].map((s,i)=>(
+                <div key={i} className="dash-stat"><div className="val">{s.val}</div><div className="lbl">{s.lbl}</div></div>
+              ))}
+            </div>
+            <div style={{fontSize:13,fontWeight:600,color:'#1A1A2E',marginBottom:10}}>월별 매출</div>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={MONTHLY_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6"/>
+                <XAxis dataKey="month" tick={{fontSize:10}}/>
+                <YAxis tick={{fontSize:10}} tickFormatter={v=>`${v}M`}/>
+                <Tooltip formatter={(v,n)=>n==='revenue'?`₩${v}M`:v+'건'}/>
+                <Bar dataKey="revenue" fill="#7C3AED" name="매출" radius={[4,4,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+            <div style={{marginTop:14}}>
+              <button style={{width:'100%',padding:'10px',background:'linear-gradient(135deg,#7C3AED,#5B21B6)',color:'#fff',border:'none',borderRadius:9,fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>입점 신청 추가</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CollectionView() {
+  const collections = [
+    {name:'봄 오브제 2025',creator:'하유리',price:'₩2,400,000',img:'🏺',cnt:8,bg:'linear-gradient(135deg,#EDE9FE,#DDD6FE)'},
+    {name:'레더 크래프트 S/S',creator:'이도현',price:'₩3,100,000',img:'👜',cnt:5,bg:'linear-gradient(135deg,#F5F3FF,#EDE9FE)'},
+    {name:'홈 텍스타일 Vol.2',creator:'정민아',price:'₩580,000',img:'🧣',cnt:15,bg:'linear-gradient(135deg,#E0E7FF,#C7D2FE)'},
+    {name:'세라믹 다완 Series',creator:'강하나',price:'₩890,000',img:'🍵',cnt:12,bg:'linear-gradient(135deg,#F5F3FF,#E9D5FF)'},
+    {name:'브론즈 미니 에디션',creator:'박지현',price:'₩4,200,000',img:'🏆',cnt:3,bg:'linear-gradient(135deg,#DDD6FE,#C4B5FD)'},
+    {name:'캘리그래피 금박 시리즈',creator:'윤소희',price:'₩760,000',img:'✍️',cnt:20,bg:'linear-gradient(135deg,#E9D5FF,#DDD6FE)'},
+  ];
+  return (
+    <div className="content-wrap">
+      <div className="sec-head"><div className="sec-title">🎨 전체 컬렉션</div></div>
+      <div className="collection-grid">
+        {collections.map((c,i)=>(
+          <div key={i} className="collection-card">
+            <div className="collection-img" style={{background:c.bg}}>
+              <span>{c.img}</span>
+              <div style={{position:'absolute',bottom:12,right:12,background:'rgba(124,58,237,0.85)',color:'#fff',fontSize:10,fontWeight:700,padding:'4px 10px',borderRadius:7}}>에디션 {c.cnt}개 남음</div>
+            </div>
+            <div className="collection-info">
+              <div className="collection-name">{c.name}</div>
+              <div className="collection-creator">by {c.creator}</div>
+              <div className="collection-footer">
+                <div className="collection-price">{c.price}</div>
+                <div className="collection-count">한정 {c.cnt}개</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아트원 — 갤러리 입점형 온라인 아트 마켓플레이스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;background:#FFFBEB;color:#1A1A2E;word-break:keep-all;overflow-wrap:break-word}
+:root{
+  --primary:#D97706;--primary-dark:#B45309;--primary-light:#FDE68A;
+  --secondary:#78350F;--accent:#FCD34D;
+  --bg:#FFFBEB;--surface:#FFFFFF;
+  --text:#1A1A2E;--text2:#6B7280;--text3:#9CA3AF;
+  --border:#E5E7EB;--border2:#F3F4F6;
+  --sidebar-w:260px;
+}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:#FFFFFF;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid var(--border2)}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:16px}
+.logo-text{font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px}
+.logo-sub{font-size:10px;color:var(--text2);margin-top:1px;font-weight:500}
+.sidebar-nav{padding:12px 8px;flex:1}
+.nav-section{margin-bottom:20px}
+.nav-section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:0 12px;margin-bottom:6px}
+.nav-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:9px 12px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--text2);transition:all 0.15s;display:flex;align-items:center;gap:10px;font-family:inherit}
+.nav-btn:hover{background:#FFFBEB;color:var(--text)}
+.nav-btn.active{background:linear-gradient(135deg,#FEF3C7,#FDE68A);color:var(--primary-dark);font-weight:600}
+.nav-btn .icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border2)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px;background:#FFFBEB;border-radius:8px}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0}
+.user-info .name{font-size:13px;font-weight:600;color:var(--text)}
+.user-info .role{font-size:11px;color:var(--text2)}
+
+/* Topbar */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.topbar-title{font-size:16px;font-weight:700;color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-badge{background:var(--primary);color:#fff;border-radius:20px;font-size:11px;font-weight:600;padding:3px 10px}
+.topbar-icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* Skeleton */
+.skel{background:linear-gradient(90deg,#F3F4F6 25%,#E5E7EB 50%,#F3F4F6 75%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+
+/* Cards */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--accent))}
+.stat-label{font-size:12px;color:var(--text2);font-weight:500;margin-bottom:8px}
+.stat-value{font-size:26px;font-weight:800;color:var(--text);margin-bottom:4px}
+.stat-sub{font-size:11px;color:var(--text3)}
+.stat-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.18}
+
+/* Grid */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:15px;font-weight:700;color:var(--text)}
+.see-all{font-size:12px;color:var(--primary);font-weight:600;cursor:pointer;background:none;border:none;font-family:inherit}
+.artwork-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.artwork-card{background:#fff;border-radius:12px;overflow:hidden;border:1px solid var(--border);cursor:pointer;transition:all 0.2s}
+.artwork-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.09)}
+.artwork-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:36px;position:relative}
+.artwork-badge{position:absolute;top:8px;left:8px;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px}
+.artwork-edition{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px}
+.artwork-info{padding:12px}
+.artwork-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artwork-artist{font-size:11px;color:var(--text2);margin-bottom:8px}
+.artwork-footer{display:flex;align-items:center;justify-content:space-between}
+.artwork-price{font-size:14px;font-weight:700;color:var(--primary-dark)}
+.artwork-like{font-size:11px;color:var(--text3)}
+
+/* Gallery row */
+.gallery-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.gallery-card{background:#fff;border-radius:12px;padding:18px;border:1px solid var(--border);display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.2s}
+.gallery-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.07)}
+.gallery-thumb{width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.gallery-name{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:3px}
+.gallery-count{font-size:11px;color:var(--text2)}
+.gallery-status{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:auto;flex-shrink:0}
+.status-active{background:#D1FAE5;color:#065F46}
+.status-new{background:#FDE68A;color:#92400E}
+
+/* Artwork detail */
+.detail-layout{display:grid;grid-template-columns:1.2fr 1fr;gap:28px;align-items:start}
+.detail-gallery{background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--border)}
+.detail-main-img{height:360px;display:flex;align-items:center;justify-content:center;font-size:80px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7)}
+.detail-thumbs{display:flex;gap:8px;padding:12px}
+.detail-thumb{width:60px;height:60px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;border:2px solid var(--border);cursor:pointer}
+.detail-thumb.active{border-color:var(--primary)}
+.detail-info{display:flex;flex-direction:column;gap:16px}
+.detail-title{font-size:22px;font-weight:800;color:var(--text);line-height:1.3}
+.detail-artist-row{display:flex;align-items:center;gap:10px}
+.artist-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
+.artist-name{font-size:13px;font-weight:600;color:var(--text)}
+.artist-gallery{font-size:11px;color:var(--text2)}
+.detail-price-box{background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border-radius:12px;padding:18px;border:1px solid #FDE68A}
+.detail-price{font-size:28px;font-weight:800;color:var(--primary-dark)}
+.detail-price-sub{font-size:12px;color:var(--text2);margin-top:3px}
+.edition-select{margin-top:4px}
+.edition-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px}
+.edition-list{display:flex;gap:8px;flex-wrap:wrap}
+.edition-btn{padding:6px 14px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);font-family:inherit;transition:all 0.15s}
+.edition-btn.active{border-color:var(--primary);background:var(--primary);color:#fff}
+.edition-btn:disabled{opacity:0.4;cursor:not-allowed;text-decoration:line-through}
+.buy-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity 0.15s}
+.buy-btn:hover{opacity:0.9}
+.provenance-box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px}
+.prov-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.prov-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border2)}
+.prov-item:last-child{border-bottom:none}
+.prov-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0}
+.prov-text{font-size:12px;color:var(--text2)}
+.prov-date{font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap}
+
+/* Gallery management */
+.table-wrap{background:#fff;border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:20px}
+.table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-title{font-size:14px;font-weight:700;color:var(--text)}
+.table-actions{display:flex;gap:8px}
+.btn-sm{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s}
+.btn-primary{background:var(--primary);color:#fff;border:none}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-outline{background:#fff;color:var(--text2);border:1px solid var(--border)}
+.btn-outline:hover{background:#F9FAFB}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding:10px 20px;background:#F9FAFB;text-align:left;white-space:nowrap}
+td{font-size:13px;color:var(--text);padding:13px 20px;border-bottom:1px solid var(--border2)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FFFBEB}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge-green{background:#D1FAE5;color:#065F46}
+.badge-yellow{background:#FDE68A;color:#92400E}
+.badge-red{background:#FEE2E2;color:#991B1B}
+.badge-blue{background:#DBEAFE;color:#1E40AF}
+.badge-gray{background:#F3F4F6;color:#6B7280}
+.action-btn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid var(--border);background:#fff;color:var(--text2)}
+.action-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.filter-tag{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--text2);font-family:inherit;transition:all 0.15s}
+.filter-tag.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.search-bar{display:flex;gap:8px;margin-bottom:16px}
+.search-input{flex:1;padding:8px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--text);background:#fff}
+.search-input:focus{outline:none;border-color:var(--primary)}
+
+/* Resale market */
+.resale-layout{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+.chart-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:20px;margin-bottom:16px}
+.chart-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:16px}
+.resale-list{display:flex;flex-direction:column;gap:10px}
+.resale-item{background:#fff;border-radius:10px;border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:box-shadow 0.15s}
+.resale-item:hover{box-shadow:0 3px 12px rgba(0,0,0,0.07)}
+.resale-img{width:56px;height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;background:linear-gradient(135deg,#FFFBEB,#FDE68A);flex-shrink:0}
+.resale-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px}
+.resale-meta{font-size:11px;color:var(--text2)}
+.resale-price{margin-left:auto;text-align:right;flex-shrink:0}
+.resale-current{font-size:14px;font-weight:700;color:var(--primary-dark)}
+.resale-original{font-size:11px;color:var(--text3);text-decoration:line-through}
+.resale-royalty{font-size:10px;color:#065F46;background:#D1FAE5;padding:2px 6px;border-radius:4px;margin-top:3px;display:inline-block}
+.info-panel{background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px}
+.info-panel-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border2)}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:12px;color:var(--text2)}
+.info-val{font-size:12px;font-weight:600;color:var(--text)}
+
+/* Admin */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.chart-card-full{background:#fff;border-radius:12px;border:1px solid var(--border);padding:20px}
+.approval-list{display:flex;flex-direction:column;gap:8px}
+.approval-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#F9FAFB;border-radius:8px}
+.approval-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#fff;border:1px solid var(--border);flex-shrink:0}
+.approval-name{font-size:13px;font-weight:600;color:var(--text)}
+.approval-sub{font-size:11px;color:var(--text2)}
+.approval-actions{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
+.approve-btn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:var(--primary);color:#fff;font-family:inherit}
+.reject-btn{padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text2);font-family:inherit}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:28px;max-width:460px;width:90%;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);animation:fadeInScale 0.2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal-title{font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+.modal-form{display:flex;flex-direction:column;gap:12px}
+.form-group label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px}
+.form-group input,.form-group select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--text)}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary)}
+.modal-btns{display:flex;gap:8px;margin-top:8px}
+.modal-btn-cancel{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--text2)}
+.modal-btn-confirm{flex:1;padding:10px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:16px 0}
+.page-btn{width:32px;height:32px;border-radius:7px;border:1px solid var(--border);background:#fff;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;color:var(--text2);transition:all 0.15s}
+.page-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+.page-btn:hover:not(.active){background:#FFFBEB;border-color:var(--primary);color:var(--primary)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {AreaChart,Area,LineChart,Line,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,ComposedChart} = Recharts;
+
+// ─── 더미 데이터 ───
+const ARTWORKS = [
+  {id:1,title:'새벽의 고요',artist:'이현준',gallery:'아트스페이스 서울',price:'₩3,200,000',img:'🎨',edition:'12/50',badge:'SOLD OUT',bg:'#FEF3C7'},
+  {id:2,title:'도시의 빛',artist:'박소연',gallery:'현대갤러리 강남',price:'₩1,850,000',img:'🖼️',edition:'7/30',badge:'NEW',bg:'#FDE68A'},
+  {id:3,title:'자연의 숨결',artist:'김태우',gallery:'갤러리 나눔',price:'₩4,500,000',img:'🎭',edition:'3/20',badge:'LIMITED',bg:'#FEF3C7'},
+  {id:4,title:'빛과 그림자',artist:'최지원',gallery:'블루아트홀',price:'₩2,100,000',img:'🖌️',edition:'15/40',badge:'',bg:'#FFF7ED'},
+  {id:5,title:'기억의 파편',artist:'정민석',gallery:'아트스페이스 서울',price:'₩6,800,000',img:'🗿',edition:'1/10',badge:'VIP',bg:'#FDE68A'},
+  {id:6,title:'여름의 끝',artist:'오지혜',gallery:'현대갤러리 강남',price:'₩980,000',img:'🌸',edition:'22/100',badge:'',bg:'#FEF3C7'},
+  {id:7,title:'푸른 새벽',artist:'윤성민',gallery:'갤러리 나눔',price:'₩1,450,000',img:'🏔️',edition:'8/25',badge:'HOT',bg:'#FFF7ED'},
+  {id:8,title:'달빛 소나타',artist:'한지현',gallery:'블루아트홀',price:'₩3,600,000',img:'🌙',edition:'5/15',badge:'',bg:'#FDE68A'},
+];
+const GALLERIES = [
+  {name:'아트스페이스 서울',works:128,status:'active',icon:'🏛️',bg:'#FEF3C7'},
+  {name:'현대갤러리 강남',works:96,status:'active',icon:'🎨',bg:'#FDE68A'},
+  {name:'갤러리 나눔',works:74,status:'new',icon:'🖼️',bg:'#FFF7ED'},
+  {name:'블루아트홀',works:52,status:'active',icon:'💎',bg:'#FEF3C7'},
+  {name:'스페이스 아트리움',works:38,status:'new',icon:'✨',bg:'#FDE68A'},
+  {name:'갤러리 온',works:61,status:'active',icon:'🌟',bg:'#FFF7ED'},
+];
+const GALLERY_TABLE = [
+  {name:'아트스페이스 서울',owner:'김정수',works:128,sales:'₩48,200,000',status:'active',joined:'2024.09'},
+  {name:'현대갤러리 강남',owner:'이미란',works:96,sales:'₩32,600,000',status:'active',joined:'2024.10'},
+  {name:'갤러리 나눔',owner:'박성준',works:74,sales:'₩18,900,000',status:'active',joined:'2024.11'},
+  {name:'블루아트홀',owner:'최유진',works:52,sales:'₩24,100,000',status:'active',joined:'2024.12'},
+  {name:'스페이스 아트리움',owner:'정현우',works:38,sales:'₩8,400,000',status:'pending',joined:'2025.01'},
+  {name:'갤러리 온',owner:'한소미',works:61,sales:'₩15,700,000',status:'active',joined:'2025.01'},
+  {name:'아트플러스',owner:'오민준',works:24,sales:'₩5,200,000',status:'review',joined:'2025.02'},
+];
+const RESALE_ITEMS = [
+  {id:1,title:'새벽의 고요 #7',artist:'이현준',original:'₩3,200,000',price:'₩4,800,000',royalty:'추급권: ₩144,000',img:'🎨',edition:'7/50'},
+  {id:2,title:'도시의 빛 #12',artist:'박소연',original:'₩1,850,000',price:'₩2,400,000',royalty:'추급권: ₩55,000',img:'🖼️',edition:'12/30'},
+  {id:3,title:'자연의 숨결 #2',artist:'김태우',original:'₩4,500,000',price:'₩7,200,000',royalty:'추급권: ₩216,000',img:'🎭',edition:'2/20'},
+  {id:4,title:'기억의 파편 #1',artist:'정민석',original:'₩6,800,000',price:'₩9,500,000',royalty:'추급권: ₩285,000',img:'🗿',edition:'1/10'},
+  {id:5,title:'여름의 끝 #18',artist:'오지혜',original:'₩980,000',price:'₩1,350,000',royalty:'추급권: ₩37,500',img:'🌸',edition:'18/100'},
+];
+const PRICE_HISTORY = [
+  {month:'2024.08',price:3200},{month:'2024.09',price:3400},{month:'2024.10',price:3100},
+  {month:'2024.11',price:3700},{month:'2024.12',price:4200},{month:'2025.01',price:4800},
+];
+const MONTHLY_SALES = [
+  {month:'9월',sales:12,amount:38},{month:'10월',sales:18,amount:54},{month:'11월',sales:24,amount:72},
+  {month:'12월',sales:31,amount:98},{month:'1월',sales:27,amount:85},{month:'2월',sales:38,amount:120},
+];
+const APPROVAL_ITEMS = [
+  {name:'아트마켓 제주',owner:'김영호',doc:'사업자등록증 첨부',icon:'🏝️'},
+  {name:'갤러리 화이트',owner:'박지영',doc:'사업자등록증 첨부',icon:'⬜'},
+  {name:'스튜디오 블랙',owner:'이상훈',doc:'사업자등록증 첨부',icon:'⬛'},
+];
+
+function App() {
+  const [menu, setMenu] = useState('main');
+  const [loading, setLoading] = useState(true);
+  const [editionSel, setEditionSel] = useState(3);
+  const [filterStatus, setFilterStatus] = useState('전체');
+  const [page, setPage] = useState(1);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [approvals, setApprovals] = useState(APPROVAL_ITEMS);
+
+  useEffect(() => {
+    setLoading(true);
+    const t = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(t);
+  }, [menu]);
+
+  const navItems = [
+    {key:'main',label:'갤러리 홈 & 작품 탐색',icon:'🖼️'},
+    {key:'artwork',label:'작품 상세 & 에디션 구매',icon:'🎨'},
+    {key:'gallery',label:'갤러리 입점 & 작가 관리',icon:'🏛️'},
+    {key:'resale',label:'세컨더리 리셀 마켓',icon:'🔄'},
+    {key:'admin',label:'관리자 대시보드',icon:'📊'},
+  ];
+
+  const pageTitle = navItems.find(n=>n.key===menu)?.label || '';
+
+  return (
+    <div className="app">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-mark">
+            <div className="logo-icon">A</div>
+            <div>
+              <div className="logo-text">ARTONE</div>
+              <div className="logo-sub">갤러리 아트 마켓플레이스</div>
+            </div>
+          </div>
+        </div>
+        <nav className="sidebar-nav">
+          <div className="nav-section">
+            <div className="nav-section-title">메인 메뉴</div>
+            {navItems.map(n => (
+              <button key={n.key} className={`nav-btn${menu===n.key?' active':''}`} onClick={()=>setMenu(n.key)}>
+                <span className="icon">{n.icon}</span>
+                {n.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+        <div className="sidebar-footer">
+          <div className="user-card">
+            <div className="user-avatar">김</div>
+            <div className="user-info">
+              <div className="name">김아트 관리자</div>
+              <div className="role">슈퍼 어드민</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="main-area">
+        <div className="topbar">
+          <div className="topbar-title">{pageTitle}</div>
+          <div className="topbar-right">
+            <div className="topbar-badge">BETA</div>
+            <button className="topbar-icon-btn">🔔</button>
+            <button className="topbar-icon-btn">⚙️</button>
+          </div>
+        </div>
+        <div className="content">
+          {loading ? <SkeletonView/> : (
+            <>
+              {menu==='main' && <MainView setMenu={setMenu}/>}
+              {menu==='artwork' && <ArtworkView editionSel={editionSel} setEditionSel={setEditionSel} setModalOpen={setModalOpen}/>}
+              {menu==='gallery' && <GalleryView filterStatus={filterStatus} setFilterStatus={setFilterStatus} page={page} setPage={setPage} setModalOpen={setModalOpen}/>}
+              {menu==='resale' && <ResaleView/>}
+              {menu==='admin' && <AdminView approvals={approvals} setApprovals={setApprovals}/>}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="modal-overlay" onClick={()=>setModalOpen(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">구매 신청</div>
+            <div className="modal-sub">에디션 #0{editionSel} — 새벽의 고요</div>
+            <div className="modal-form">
+              <div className="form-group">
+                <label>수령 방법</label>
+                <select><option>직접 방문 수령</option><option>국내 배송</option><option>해외 배송</option></select>
+              </div>
+              <div className="form-group">
+                <label>연락처</label>
+                <input type="text" placeholder="010-0000-0000" defaultValue="010-3842-9201"/>
+              </div>
+              <div className="form-group">
+                <label>배송 주소</label>
+                <input type="text" placeholder="주소를 입력하세요" defaultValue="서울시 강남구 테헤란로 152"/>
+              </div>
+            </div>
+            <div className="modal-btns">
+              <button className="modal-btn-cancel" onClick={()=>setModalOpen(false)}>취소</button>
+              <button className="modal-btn-confirm" onClick={()=>setModalOpen(false)}>구매 확정</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonView() {
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {[1,2,3,4].map(i=><div key={i} className="skel" style={{height:100}}/>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {[1,2,3,4].map(i=><div key={i} className="skel" style={{height:200}}/>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {[1,2,3].map(i=><div key={i} className="skel" style={{height:80}}/>)}
+      </div>
+    </div>
+  );
+}
+
+function MainView({setMenu}) {
+  return (
+    <>
+      <div className="stats-row">
+        {[
+          {label:'총 등록 작품',value:'2,847',sub:'이번 달 +186',icon:'🎨'},
+          {label:'입점 갤러리',value:'94',sub:'신규 승인 대기 3건',icon:'🏛️'},
+          {label:'이번 달 거래액',value:'₩148M',sub:'전월 대비 +18%',icon:'💰'},
+          {label:'세컨더리 거래',value:'38건',sub:'추급권 지급 ₩1.2M',icon:'🔄'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-header">
+        <div className="section-title">✨ 신규 등록 작품</div>
+        <button className="see-all">전체 보기 →</button>
+      </div>
+      <div className="artwork-grid">
+        {ARTWORKS.slice(0,8).map(a=>(
+          <div key={a.id} className="artwork-card">
+            <div className="artwork-img" style={{background:`linear-gradient(135deg,${a.bg},#FFF)`}}>
+              {a.badge && <div className="artwork-badge">{a.badge}</div>}
+              <div className="artwork-edition">{a.edition}</div>
+              <span style={{fontSize:36}}>{a.img}</span>
+            </div>
+            <div className="artwork-info">
+              <div className="artwork-title">{a.title}</div>
+              <div className="artwork-artist">{a.artist} · {a.gallery}</div>
+              <div className="artwork-footer">
+                <div className="artwork-price">{a.price}</div>
+                <div className="artwork-like">♥ {Math.floor(Math.random()*80)+12}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-header">
+        <div className="section-title">🏛️ 인기 갤러리</div>
+        <button className="see-all">전체 보기 →</button>
+      </div>
+      <div className="gallery-row">
+        {GALLERIES.map((g,i)=>(
+          <div key={i} className="gallery-card">
+            <div className="gallery-thumb" style={{background:`linear-gradient(135deg,${g.bg},#FFF)`}}>{g.icon}</div>
+            <div>
+              <div className="gallery-name">{g.name}</div>
+              <div className="gallery-count">작품 {g.works}점</div>
+            </div>
+            <div className={`gallery-status badge ${g.status==='active'?'badge-green':'badge-yellow'}`}>
+              {g.status==='active'?'운영중':'신규'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ArtworkView({editionSel,setEditionSel,setModalOpen}) {
+  const editions = [1,2,3,4,5,6,7,8,9,10,11,12];
+  const soldOut = [1,4,8,11];
+  return (
+    <div className="detail-layout">
+      <div className="detail-gallery">
+        <div className="detail-main-img">🎨</div>
+        <div className="detail-thumbs">
+          {['🎨','🖼️','🖌️','📸'].map((t,i)=>(
+            <div key={i} className={`detail-thumb${i===0?' active':''}`}>{t}</div>
+          ))}
+        </div>
+      </div>
+      <div className="detail-info">
+        <div>
+          <div className="detail-title">새벽의 고요 (Dawn Silence)</div>
+          <div style={{fontSize:12,color:'#6B7280',marginTop:4}}>혼합 미디어 · 100×80cm · 2024</div>
+        </div>
+        <div className="detail-artist-row">
+          <div className="artist-avatar">이</div>
+          <div>
+            <div className="artist-name">이현준</div>
+            <div className="artist-gallery">아트스페이스 서울</div>
+          </div>
+          <button className="btn-sm btn-outline" style={{marginLeft:'auto',fontSize:11}}>작가 페이지</button>
+        </div>
+        <div className="detail-price-box">
+          <div className="detail-price">₩3,200,000</div>
+          <div className="detail-price-sub">에디션 넘버 선택 후 보증서 자동 발급</div>
+          <div className="edition-select">
+            <div className="edition-label">에디션 선택 (50부 한정)</div>
+            <div className="edition-list">
+              {editions.map(n=>(
+                <button key={n} className={`edition-btn${editionSel===n?' active':''}${soldOut.includes(n)?' ':''}`}
+                  disabled={soldOut.includes(n)} onClick={()=>setEditionSel(n)}>
+                  #{String(n).padStart(2,'0')}
+                </button>
+              ))}
+              <span style={{fontSize:11,color:'#9CA3AF',alignSelf:'center'}}>...+38</span>
+            </div>
+          </div>
+          <button className="buy-btn" style={{marginTop:14}} onClick={()=>setModalOpen(true)}>
+            에디션 #{String(editionSel).padStart(2,'0')} 구매 신청
+          </button>
+        </div>
+        <div className="provenance-box">
+          <div className="prov-title">📋 Provenance 체인</div>
+          {[
+            {text:'작품 등록 — 이현준 (작가)',date:'2024.09.15'},
+            {text:'갤러리 인증 — 아트스페이스 서울',date:'2024.09.17'},
+            {text:'에디션 #03 첫 판매',date:'2024.10.22'},
+            {text:'소유권 이전 — 김컬렉터',date:'2024.10.22'},
+          ].map((p,i)=>(
+            <div key={i} className="prov-item">
+              <div className="prov-dot"/>
+              <div className="prov-text">{p.text}</div>
+              <div className="prov-date">{p.date}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GalleryView({filterStatus,setFilterStatus,page,setPage,setModalOpen}) {
+  const statuses = ['전체','운영중','검토중','대기'];
+  const filtered = filterStatus==='전체' ? GALLERY_TABLE :
+    filterStatus==='운영중' ? GALLERY_TABLE.filter(g=>g.status==='active') :
+    filterStatus==='검토중' ? GALLERY_TABLE.filter(g=>g.status==='review') :
+    GALLERY_TABLE.filter(g=>g.status==='pending');
+  const PER=5; const total=Math.ceil(filtered.length/PER);
+  const rows=filtered.slice((page-1)*PER,page*PER);
+  return (
+    <>
+      <div className="stats-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+        {[
+          {label:'총 입점 갤러리',value:'94곳',sub:'이번 달 +7',icon:'🏛️'},
+          {label:'승인 대기',value:'3건',sub:'평균 처리 1.2일',icon:'⏳'},
+          {label:'이번 달 매출 합산',value:'₩148M',sub:'갤러리당 평균 ₩1.6M',icon:'💰'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="table-wrap">
+        <div className="table-header">
+          <div className="table-title">갤러리 목록</div>
+          <div className="table-actions">
+            <button className="btn-sm btn-outline">내보내기</button>
+            <button className="btn-sm btn-primary" onClick={()=>setModalOpen(true)}>+ 갤러리 추가</button>
+          </div>
+        </div>
+        <div style={{padding:'14px 20px 0'}}>
+          <div className="filter-bar">
+            {statuses.map(s=>(
+              <button key={s} className={`filter-tag${filterStatus===s?' active':''}`} onClick={()=>{setFilterStatus(s);setPage(1);}}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <div className="search-bar">
+            <input className="search-input" placeholder="갤러리명, 대표자 검색..." />
+            <button className="btn-sm btn-outline">🔍 검색</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>갤러리명</th><th>대표자</th><th>등록 작품</th><th>누적 매출</th><th>상태</th><th>입점일</th><th>관리</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((g,i)=>(
+              <tr key={i}>
+                <td style={{fontWeight:600}}>{g.name}</td>
+                <td>{g.owner}</td>
+                <td>{g.works}점</td>
+                <td style={{fontWeight:600,color:'#D97706'}}>{g.sales}</td>
+                <td><span className={`badge ${g.status==='active'?'badge-green':g.status==='review'?'badge-yellow':'badge-blue'}`}>
+                  {g.status==='active'?'운영중':g.status==='review'?'검토중':'대기'}
+                </span></td>
+                <td>{g.joined}</td>
+                <td><button className="action-btn">관리</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="pagination">
+          <button className="page-btn" onClick={()=>setPage(p=>Math.max(1,p-1))}>‹</button>
+          {Array.from({length:total},(_,i)=>i+1).map(n=>(
+            <button key={n} className={`page-btn${page===n?' active':''}`} onClick={()=>setPage(n)}>{n}</button>
+          ))}
+          <button className="page-btn" onClick={()=>setPage(p=>Math.min(total,p+1))}>›</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ResaleView() {
+  const [selected, setSelected] = useState(0);
+  return (
+    <div className="resale-layout">
+      <div>
+        <div className="chart-card">
+          <div className="chart-title">📈 작품별 가격 추이 — 새벽의 고요</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={PRICE_HISTORY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6"/>
+              <XAxis dataKey="month" tick={{fontSize:11}} />
+              <YAxis tick={{fontSize:11}} tickFormatter={v=>`${(v/10000)}만`} />
+              <Tooltip formatter={(v)=>`₩${v.toLocaleString()}`} />
+              <Area type="monotone" dataKey="price" fill="#FDE68A" stroke="#D97706" strokeWidth={2} fillOpacity={0.3}/>
+              <Line type="monotone" dataKey="price" stroke="#D97706" strokeWidth={2} dot={{fill:'#D97706',r:4}}/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="section-header">
+          <div className="section-title">🔄 리셀 등록 작품</div>
+          <button className="btn-sm btn-primary" style={{fontSize:12}}>+ 리셀 등록</button>
+        </div>
+        <div className="resale-list">
+          {RESALE_ITEMS.map((r,i)=>(
+            <div key={i} className={`resale-item${selected===i?' ':''}`}
+              style={selected===i?{border:'1.5px solid #D97706'}:{}}
+              onClick={()=>setSelected(i)}>
+              <div className="resale-img">{r.img}</div>
+              <div>
+                <div className="resale-title">{r.title}</div>
+                <div className="resale-meta">{r.artist} · 에디션 {r.edition}</div>
+                <div className="resale-royalty">{r.royalty}</div>
+              </div>
+              <div className="resale-price">
+                <div className="resale-current">{r.price}</div>
+                <div className="resale-original">{r.original}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="info-panel" style={{marginBottom:16}}>
+          <div className="info-panel-title">📋 추급권 정산 정보</div>
+          {[
+            {key:'작품명',val:'새벽의 고요 #7'},
+            {key:'원작 판매가',val:'₩3,200,000'},
+            {key:'리셀 가격',val:'₩4,800,000'},
+            {key:'가격 상승분',val:'₩1,600,000'},
+            {key:'추급권 요율',val:'3%'},
+            {key:'작가 보상금',val:'₩144,000'},
+            {key:'플랫폼 수수료',val:'₩240,000 (5%)'},
+            {key:'판매자 수령액',val:'₩4,416,000'},
+          ].map((r,i)=>(
+            <div key={i} className="info-row">
+              <span className="info-key">{r.key}</span>
+              <span className="info-val" style={r.key==='작가 보상금'?{color:'#065F46',fontWeight:700}:{}}>{r.val}</span>
+            </div>
+          ))}
+          <button className="buy-btn" style={{marginTop:14}}>거래 신청</button>
+        </div>
+        <div className="info-panel">
+          <div className="info-panel-title">📊 TROVE 마켓 현황</div>
+          {[
+            {key:'총 리셀 등록',val:'143건'},
+            {key:'이번 달 거래',val:'38건'},
+            {key:'추급권 총 지급',val:'₩1,248,000'},
+            {key:'평균 가격 상승률',val:'+42.3%'},
+          ].map((r,i)=>(
+            <div key={i} className="info-row">
+              <span className="info-key">{r.key}</span>
+              <span className="info-val">{r.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminView({approvals, setApprovals}) {
+  return (
+    <>
+      <div className="stats-row">
+        {[
+          {label:'오늘 거래 건수',value:'24건',sub:'전일 대비 +6건',icon:'📦'},
+          {label:'오늘 거래액',value:'₩38.4M',sub:'전일 대비 +14%',icon:'💰'},
+          {label:'활성 갤러리',value:'91곳',sub:'미납 리마인더 4건',icon:'🏛️'},
+          {label:'대기중 승인',value:'3건',sub:'평균 처리 1.2일',icon:'⏳'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-icon">{s.icon}</div>
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-value">{s.value}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="admin-grid">
+        <div className="chart-card-full">
+          <div className="chart-title">📊 월별 거래 현황</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={MONTHLY_SALES}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6"/>
+              <XAxis dataKey="month" tick={{fontSize:11}}/>
+              <YAxis yAxisId="left" tick={{fontSize:11}} tickFormatter={v=>`${v}건`}/>
+              <YAxis yAxisId="right" orientation="right" tick={{fontSize:11}} tickFormatter={v=>`${v}M`}/>
+              <Tooltip/>
+              <Bar yAxisId="left" dataKey="sales" fill="#FDE68A" name="거래 건수" radius={[4,4,0,0]}/>
+              <Line yAxisId="right" type="monotone" dataKey="amount" stroke="#D97706" strokeWidth={2} dot={{fill:'#D97706',r:4}} name="거래액(M)"/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-card-full">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div className="chart-title" style={{marginBottom:0}}>⏳ 갤러리 입점 승인 대기</div>
+            <span className="badge badge-yellow">{approvals.length}건</span>
+          </div>
+          <div className="approval-list">
+            {approvals.map((a,i)=>(
+              <div key={i} className="approval-item">
+                <div className="approval-icon">{a.icon}</div>
+                <div>
+                  <div className="approval-name">{a.name}</div>
+                  <div className="approval-sub">{a.owner} · {a.doc}</div>
+                </div>
+                <div className="approval-actions">
+                  <button className="approve-btn" onClick={()=>setApprovals(prev=>prev.filter((_,j)=>j!==i))}>승인</button>
+                  <button className="reject-btn" onClick={()=>setApprovals(prev=>prev.filter((_,j)=>j!==i))}>거절</button>
+                </div>
+              </div>
+            ))}
+            {approvals.length===0 && <div style={{textAlign:'center',padding:24,color:'#9CA3AF',fontSize:13}}>모든 신청 처리 완료 ✓</div>}
+          </div>
+        </div>
+      </div>
+      <div className="table-wrap">
+        <div className="table-header">
+          <div className="table-title">📋 최근 거래 내역</div>
+          <button className="btn-sm btn-outline">보고서 다운로드</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>작품명</th><th>갤러리</th><th>구매자</th><th>에디션</th><th>거래액</th><th>추급권</th><th>일시</th></tr>
+          </thead>
+          <tbody>
+            {[
+              {work:'새벽의 고요',gallery:'아트스페이스 서울',buyer:'김**',edition:'#07',amount:'₩4,800,000',royalty:'₩144,000',date:'2025.02.14'},
+              {work:'도시의 빛',gallery:'현대갤러리 강남',buyer:'이**',edition:'#12',amount:'₩2,400,000',royalty:'₩55,000',date:'2025.02.13'},
+              {work:'자연의 숨결',gallery:'갤러리 나눔',buyer:'박**',edition:'#02',amount:'₩7,200,000',royalty:'₩216,000',date:'2025.02.12'},
+              {work:'기억의 파편',gallery:'블루아트홀',buyer:'최**',edition:'#01',amount:'₩9,500,000',royalty:'₩285,000',date:'2025.02.11'},
+              {work:'여름의 끝',gallery:'아트스페이스 서울',buyer:'정**',edition:'#18',amount:'₩1,350,000',royalty:'₩37,500',date:'2025.02.10'},
+            ].map((r,i)=>(
+              <tr key={i}>
+                <td style={{fontWeight:600}}>{r.work}</td>
+                <td>{r.gallery}</td>
+                <td>{r.buyer}</td>
+                <td><span className="badge badge-blue">{r.edition}</span></td>
+                <td style={{fontWeight:600,color:'#D97706'}}>{r.amount}</td>
+                <td style={{color:'#065F46',fontWeight:600}}>{r.royalty}</td>
+                <td style={{color:'#9CA3AF',fontSize:12}}>{r.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
