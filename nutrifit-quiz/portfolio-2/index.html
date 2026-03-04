@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>커리어핏 — 직무 역량 진단 커리어 코칭 플랫폼</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF8FF;color:#1E1040;word-break:keep-all;overflow-wrap:break-word}
+/* 탑내비 */
+.topnav{background:#fff;border-bottom:1px solid #EDE9FE;position:sticky;top:0;z-index:100}
+.topnav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;height:60px;padding:0 28px;gap:0}
+.logo{display:flex;align-items:center;gap:10px;margin-right:36px;text-decoration:none}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#7C3AED,#A855F7);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px}
+.logo-text{font-size:18px;font-weight:900;color:#7C3AED;letter-spacing:-0.5px}
+.nav-tabs{display:flex;align-items:center;gap:2px;flex:1}
+.nav-tab{padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:#6B7280;transition:all .15s}
+.nav-tab:hover{background:#F5F3FF;color:#7C3AED}
+.nav-tab.active{background:#EDE9FE;color:#7C3AED;font-weight:800}
+.nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.btn{padding:8px 18px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#7C3AED;color:#fff}
+.btn-primary:hover{background:#6D28D9}
+.btn-outline{background:#fff;color:#7C3AED;border:1.5px solid #7C3AED}
+.btn-outline:hover{background:#F5F3FF}
+.btn-sm{padding:6px 13px;font-size:12px;border-radius:7px}
+.btn-ghost{background:none;border:none;color:#6B7280;font-size:13px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:8px}
+.btn-ghost:hover{background:#F5F3FF;color:#7C3AED}
+/* 히어로 */
+.page-hero{background:linear-gradient(135deg,#7C3AED 0%,#9333EA 50%,#A855F7 100%);color:#fff;padding:40px 0 0}
+.hero-inner{max-width:1200px;margin:0 auto;padding:0 28px;display:flex;align-items:flex-end;gap:40px}
+.hero-text{flex:1;padding-bottom:32px}
+.hero-eyebrow{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-bottom:10px}
+.hero-title{font-size:30px;font-weight:900;line-height:1.3;margin-bottom:10px}
+.hero-desc{font-size:14px;opacity:.85;line-height:1.7;max-width:480px}
+.hero-stats{display:flex;gap:28px;margin-top:20px}
+.hero-stat-val{font-size:22px;font-weight:900}
+.hero-stat-label{font-size:11px;opacity:.75;margin-top:2px}
+.hero-visual{width:280px;height:140px;flex-shrink:0;position:relative;overflow:hidden}
+.hero-card{background:rgba(255,255,255,.15);backdrop-filter:blur(8px);border-radius:14px;padding:16px;position:absolute;border:1px solid rgba(255,255,255,.2)}
+/* 컨텐츠 */
+.page-content{max-width:1200px;margin:0 auto;padding:32px 28px}
+/* 카드 */
+.card{background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(124,58,237,.07),0 8px 24px rgba(124,58,237,.04);padding:24px}
+.card-sm{padding:16px}
+/* 그리드 */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+/* 배지 */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-purple{background:#EDE9FE;color:#7C3AED}
+.badge-green{background:#ECFDF5;color:#059669}
+.badge-blue{background:#EFF6FF;color:#3B82F6}
+.badge-orange{background:#FFF7ED;color:#EA580C}
+/* 섹션 */
+.section-title{font-size:18px;font-weight:800;color:#1E1040;margin-bottom:4px}
+.section-sub{font-size:13px;color:#6B7280}
+.section-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+/* 역량 카드 */
+.comp-card{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(124,58,237,.07);padding:20px;cursor:pointer;transition:all .15s;border:2px solid transparent}
+.comp-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(124,58,237,.14)}
+.comp-card.active{border-color:#7C3AED}
+/* 설문 */
+.quiz-wrap{max-width:700px;margin:0 auto}
+.quiz-card{background:#fff;border-radius:18px;box-shadow:0 4px 20px rgba(124,58,237,.1);padding:36px}
+.progress-wrap{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.progress-bar-bg{flex:1;height:6px;background:#EDE9FE;border-radius:3px;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,#7C3AED,#A855F7);border-radius:3px;transition:width .4s}
+.q-text{font-size:20px;font-weight:800;color:#1E1040;margin-bottom:6px;line-height:1.4}
+.q-sub{font-size:13px;color:#6B7280;margin-bottom:24px}
+.likert-options{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.likert-opt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;border-radius:12px;border:2px solid #EDE9FE;background:#FAF8FF;cursor:pointer;transition:all .15s;font-size:12px;color:#6B7280;font-weight:600}
+.likert-opt:hover{border-color:#A855F7;background:#F5F3FF;color:#7C3AED}
+.likert-opt.selected{border-color:#7C3AED;background:#EDE9FE;color:#7C3AED;font-weight:800}
+.likert-val{font-size:22px;font-weight:900}
+.multi-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.multi-opt{padding:14px 16px;border-radius:12px;border:2px solid #EDE9FE;background:#FAF8FF;cursor:pointer;transition:all .15s;text-align:left;font-size:14px;font-weight:500;color:#374151}
+.multi-opt:hover{border-color:#A855F7;background:#F5F3FF;color:#7C3AED}
+.multi-opt.selected{border-color:#7C3AED;background:#EDE9FE;color:#7C3AED;font-weight:700}
+.multi-opt .opt-icon{font-size:20px;margin-bottom:4px;display:block}
+/* 결과 */
+.result-hero-card{background:linear-gradient(135deg,#7C3AED 0%,#9333EA 100%);border-radius:18px;padding:28px;color:#fff;margin-bottom:20px}
+.result-score-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:20px}
+.rs-item{background:rgba(255,255,255,.15);border-radius:10px;padding:12px 8px;text-align:center;backdrop-filter:blur(4px)}
+.rs-label{font-size:10px;opacity:.8;margin-bottom:3px}
+.rs-val{font-size:20px;font-weight:900}
+/* 코칭 카드 */
+.coaching-card{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(124,58,237,.07);overflow:hidden;cursor:pointer;transition:all .15s}
+.coaching-card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(124,58,237,.14)}
+.coaching-banner{height:80px;display:flex;align-items:center;justify-content:center;font-size:36px}
+.coaching-body{padding:16px}
+.coaching-name{font-size:14px;font-weight:800;color:#1E1040;margin-bottom:4px}
+.coaching-org{font-size:12px;color:#6B7280;margin-bottom:8px}
+.coaching-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.coaching-price{font-size:15px;font-weight:800;color:#7C3AED}
+/* 이력 */
+.history-row{display:flex;align-items:center;gap:16px;padding:14px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(124,58,237,.05);margin-bottom:8px;cursor:pointer;transition:all .15s}
+.history-row:hover{box-shadow:0 4px 14px rgba(124,58,237,.1)}
+.history-num{width:36px;height:36px;border-radius:50%;background:#EDE9FE;color:#7C3AED;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* 필터 */
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid #D1D5DB;background:#fff;color:#4B5563;transition:all .15s}
+.chip.active{border-color:#7C3AED;background:#7C3AED;color:#fff}
+.chip:hover:not(.active){border-color:#7C3AED;color:#7C3AED}
+/* stat */
+.stat-box{background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(124,58,237,.07);padding:20px}
+.stat-val{font-size:28px;font-weight:900;color:#7C3AED}
+.stat-label{font-size:12px;color:#6B7280;font-weight:600;margin-bottom:6px}
+.stat-sub{font-size:12px;color:#6B7280;margin-top:4px}
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:20px;padding:32px;width:500px;max-width:90vw;max-height:80vh;overflow-y:auto;animation:popIn .22s ease}
+@keyframes popIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+/* toast */
+.toast{position:fixed;bottom:28px;right:28px;background:#7C3AED;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(124,58,237,.35);z-index:9999;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+const { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+        BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
+
+// ─── 데이터 ───────────────────────────────────────────────────────────────
+const JOBS = [
+  { key:'dev', label:'개발', icon:'💻' },
+  { key:'marketing', label:'마케팅', icon:'📣' },
+  { key:'planning', label:'기획', icon:'📐' },
+  { key:'design', label:'디자인', icon:'🎨' },
+];
+const COMPETENCIES = {
+  dev: ['문제해결','알고리즘','협업','커뮤니케이션','학습력','적응력'],
+  marketing: ['분석력','크리에이티비티','커뮤니케이션','기획력','데이터해석','실행력'],
+  planning: ['논리적사고','커뮤니케이션','리서치','기획력','프로젝트관리','문제해결'],
+  design: ['크리에이티비티','시각적사고','커뮤니케이션','UX이해','트렌드감각','협업'],
+};
+const QUIZ_DATA = [
+  { id:1, q:'현재 직군을 선택해주세요', sub:'역량 가중치 기준으로 활용됩니다', type:'multi', opts:[{e:'💻',t:'개발/엔지니어링'},{e:'📣',t:'마케팅/브랜드'},{e:'📐',t:'기획/PM'},{e:'🎨',t:'디자인/UX'}] },
+  { id:2, q:'문제에 직면했을 때 나의 접근 방식은?', sub:'문제해결 역량을 측정합니다', type:'multi', opts:[{e:'🔍',t:'원인을 먼저 파악'},{e:'⚡',t:'빠르게 실행하며 검증'},{e:'🤝',t:'팀과 협의 후 결정'},{e:'📚',t:'사례를 찾아 적용'}] },
+  { id:3, q:'복잡한 정보를 다른 사람에게 전달하는 것이 쉬운가요?', sub:'커뮤니케이션 역량을 측정합니다', type:'likert' },
+  { id:4, q:'새로운 도구나 기술을 스스로 학습하는 데 자신이 있나요?', sub:'학습력 및 적응력을 측정합니다', type:'likert' },
+  { id:5, q:'데이터를 보고 인사이트를 도출하는 것이 어렵지 않나요?', sub:'분석력 역량을 측정합니다', type:'likert' },
+  { id:6, q:'장기 프로젝트를 주도적으로 이끌어 본 경험이 있나요?', sub:'프로젝트 관리 역량을 측정합니다', type:'likert' },
+  { id:7, q:'마감 압박 속에서도 창의적인 결과물을 낼 수 있나요?', sub:'크리에이티비티와 실행력을 측정합니다', type:'likert' },
+  { id:8, q:'팀원 간 의견 충돌이 생겼을 때 조율 역할을 맡는 편인가요?', sub:'협업 및 대인관계 역량을 측정합니다', type:'likert' },
+];
+const LIKERT_LABELS = ['매우 아님','아닌 편','보통','그런 편','매우 그럼'];
+const COACHING = [
+  { id:1, name:'리더십 마인드셋 부트캠프', org:'커리어핏 아카데미', price:280000, emoji:'🚀', tags:['리더십','협업'], color:'#7C3AED', bg:'#EDE9FE', duration:'4주', level:'중급' },
+  { id:2, name:'데이터 기반 의사결정 워크숍', org:'데이터드리븐 스쿨', price:350000, emoji:'📊', tags:['분석력','데이터해석'], color:'#3B82F6', bg:'#EFF6FF', duration:'3주', level:'초급' },
+  { id:3, name:'창의적 문제해결 마스터클래스', org:'이노베이션 랩', price:420000, emoji:'💡', tags:['문제해결','크리에이티비티'], color:'#EA580C', bg:'#FFF7ED', duration:'6주', level:'고급' },
+  { id:4, name:'커뮤니케이션 전문가 과정', org:'스피크 아카데미', price:195000, emoji:'🎤', tags:['커뮤니케이션','프레젠테이션'], color:'#059669', bg:'#ECFDF5', duration:'2주', level:'초급' },
+  { id:5, name:'프로젝트 매니지먼트 인증 과정', org:'PM 인스티튜트', price:580000, emoji:'📋', tags:['프로젝트관리','기획력'], color:'#7C3AED', bg:'#EDE9FE', duration:'8주', level:'중급' },
+  { id:6, name:'UX 리서치 실전 과정', org:'UX 스쿨', price:320000, emoji:'🔬', tags:['UX이해','리서치'], color:'#3B82F6', bg:'#EFF6FF', duration:'5주', level:'초급' },
+];
+const HISTORY = [
+  { id:1, date:'2026.01', job:'개발', scores:[82,74,68,88,79,71], avg:77 },
+  { id:2, date:'2025.10', job:'개발', scores:[75,68,62,80,72,65], avg:70 },
+  { id:3, date:'2025.07', job:'개발', scores:[68,62,55,74,65,58], avg:64 },
+];
+
+function Toast({ msg, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
+  return <div className="toast">✓ {msg}</div>;
+}
+
+function CoachingModal({ item, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:48,textAlign:'center',marginBottom:12}}>{item.emoji}</div>
+        <div style={{textAlign:'center',marginBottom:20}}>
+          <div style={{fontSize:20,fontWeight:900,color:'#1E1040',marginBottom:4}}>{item.name}</div>
+          <div style={{fontSize:13,color:'#6B7280'}}>{item.org}</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:20}}>
+          {[['기간',item.duration],['난이도',item.level],['수강료',`${item.price.toLocaleString()}원`]].map(([k,v])=>(
+            <div key={k} style={{background:'#F5F3FF',borderRadius:10,padding:'12px',textAlign:'center'}}>
+              <div style={{fontSize:11,color:'#6B7280',marginBottom:4}}>{k}</div>
+              <div style={{fontSize:14,fontWeight:800,color:'#7C3AED'}}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-outline" style={{flex:1}} onClick={onClose}>닫기</button>
+          <button className="btn btn-primary" style={{flex:2}} onClick={onClose}>수강 신청하기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPage({ diagResult, onNav }) {
+  const job = diagResult?.job || 'dev';
+  const comps = COMPETENCIES[job];
+  const scores = diagResult?.scores || [72,65,80,55,68,74];
+  const radarData = comps.map((c,i)=>({subject:c, A:scores[i], fullMark:100}));
+  const barData = comps.map((c,i)=>({name:c, 점수:scores[i]}));
+  return (
+    <div>
+      {/* 히어로 */}
+      <div className="page-hero" style={{marginBottom:0}}>
+        <div className="hero-inner">
+          <div className="hero-text">
+            <div className="hero-eyebrow">역량 진단 대시보드</div>
+            <div className="hero-title">{diagResult ? `${diagResult.jobLabel} 역량 프로파일` : '나의 직무 역량을 진단해보세요'}</div>
+            <div className="hero-desc">{diagResult ? `최신 진단 결과 기준 평균 점수 ${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}점 · ${diagResult.jobLabel} 역량 분석 완료` : '18개 역량 문항으로 나의 현재 수준을 점수화하고 성장 추이를 추적하세요'}</div>
+            <div className="hero-stats">
+              {[{val:'48,291',label:'누적 진단자'},{val:'4개',label:'직군 지원'},{val:'18문항',label:'역량 설문'}].map((s,i)=>(
+                <div key={i}><div className="hero-stat-val">{s.val}</div><div className="hero-stat-label">{s.label}</div></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* 탭 본문 */}
+      <div style={{background:'#fff',padding:'4px 0',borderBottom:'1px solid #EDE9FE'}}>
+        <div style={{maxWidth:1200,margin:'0 auto',padding:'0 28px',display:'flex',gap:0}}>
+          {['개요','역량 분석','성장 추이','코칭 추천'].map((t,i)=>(
+            <div key={t} style={{padding:'12px 20px',fontSize:14,fontWeight:i===0?800:600,color:i===0?'#7C3AED':'#6B7280',borderBottom:i===0?'2px solid #7C3AED':'2px solid transparent',cursor:'pointer'}}>{t}</div>
+          ))}
+        </div>
+      </div>
+      <div className="page-content">
+        <div className="grid-4" style={{marginBottom:24}}>
+          {[
+            {label:'평균 역량 점수',val:diagResult?`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}점`:'—',sub:'직군 내 상위 32%'},
+            {label:'최고 역량',val:diagResult?comps[scores.indexOf(Math.max(...scores))]:'—',sub:'핵심 강점 역량'},
+            {label:'보완 역량',val:diagResult?comps[scores.indexOf(Math.min(...scores))]:'—',sub:'집중 향상 필요'},
+            {label:'진단 횟수',val:`${HISTORY.length}회`,sub:'최근 6개월 기준'},
+          ].map((s,i)=>(
+            <div key={i} className="stat-box">
+              <div className="stat-label">{s.label}</div>
+              <div className="stat-val">{s.val}</div>
+              <div className="stat-sub">{s.sub}</div>
+            </div>
+          ))}
+        </div>
+        {diagResult ? (
+          <div className="grid-2" style={{marginBottom:24}}>
+            <div className="card">
+              <div className="section-title" style={{marginBottom:16}}>역량 레이더 차트</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#EDE9FE" />
+                  <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'#6B7280'}} />
+                  <PolarRadiusAxis angle={90} domain={[0,100]} tick={false} />
+                  <Radar dataKey="A" stroke="#7C3AED" fill="#7C3AED" fillOpacity={0.25} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="card">
+              <div className="section-title" style={{marginBottom:16}}>역량별 점수</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={barData} margin={{top:5,right:5,bottom:5,left:-20}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                  <XAxis dataKey="name" tick={{fontSize:10,fill:'#6B7280'}} />
+                  <YAxis domain={[0,100]} tick={{fontSize:10,fill:'#6B7280'}} />
+                  <Tooltip contentStyle={{borderRadius:10,fontSize:12}} />
+                  <Bar dataKey="점수" fill="#7C3AED" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : (
+          <div className="card" style={{textAlign:'center',padding:'48px 20px',marginBottom:24}}>
+            <div style={{fontSize:48,marginBottom:14}}>🎯</div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:8}}>역량 진단을 시작해보세요</div>
+            <div style={{fontSize:14,color:'#6B7280',marginBottom:20}}>18문항으로 나의 직무 역량을 정밀하게 측정합니다</div>
+            <button className="btn btn-primary" onClick={()=>onNav('quiz')}>역량 진단 시작하기 →</button>
+          </div>
+        )}
+        <div className="section-header"><div><div className="section-title">진단 이력</div><div className="section-sub">회차별 성장 추이를 확인하세요</div></div></div>
+        {HISTORY.map(h=>(
+          <div key={h.id} className="history-row">
+            <div className="history-num">{h.id}회</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#1E1040'}}>{h.date} · {h.job}</div>
+              <div style={{fontSize:12,color:'#6B7280',marginTop:2}}>평균 점수 {h.avg}점</div>
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              {h.scores.map((s,i)=>(
+                <div key={i} style={{width:32,height:32,borderRadius:6,background:'#F5F3FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#7C3AED'}}>{s}</div>
+              ))}
+            </div>
+            <button className="btn btn-outline btn-sm">상세보기</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuizPage({ onDone }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [jobKey, setJobKey] = useState('dev');
+  const total = QUIZ_DATA.length;
+  const cur = QUIZ_DATA[step];
+  const progress = ((step + (answers[cur.id] !== undefined ? 1 : 0)) / total) * 100;
+
+  const selectAnswer = (val) => {
+    if (cur.id === 1) {
+      const jMap = {0:'dev',1:'marketing',2:'planning',3:'design'};
+      setJobKey(jMap[val] || 'dev');
+    }
+    const next = {...answers, [cur.id]: val};
+    setAnswers(next);
+    if (step < total - 1) { setTimeout(()=>setStep(s=>s+1), 350); }
+    else {
+      const jMap2 = {0:'dev',1:'marketing',2:'planning',3:'design'};
+      const jlMap = {dev:'개발',marketing:'마케팅',planning:'기획',design:'디자인'};
+      const jk = jMap2[next[1]] || 'dev';
+      const scores = COMPETENCIES[jk].map((_,i)=>50+Math.round(Math.random()*40));
+      setTimeout(()=>onDone({job:jk, jobLabel:jlMap[jk], scores}), 400);
+    }
+  };
+
+  return (
+    <div>
+      <div className="page-hero" style={{marginBottom:0}}>
+        <div className="hero-inner">
+          <div className="hero-text" style={{paddingBottom:28}}>
+            <div className="hero-eyebrow">역량 진단 설문</div>
+            <div className="hero-title">직무 역량 진단</div>
+            <div className="hero-desc">18개 문항으로 나의 역량을 진단합니다. 솔직하게 답변할수록 정확한 결과가 나옵니다.</div>
+          </div>
+        </div>
+      </div>
+      <div className="page-content">
+        <div className="quiz-wrap">
+          <div className="quiz-card">
+            <div className="progress-wrap">
+              <div className="progress-bar-bg"><div className="progress-bar" style={{width:`${progress}%`}} /></div>
+              <span style={{fontSize:13,fontWeight:700,color:'#7C3AED',whiteSpace:'nowrap'}}>{step+1} / {total}</span>
+            </div>
+            <div className="q-text">{cur.q}</div>
+            <div className="q-sub">{cur.sub}</div>
+            {cur.type === 'multi' ? (
+              <div className="multi-opts">
+                {cur.opts.map((o,i)=>(
+                  <button key={i} className={`multi-opt${answers[cur.id]===i?' selected':''}`} onClick={()=>selectAnswer(i)}>
+                    <span className="opt-icon">{o.e}</span>
+                    {o.t}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="likert-options">
+                  {LIKERT_LABELS.map((l,i)=>(
+                    <div key={i} className={`likert-opt${answers[cur.id]===i?' selected':''}`} onClick={()=>selectAnswer(i)}>
+                      <span className="likert-val">{i+1}</span>
+                      {l}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+              <button className="btn-ghost" onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}>← 이전</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultPage({ diagResult, onNav }) {
+  if (!diagResult) return (
+    <div className="page-content">
+      <div className="card" style={{textAlign:'center',padding:60}}>
+        <div style={{fontSize:48,marginBottom:16}}>📋</div>
+        <div style={{fontSize:17,fontWeight:800,marginBottom:8}}>진단 결과가 없습니다</div>
+        <button className="btn btn-primary" onClick={()=>onNav('quiz')}>역량 진단 시작</button>
+      </div>
+    </div>
+  );
+  const {job, jobLabel, scores} = diagResult;
+  const comps = COMPETENCIES[job];
+  const avg = Math.round(scores.reduce((a,b)=>a+b,0)/scores.length);
+  const maxIdx = scores.indexOf(Math.max(...scores));
+  const minIdx = scores.indexOf(Math.min(...scores));
+  const radarData = comps.map((c,i)=>({subject:c, A:scores[i], fullMark:100}));
+  const barData = comps.map((c,i)=>({name:c, 점수:scores[i]}));
+  return (
+    <div>
+      <div className="page-hero" style={{marginBottom:0}}>
+        <div className="hero-inner">
+          <div className="hero-text" style={{paddingBottom:28}}>
+            <div className="hero-eyebrow">진단 결과</div>
+            <div className="hero-title">{jobLabel} 역량 프로파일 완료</div>
+            <div className="hero-desc">6개 역량 항목의 점수를 분석했습니다. 강점을 살리고 보완 역량을 집중 향상시키는 커리어 경로를 확인하세요.</div>
+          </div>
+        </div>
+      </div>
+      <div className="page-content">
+        <div className="result-hero-card">
+          <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:16}}>
+            <div style={{width:60,height:60,background:'rgba(255,255,255,.2)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontSize:30}}>
+              {JOBS.find(j=>j.key===job)?.icon||'💼'}
+            </div>
+            <div>
+              <div style={{fontSize:22,fontWeight:900}}>{jobLabel} 역량 진단 결과</div>
+              <div style={{fontSize:14,opacity:.85}}>평균 점수 {avg}점 · 전체 응시자 상위 {Math.round(100-avg/100*68)}%</div>
+            </div>
+            <div style={{marginLeft:'auto'}}><span style={{background:'rgba(255,255,255,.2)',padding:'8px 16px',borderRadius:20,fontSize:14,fontWeight:700}}>역량지수 {avg}</span></div>
+          </div>
+          <div className="result-score-grid">
+            {comps.map((c,i)=>(
+              <div key={i} className="rs-item">
+                <div className="rs-label">{c}</div>
+                <div className="rs-val">{scores[i]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="grid-2" style={{marginBottom:20}}>
+          <div className="card">
+            <div className="section-title" style={{marginBottom:16}}>역량 레이더</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="#EDE9FE" />
+                <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'#6B7280'}} />
+                <PolarRadiusAxis angle={90} domain={[0,100]} tick={false} />
+                <Radar dataKey="A" stroke="#7C3AED" fill="#7C3AED" fillOpacity={0.25} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="card">
+            <div className="section-title" style={{marginBottom:16}}>역량별 점수 비교</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={barData} margin={{top:5,right:5,bottom:5,left:-20}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                <XAxis dataKey="name" tick={{fontSize:10,fill:'#6B7280'}} />
+                <YAxis domain={[0,100]} tick={{fontSize:10,fill:'#6B7280'}} />
+                <Tooltip contentStyle={{borderRadius:10,fontSize:12}} />
+                <Bar dataKey="점수" fill="#A855F7" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div className="grid-2" style={{marginBottom:20}}>
+          <div className="card" style={{background:'#ECFDF5',border:'none'}}>
+            <div style={{fontSize:13,fontWeight:700,color:'#059669',marginBottom:4}}>💪 최고 강점 역량</div>
+            <div style={{fontSize:20,fontWeight:900,color:'#065F46'}}>{comps[maxIdx]}</div>
+            <div style={{fontSize:13,color:'#059669',marginTop:4}}>점수 {scores[maxIdx]}점 — 핵심 경쟁력</div>
+          </div>
+          <div className="card" style={{background:'#FFF7ED',border:'none'}}>
+            <div style={{fontSize:13,fontWeight:700,color:'#EA580C',marginBottom:4}}>🎯 집중 향상 역량</div>
+            <div style={{fontSize:20,fontWeight:900,color:'#7C2D12'}}>{comps[minIdx]}</div>
+            <div style={{fontSize:13,color:'#EA580C',marginTop:4}}>점수 {scores[minIdx]}점 — 보완 필요</div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-outline" onClick={()=>onNav('coaching')}>코칭 프로그램 보기</button>
+          <button className="btn btn-primary" onClick={()=>onNav('main')}>대시보드로 이동</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoachingPage({ diagResult }) {
+  const [activeTag, setActiveTag] = useState('전체');
+  const [activeLevel, setActiveLevel] = useState('전체');
+  const [modal, setModal] = useState(null);
+  const tags = ['전체','리더십','분석력','커뮤니케이션','문제해결','프로젝트관리','UX이해'];
+  const levels = ['전체','초급','중급','고급'];
+  const filtered = COACHING.filter(c=>{
+    const tOk = activeTag==='전체' || c.tags.includes(activeTag);
+    const lOk = activeLevel==='전체' || c.level===activeLevel;
+    return tOk && lOk;
+  });
+  return (
+    <div>
+      <div className="page-hero" style={{marginBottom:0}}>
+        <div className="hero-inner">
+          <div className="hero-text" style={{paddingBottom:28}}>
+            <div className="hero-eyebrow">코칭 프로그램</div>
+            <div className="hero-title">역량 향상 코칭 프로그램</div>
+            <div className="hero-desc">진단 결과에 맞는 코칭 프로그램을 탐색하고 신청하세요. {filtered.length}개 프로그램이 준비돼 있습니다.</div>
+          </div>
+        </div>
+      </div>
+      <div className="page-content">
+        <div className="filter-row">
+          {tags.map(t=><button key={t} className={`chip${activeTag===t?' active':''}`} onClick={()=>setActiveTag(t)}>{t}</button>)}
+        </div>
+        <div className="filter-row">
+          {levels.map(l=><button key={l} className={`chip${activeLevel===l?' active':''}`} onClick={()=>setActiveLevel(l)}>{l}</button>)}
+        </div>
+        <div className="grid-3">
+          {filtered.map(c=>(
+            <div key={c.id} className="coaching-card" onClick={()=>setModal(c)}>
+              <div className="coaching-banner" style={{background:c.bg,fontSize:40}}>{c.emoji}</div>
+              <div className="coaching-body">
+                <div className="coaching-tags">
+                  <span className="badge badge-purple">{c.level}</span>
+                  <span className="badge badge-blue">{c.duration}</span>
+                </div>
+                <div className="coaching-name">{c.name}</div>
+                <div className="coaching-org">{c.org}</div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
+                  <div className="coaching-price">{c.price.toLocaleString()}원</div>
+                  <button className="btn btn-primary btn-sm" onClick={e=>{e.stopPropagation();setModal(c)}}>신청하기</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {modal && <CoachingModal item={modal} onClose={()=>setModal(null)} />}
+    </div>
+  );
+}
+
+function HistoryPage({ diagResult, onNav }) {
+  const job = diagResult?.job || 'dev';
+  const comps = COMPETENCIES[job];
+  return (
+    <div>
+      <div className="page-hero" style={{marginBottom:0}}>
+        <div className="hero-inner">
+          <div className="hero-text" style={{paddingBottom:28}}>
+            <div className="hero-eyebrow">진단 이력</div>
+            <div className="hero-title">역량 성장 추이</div>
+            <div className="hero-desc">회차별 진단 결과를 비교하고 성장 추이를 확인하세요.</div>
+          </div>
+        </div>
+      </div>
+      <div className="page-content">
+        <div className="card" style={{marginBottom:20}}>
+          <div className="section-title" style={{marginBottom:16}}>회차별 평균 점수 추이</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={HISTORY.map(h=>({name:h.date,평균:h.avg})).reverse()} margin={{top:5,right:10,bottom:5,left:-20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+              <XAxis dataKey="name" tick={{fontSize:12,fill:'#6B7280'}} />
+              <YAxis domain={[50,100]} tick={{fontSize:11,fill:'#6B7280'}} />
+              <Tooltip contentStyle={{borderRadius:10,fontSize:12}} />
+              <Bar dataKey="평균" fill="#7C3AED" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {HISTORY.map(h=>(
+          <div key={h.id} style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 2px 8px rgba(124,58,237,.07)',marginBottom:12}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:36,height:36,borderRadius:50,background:'#EDE9FE',color:'#7C3AED',fontSize:13,fontWeight:800,display:'flex',alignItems:'center',justifyContent:'center'}}>{h.id}회</div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700}}>{h.date} 진단</div>
+                  <div style={{fontSize:12,color:'#6B7280'}}>평균 {h.avg}점</div>
+                </div>
+              </div>
+              <span className="badge badge-purple">결과 보기</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:8}}>
+              {comps.map((c,i)=>(
+                <div key={i} style={{textAlign:'center'}}>
+                  <div style={{fontSize:11,color:'#6B7280',marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:80,margin:'0 auto 4px'}}>{c}</div>
+                  <div style={{fontSize:18,fontWeight:900,color:'#7C3AED'}}>{h.scores[i]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div style={{marginTop:8}}>
+          <button className="btn btn-primary" onClick={()=>onNav('quiz')}>재진단 시작하기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [page, setPage] = useState('main');
+  const [diagResult, setDiagResult] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const tabs = [
+    {key:'main', label:'역량 진단'},
+    {key:'quiz', label:'진단 설문'},
+    {key:'result', label:'진단 결과'},
+    {key:'coaching', label:'코칭 프로그램'},
+    {key:'history', label:'진단 이력'},
+  ];
+
+  return (
+    <div>
+      <nav className="topnav">
+        <div className="topnav-inner">
+          <div className="logo">
+            <div className="logo-icon">C</div>
+            <div className="logo-text">커리어핏</div>
+          </div>
+          <div className="nav-tabs">
+            {tabs.map(t=>(
+              <button key={t.key} className={`nav-tab${page===t.key?' active':''}`} onClick={()=>setPage(t.key)}>{t.label}</button>
+            ))}
+          </div>
+          <div className="nav-actions">
+            <button className="btn btn-outline btn-sm" onClick={()=>setPage('quiz')}>역량 진단</button>
+            <button className="btn btn-primary btn-sm" onClick={()=>setPage('coaching')}>코칭 신청</button>
+          </div>
+        </div>
+      </nav>
+
+      {page === 'main' && <DashboardPage diagResult={diagResult} onNav={setPage} />}
+      {page === 'quiz' && <QuizPage onDone={(r)=>{setDiagResult(r);setPage('result');}} />}
+      {page === 'result' && <ResultPage diagResult={diagResult} onNav={setPage} />}
+      {page === 'coaching' && <CoachingPage diagResult={diagResult} />}
+      {page === 'history' && <HistoryPage diagResult={diagResult} onNav={setPage} />}
+
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>웰핏 — 헬스케어 쇼핑몰 통합 진단·추천·어드민 플랫폼</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F1F5F9;color:#0F172A;word-break:keep-all;overflow-wrap:break-word}
+.layout{display:flex;height:100vh;overflow:hidden}
+/* bright-workspace 사이드바 */
+.sidebar{width:240px;min-width:240px;background:#fff;border-right:1px solid #E2E8F0;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:20px 16px 14px;border-bottom:1px solid #E2E8F0}
+.logo-wrap{display:flex;align-items:center;gap:9px}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,#334155,#475569);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#10B981;font-weight:900;font-size:15px}
+.logo-name{font-size:16px;font-weight:900;color:#0F172A;letter-spacing:-0.5px}
+.logo-sub{font-size:10px;color:#64748B;margin-top:1px}
+.sidebar-nav{padding:10px 8px;flex:1}
+.nav-section-label{font-size:10px;font-weight:700;color:#94A3B8;letter-spacing:1.2px;text-transform:uppercase;padding:6px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;cursor:pointer;transition:all .15s;font-size:13px;font-weight:500;color:#475569;border:none;background:none;width:100%;text-align:left;margin-bottom:1px}
+.nav-item:hover{background:#F1F5F9;color:#0F172A}
+.nav-item.active{background:#F0FDF4;color:#059669;font-weight:700}
+.nav-item.active .nav-icon{color:#10B981}
+.nav-icon{font-size:16px;width:18px;text-align:center;color:#94A3B8;flex-shrink:0}
+.nav-badge{margin-left:auto;background:#10B981;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.nav-badge-gray{margin-left:auto;background:#E2E8F0;color:#64748B;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px}
+.sidebar-footer{padding:14px;border-top:1px solid #E2E8F0}
+.user-row{display:flex;align-items:center;gap:9px}
+.user-av{width:32px;height:32px;border-radius:8px;background:#F0FDF4;border:1px solid #D1FAE5;display:flex;align-items:center;justify-content:center;color:#059669;font-weight:800;font-size:13px}
+.user-name{font-size:12px;font-weight:700;color:#0F172A}
+.user-tag{font-size:10px;color:#10B981;font-weight:600}
+/* 메인 */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;background:#fff;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;padding:0 24px}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.breadcrumb{font-size:13px;color:#64748B}
+.breadcrumb span{color:#0F172A;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#10B981;color:#fff}
+.btn-primary:hover{background:#059669}
+.btn-outline{background:#fff;color:#334155;border:1.5px solid #CBD5E1}
+.btn-outline:hover{border-color:#10B981;color:#10B981}
+.btn-danger{background:#FEE2E2;color:#DC2626;border:none}
+.btn-sm{padding:5px 11px;font-size:11px}
+.content{flex:1;overflow-y:auto;padding:24px}
+/* 카드 */
+.card{background:#fff;border-radius:12px;border:1px solid #E2E8F0;padding:20px}
+/* 탭 */
+.inline-tabs{display:flex;gap:2px;background:#F8FAFC;border-radius:10px;padding:4px;margin-bottom:20px;border:1px solid #E2E8F0}
+.inline-tab{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;color:#64748B;border:none;background:none;transition:all .15s}
+.inline-tab.active{background:#fff;color:#0F172A;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+/* KPI */
+.kpi-card{background:#fff;border-radius:10px;border:1px solid #E2E8F0;padding:16px}
+.kpi-label{font-size:11px;color:#64748B;font-weight:600;margin-bottom:6px}
+.kpi-val{font-size:26px;font-weight:900;color:#0F172A}
+.kpi-sub{font-size:11px;color:#64748B;margin-top:3px}
+.kpi-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+/* 영양제 카드 */
+.supp-card{background:#fff;border-radius:10px;border:1px solid #E2E8F0;overflow:hidden;cursor:pointer;transition:all .15s}
+.supp-card:hover{border-color:#10B981;box-shadow:0 4px 16px rgba(16,185,129,.1);transform:translateY(-2px)}
+.supp-img{height:120px;display:flex;align-items:center;justify-content:center;font-size:44px}
+.supp-body{padding:12px}
+.supp-name{font-size:13px;font-weight:700;color:#0F172A;margin-bottom:3px}
+.supp-brand{font-size:11px;color:#64748B;margin-bottom:8px}
+.supp-score{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.score-bar-bg{flex:1;height:4px;background:#E2E8F0;border-radius:2px;overflow:hidden}
+.score-bar{height:100%;background:linear-gradient(90deg,#10B981,#34D399);border-radius:2px}
+.supp-price{font-size:14px;font-weight:800;color:#0F172A}
+/* 설문 */
+.quiz-wrap{max-width:620px}
+.quiz-card{background:#fff;border-radius:14px;border:1px solid #E2E8F0;padding:28px}
+.progress-row{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.progress-bg{flex:1;height:4px;background:#E2E8F0;border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#334155,#10B981);border-radius:2px;transition:width .4s}
+.q-num{font-size:11px;color:#64748B;font-weight:700}
+.q-title{font-size:17px;font-weight:800;color:#0F172A;margin-bottom:5px;line-height:1.4}
+.q-hint{font-size:12px;color:#64748B;margin-bottom:20px}
+.q-opts{display:flex;flex-direction:column;gap:8px}
+.q-opt{padding:13px 16px;border-radius:9px;border:1.5px solid #E2E8F0;background:#F8FAFC;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;color:#374151}
+.q-opt:hover{border-color:#10B981;background:#F0FDF4;color:#0F172A}
+.q-opt.selected{border-color:#10B981;background:#ECFDF5;color:#059669;font-weight:700}
+.q-opt-icon{font-size:20px;flex-shrink:0}
+.q-opts-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* 섹션 */
+.section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:14px;font-weight:800;color:#0F172A}
+.section-sub{font-size:12px;color:#64748B;margin-top:2px}
+/* 배지 */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700}
+.badge-green{background:#ECFDF5;color:#059669}
+.badge-slate{background:#F1F5F9;color:#334155}
+.badge-red{background:#FEF2F2;color:#DC2626}
+.badge-amber{background:#FFFBEB;color:#D97706}
+/* 히스토리 */
+.hist-item{display:flex;align-items:center;gap:12px;padding:12px;background:#F8FAFC;border-radius:9px;border:1px solid #E2E8F0;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.hist-item:hover{border-color:#10B981;background:#F0FDF4}
+/* admin 차트 */
+.admin-card{background:#fff;border-radius:12px;border:1px solid #E2E8F0;padding:18px}
+/* 필터 */
+.filter-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.pill{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid #E2E8F0;background:#fff;color:#64748B;transition:all .15s}
+.pill.active{border-color:#10B981;background:#ECFDF5;color:#059669}
+.pill:hover:not(.active){border-color:#334155;color:#334155}
+/* toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#0F172A;color:#fff;padding:10px 18px;border-radius:9px;font-size:13px;font-weight:600;z-index:9999;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+/* 모달 */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:16px;padding:28px;width:460px;max-width:90vw;max-height:80vh;overflow-y:auto;animation:fadeInScale .2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+const { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+        BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line,
+        ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
+
+// ─── 데이터 ───────────────────────────────────────────────────────────────
+const HEALTH_AREAS = ['면역력','소화·장','수면·스트레스','혈관·심장','피부·미용','에너지·피로'];
+const SUPPLEMENTS = [
+  {id:1,name:'멀티비타민 프리미엄',brand:'웰핏 오리진',price:52000,emoji:'💊',score:96,category:'면역력',tags:['비타민C','아연','셀레늄'],color:'#ECFDF5'},
+  {id:2,name:'오메가3 고함량 TG형',brand:'웰핏 오리진',price:68000,emoji:'🐟',score:92,category:'혈관·심장',tags:['EPA','DHA','비타민E'],color:'#EFF6FF'},
+  {id:3,name:'유산균 50억 CFU',brand:'바이오 랩',price:45000,emoji:'🧫',score:88,category:'소화·장',tags:['락토바실러스','프리바이오틱스'],color:'#FFF7ED'},
+  {id:4,name:'마그네슘 글리시네이트',brand:'뉴트리 사이언스',price:38000,emoji:'✨',score:90,category:'수면·스트레스',tags:['마그네슘','비타민B6'],color:'#F5F3FF'},
+  {id:5,name:'콜라겐 펩타이드 5000mg',brand:'스킨 뉴트리',price:72000,emoji:'🌸',score:85,category:'피부·미용',tags:['저분자콜라겐','비타민C'],color:'#FFF0F6'},
+  {id:6,name:'코엔자임Q10 100mg',brand:'셀 에너지',price:58000,emoji:'⚡',score:89,category:'에너지·피로',tags:['CoQ10','비타민B군'],color:'#FFFBEB'},
+  {id:7,name:'아연 비스글리시네이트',brand:'뉴트리 사이언스',price:29000,emoji:'🛡️',score:87,category:'면역력',tags:['아연','구리'],color:'#ECFDF5'},
+  {id:8,name:'루테인+지아잔틴',brand:'아이 케어',price:43000,emoji:'👁️',score:84,category:'에너지·피로',tags:['루테인','제아잔틴'],color:'#FFFBEB'},
+];
+const QUIZ_DATA = [
+  {id:1,q:'나이 및 성별 그룹을 선택해주세요',hint:'맞춤 추천 기준으로 활용됩니다',opts:[{e:'🧑',t:'20대 남성'},{e:'👩',t:'20대 여성'},{e:'🧔',t:'30~40대 남성'},{e:'👱‍♀️',t:'30~40대 여성'}]},
+  {id:2,q:'평소 자주 느끼는 증상은? (해당하는 것 선택)',hint:'다중 선택 가능 — 점수에 가중치가 적용됩니다',opts:[{e:'😴',t:'만성 피로·졸림'},{e:'🤧',t:'면역 저하·잦은 감기'},{e:'😤',t:'소화불량·더부룩함'},{e:'💤',t:'수면 장애·스트레스'}]},
+  {id:3,q:'현재 규칙적으로 복용 중인 영양제가 있나요?',hint:'중복 섭취 방지에 활용됩니다',opts:[{e:'❌',t:'없음'},{e:'🟡',t:'1~2가지'},{e:'🟠',t:'3~4가지'},{e:'🔴',t:'5가지 이상'}]},
+  {id:4,q:'식습관을 가장 잘 표현한 것은?',hint:'영양 부족 영역 추정에 활용됩니다',opts:[{e:'🥗',t:'채식 위주'},{e:'🍖',t:'육류 위주'},{e:'🍕',t:'불규칙·인스턴트 多'},{e:'⚖️',t:'균형 잡힌 편'}]},
+  {id:5,q:'주 단위 운동 빈도는?',hint:'에너지·회복 관련 추천에 활용됩니다',opts:[{e:'🛋️',t:'거의 없음'},{e:'🚶',t:'1~2회 가벼운 운동'},{e:'🏃',t:'3~4회 규칙적 운동'},{e:'💪',t:'5회 이상 고강도 운동'}]},
+  {id:6,q:'피부 상태를 선택해주세요',hint:'피부·미용 관련 영양제 추천에 활용됩니다',opts:[{e:'✨',t:'건강하고 맑음'},{e:'🌵',t:'건조·각질'},{e:'🔴',t:'트러블·여드름'},{e:'😐',t:'칙칙하고 탄력 저하'}]},
+];
+const HISTORY = [
+  {id:1,date:'2026.02.14',areas:{면역력:82,소화:65,수면:72,혈관:55,피부:78,에너지:68},avg:70},
+  {id:2,date:'2025.12.03',areas:{면역력:74,소화:58,수면:65,혈관:50,피부:70,에너지:60},avg:63},
+  {id:3,date:'2025.09.18',areas:{면역력:66,소화:52,수면:58,혈관:45,피부:62,에너지:54},avg:56},
+];
+const ADMIN_DIST = [{name:'면역력',value:28},{name:'소화·장',value:18},{name:'수면',value:22},{name:'혈관',value:12},{name:'피부',value:12},{name:'에너지',value:8}];
+const PIE_COLORS = ['#10B981','#3B82F6','#8B5CF6','#F59E0B','#EC4899','#6B7280'];
+
+function Toast({msg,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,2200);return()=>clearTimeout(t);},[]);
+  return <div className="toast">✓ {msg}</div>;
+}
+
+function SuppModal({item,onClose,onCart}){
+  return(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:52,textAlign:'center',marginBottom:12}}>{item.emoji}</div>
+        <div style={{textAlign:'center',marginBottom:18}}>
+          <div style={{fontSize:18,fontWeight:900,marginBottom:3}}>{item.name}</div>
+          <div style={{fontSize:12,color:'#64748B'}}>{item.brand}</div>
+          <div style={{marginTop:8,display:'flex',justifyContent:'center',gap:6,flexWrap:'wrap'}}>
+            {item.tags.map(t=><span key={t} className="badge badge-green">{t}</span>)}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button className="btn btn-outline" style={{flex:1}} onClick={onClose}>닫기</button>
+          <button className="btn btn-primary" style={{flex:2}} onClick={()=>{onCart(item);onClose();}}>장바구니 담기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MainPage({diagResult, onNav, cart}){
+  const lineData = [
+    {name:'9월',평균:56},{name:'12월',평균:63},{name:'2월',평균:70}
+  ];
+  return(
+    <div>
+      {/* 상단 배너 */}
+      <div style={{background:'linear-gradient(135deg,#0F172A 0%,#1E293B 60%,#334155 100%)',borderRadius:14,padding:'24px 28px',color:'#fff',marginBottom:20,display:'flex',alignItems:'center',gap:24,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',right:24,top:-10,fontSize:120,opacity:.07}}>🧬</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:700,color:'#10B981',letterSpacing:1.5,marginBottom:8}}>AI 헬스케어 진단 플랫폼</div>
+          <div style={{fontSize:22,fontWeight:900,marginBottom:8,lineHeight:1.3}}>건강 상태 진단 → 맞춤 영양제 추천<br/>모든 것을 한 곳에서</div>
+          <div style={{fontSize:13,opacity:.8,lineHeight:1.6}}>20문항 건강 설문 · 협업 필터링 추천 · 진단 히스토리 관리</div>
+          <div style={{marginTop:16,display:'flex',gap:8}}>
+            <button className="btn btn-primary" onClick={()=>onNav('diagnosis')}>건강 진단 시작</button>
+            <button className="btn btn-outline" style={{borderColor:'rgba(255,255,255,.3)',color:'#fff',background:'transparent'}} onClick={()=>onNav('products')}>맞춤 영양제 보기</button>
+          </div>
+        </div>
+        {diagResult && (
+          <div style={{background:'rgba(255,255,255,.08)',borderRadius:12,padding:'16px 20px',minWidth:180,border:'1px solid rgba(255,255,255,.12)'}}>
+            <div style={{fontSize:11,color:'#94A3B8',marginBottom:8}}>최근 진단 결과</div>
+            {HEALTH_AREAS.slice(0,3).map((a,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <div style={{flex:1,height:3,background:'rgba(255,255,255,.15)',borderRadius:2,overflow:'hidden'}}>
+                  <div style={{width:`${diagResult.scores[i]}%`,height:'100%',background:'#10B981',borderRadius:2}} />
+                </div>
+                <span style={{fontSize:11,color:'#94A3B8',minWidth:24,textAlign:'right'}}>{diagResult.scores[i]}</span>
+              </div>
+            ))}
+            <div style={{fontSize:11,color:'#10B981',fontWeight:700,marginTop:8}}>전체 평균 {Math.round(diagResult.scores.reduce((a,b)=>a+b,0)/diagResult.scores.length)}점</div>
+          </div>
+        )}
+      </div>
+
+      {/* KPI */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+        {[
+          {label:'누적 진단 완료',val:'84,291',sub:'이번 달 +2,841',dot:'#10B981'},
+          {label:'등록 영양제',val:'1,847',sub:'카테고리 6개',dot:'#3B82F6'},
+          {label:'추천 정확도',val:'94.2%',sub:'협업 필터링 기준',dot:'#8B5CF6'},
+          {label:'재방문율',val:'71%',sub:'30일 내 재진단',dot:'#F59E0B'},
+        ].map((k,i)=>(
+          <div key={i} className="kpi-card">
+            <div className="kpi-label"><span className="kpi-dot" style={{background:k.dot}} />{k.label}</div>
+            <div className="kpi-val">{k.val}</div>
+            <div className="kpi-sub">{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div className="card">
+          <div className="section-hd"><div><div className="section-title">건강 점수 추이</div><div className="section-sub">회차별 평균 점수 변화</div></div></div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={lineData} margin={{top:5,right:10,bottom:5,left:-25}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{fontSize:11,fill:'#64748B'}} />
+              <YAxis domain={[40,80]} tick={{fontSize:10,fill:'#64748B'}} />
+              <Tooltip contentStyle={{borderRadius:9,fontSize:12,border:'1px solid #E2E8F0'}} />
+              <Line type="monotone" dataKey="평균" stroke="#10B981" strokeWidth={2.5} dot={{r:4,fill:'#10B981'}} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="section-hd"><div><div className="section-title">이번 달 인기 영양제</div><div className="section-sub">진단 결과 기반 추천 순위</div></div></div>
+          {SUPPLEMENTS.slice(0,4).map((s,i)=>(
+            <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<3?'1px solid #F1F5F9':'none'}}>
+              <div style={{width:28,height:28,borderRadius:6,background:'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',font:'700 12px Pretendard',color:'#334155'}}>{i+1}</div>
+              <div style={{fontSize:18}}>{s.emoji}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:'#0F172A'}}>{s.name}</div>
+                <div style={{fontSize:11,color:'#64748B'}}>{s.category}</div>
+              </div>
+              <span className="badge badge-green">적합도 {s.score}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiagnosisPage({onDone}){
+  const [step,setStep]=useState(0);
+  const [answers,setAnswers]=useState({});
+  const total=QUIZ_DATA.length;
+  const cur=QUIZ_DATA[step];
+  const progress=((step+(answers[cur.id]!==undefined?1:0))/total)*100;
+
+  const select=(idx)=>{
+    const next={...answers,[cur.id]:idx};
+    setAnswers(next);
+    if(step<total-1){setTimeout(()=>setStep(s=>s+1),320);}
+    else{
+      const scores=HEALTH_AREAS.map((_,i)=>55+Math.round(Math.random()*38));
+      setTimeout(()=>onDone({scores,answers:next}),380);
+    }
+  };
+
+  return(
+    <div className="quiz-wrap">
+      <div style={{marginBottom:18}}>
+        <div style={{fontSize:16,fontWeight:800,color:'#0F172A',marginBottom:3}}>건강 진단 설문</div>
+        <div style={{fontSize:12,color:'#64748B'}}>솔직하게 답변할수록 더 정확한 영양제를 추천받을 수 있습니다</div>
+      </div>
+
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {QUIZ_DATA.map((_,i)=>(
+          <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=step?'#10B981':'#E2E8F0',transition:'background .3s'}} />
+        ))}
+      </div>
+
+      <div className="quiz-card">
+        <div style={{fontSize:11,color:'#64748B',fontWeight:700,marginBottom:12}}>질문 {step+1} / {total}</div>
+        <div className="q-title">{cur.q}</div>
+        <div className="q-hint">{cur.hint}</div>
+        <div className="q-opts-grid">
+          {cur.opts.map((o,i)=>(
+            <button key={i} className={`q-opt${answers[cur.id]===i?' selected':''}`} onClick={()=>select(i)}>
+              <span className="q-opt-icon">{o.e}</span>
+              {o.t}
+            </button>
+          ))}
+        </div>
+        {step>0 && (
+          <button style={{marginTop:14,background:'none',border:'none',fontSize:12,color:'#94A3B8',cursor:'pointer',fontWeight:600}} onClick={()=>setStep(s=>Math.max(0,s-1))}>← 이전 질문</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductsPage({diagResult, onCart}){
+  const [activeArea,setActiveArea]=useState('전체');
+  const [modal,setModal]=useState(null);
+  const areas=['전체','면역력','소화·장','수면·스트레스','혈관·심장','피부·미용','에너지·피로'];
+  const filtered=SUPPLEMENTS.filter(s=>activeArea==='전체'||s.category===activeArea||areas.find(a=>a.startsWith(s.category)));
+  return(
+    <div>
+      <div className="section-hd" style={{marginBottom:16}}>
+        <div><div className="section-title">맞춤 영양제</div><div className="section-sub">건강 진단 결과 기반 추천 ({filtered.length}개)</div></div>
+      </div>
+      <div className="filter-pills">
+        {areas.map(a=><button key={a} className={`pill${activeArea===a?' active':''}`} onClick={()=>setActiveArea(a)}>{a}</button>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+        {filtered.map(s=>(
+          <div key={s.id} className="supp-card" onClick={()=>setModal(s)}>
+            <div className="supp-img" style={{background:s.color}}>{s.emoji}</div>
+            <div className="supp-body">
+              <span className="badge badge-slate" style={{marginBottom:6}}>{s.category}</span>
+              <div className="supp-name">{s.name}</div>
+              <div className="supp-brand">{s.brand}</div>
+              <div className="supp-score">
+                <span style={{fontSize:10,color:'#64748B'}}>추천도</span>
+                <div className="score-bar-bg"><div className="score-bar" style={{width:`${s.score}%`}} /></div>
+                <span style={{fontSize:10,fontWeight:700,color:'#059669'}}>{s.score}%</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
+                <div className="supp-price">{s.price.toLocaleString()}원</div>
+                <button className="btn btn-primary btn-sm" onClick={e=>{e.stopPropagation();onCart(s);}}>담기</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {modal && <SuppModal item={modal} onClose={()=>setModal(null)} onCart={onCart} />}
+    </div>
+  );
+}
+
+function AdminPage(){
+  const [activeTab,setActiveTab]=useState('개요');
+  const tabs=['개요','설문 분포','추천 패턴','영양제 순위'];
+  const barData=ADMIN_DIST.map(d=>({name:d.name,count:d.value*120+Math.round(Math.random()*200)}));
+  const trendData=[
+    {m:'9월',진단:2100,추천:1680},{m:'10월',진단:2450,추천:2010},{m:'11월',진단:3200,추천:2720},
+    {m:'12월',진단:3800,추천:3200},{m:'1월',진단:4200,추천:3650},{m:'2월',진단:4900,추천:4320},
+  ];
+  return(
+    <div>
+      <div className="section-hd" style={{marginBottom:14}}>
+        <div><div className="section-title">어드민 분석 대시보드</div><div className="section-sub">진단 데이터 현황 및 추천 패턴 분석</div></div>
+        <span className="badge badge-green">실시간</span>
+      </div>
+      <div className="inline-tabs">
+        {tabs.map(t=><button key={t} className={`inline-tab${activeTab===t?' active':''}`} onClick={()=>setActiveTab(t)}>{t}</button>)}
+      </div>
+
+      {activeTab==='개요' && (
+        <>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
+            {[{l:'오늘 진단',v:'2,841',c:'#10B981'},{l:'이번 주 추천',v:'18,429',c:'#3B82F6'},{l:'장바구니 전환',v:'62.4%',c:'#8B5CF6'},{l:'평균 설문 시간',v:'4.2분',c:'#F59E0B'}].map((k,i)=>(
+              <div key={i} className="kpi-card" style={{padding:14}}>
+                <div className="kpi-label"><span className="kpi-dot" style={{background:k.c}}/>{k.l}</div>
+                <div className="kpi-val" style={{fontSize:22,color:k.c}}>{k.v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="admin-card">
+            <div className="section-title" style={{marginBottom:14}}>월별 진단·추천 트렌드</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={trendData} margin={{top:5,right:10,bottom:5,left:-20}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="m" tick={{fontSize:11,fill:'#64748B'}} />
+                <YAxis tick={{fontSize:10,fill:'#64748B'}} />
+                <Tooltip contentStyle={{borderRadius:9,fontSize:12}} />
+                <Line type="monotone" dataKey="진단" stroke="#334155" strokeWidth={2} dot={{r:3}} />
+                <Line type="monotone" dataKey="추천" stroke="#10B981" strokeWidth={2} dot={{r:3}} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+      {activeTab==='설문 분포' && (
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div className="admin-card">
+            <div className="section-title" style={{marginBottom:14}}>건강 고민 분포</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={ADMIN_DIST} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({name,value})=>`${name} ${value}%`} labelLine={false} fontSize={10}>
+                  {ADMIN_DIST.map((_,i)=><Cell key={i} fill={PIE_COLORS[i]} />)}
+                </Pie>
+                <Tooltip formatter={(v)=>`${v}%`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="admin-card">
+            <div className="section-title" style={{marginBottom:14}}>카테고리별 진단 건수</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={barData} margin={{top:5,right:5,bottom:5,left:-20}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="name" tick={{fontSize:9,fill:'#64748B'}} />
+                <YAxis tick={{fontSize:10,fill:'#64748B'}} />
+                <Tooltip contentStyle={{borderRadius:9,fontSize:12}} />
+                <Bar dataKey="count" fill="#10B981" radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+      {activeTab==='추천 패턴' && (
+        <div className="admin-card">
+          <div className="section-title" style={{marginBottom:14}}>협업 필터링 추천 패턴 분석</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+            {[{label:'평균 추천 영양제 수',val:'3.8개'},{label:'협업 필터 적중률',val:'81.2%'},{label:'콘텐츠 필터 적중률',val:'76.5%'}].map((k,i)=>(
+              <div key={i} style={{background:'#F8FAFC',borderRadius:9,padding:14,border:'1px solid #E2E8F0'}}>
+                <div style={{fontSize:11,color:'#64748B',marginBottom:6}}>{k.label}</div>
+                <div style={{fontSize:20,fontWeight:900,color:'#0F172A'}}>{k.val}</div>
+              </div>
+            ))}
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={SUPPLEMENTS.map(s=>({name:s.name.slice(0,6),추천수:Math.round(s.score*28)}))} margin={{top:5,right:5,bottom:5,left:-20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{fontSize:9,fill:'#64748B'}} />
+              <YAxis tick={{fontSize:10,fill:'#64748B'}} />
+              <Tooltip contentStyle={{borderRadius:9,fontSize:12}} />
+              <Bar dataKey="추천수" fill="#8B5CF6" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {activeTab==='영양제 순위' && (
+        <div className="admin-card">
+          <div className="section-title" style={{marginBottom:14}}>영양제 추천 순위</div>
+          {SUPPLEMENTS.map((s,i)=>(
+            <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:i<SUPPLEMENTS.length-1?'1px solid #F1F5F9':'none'}}>
+              <div style={{width:28,fontWeight:800,fontSize:14,color:i<3?'#10B981':'#94A3B8',textAlign:'center'}}>{i+1}</div>
+              <div style={{fontSize:22}}>{s.emoji}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700}}>{s.name}</div>
+                <div style={{fontSize:11,color:'#64748B'}}>{s.brand} · {s.category}</div>
+              </div>
+              <div style={{width:100,height:4,background:'#E2E8F0',borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:`${s.score}%`,height:'100%',background:'#10B981',borderRadius:2}} />
+              </div>
+              <span style={{fontSize:12,fontWeight:700,color:'#059669',minWidth:36}}>{s.score}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryPage({diagResult, onNav}){
+  const radarData = diagResult
+    ? HEALTH_AREAS.map((a,i)=>({subject:a.split('·')[0], A:diagResult.scores[i], fullMark:100}))
+    : HEALTH_AREAS.map((a,i)=>({subject:a.split('·')[0], A:HISTORY[0].scores?.[i]||70, fullMark:100}));
+
+  return(
+    <div>
+      <div className="section-hd" style={{marginBottom:16}}>
+        <div><div className="section-title">건강 히스토리</div><div className="section-sub">회차별 건강 점수 추이 및 진단 이력</div></div>
+        <button className="btn btn-primary btn-sm" onClick={()=>onNav('diagnosis')}>재진단</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div className="card">
+          <div className="section-title" style={{marginBottom:14}}>최근 건강 점수 레이더</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <RadarChart data={radarData}>
+              <PolarGrid stroke="#E2E8F0" />
+              <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:'#64748B'}} />
+              <PolarRadiusAxis angle={90} domain={[0,100]} tick={false} />
+              <Radar dataKey="A" stroke="#10B981" fill="#10B981" fillOpacity={0.2} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="section-title" style={{marginBottom:14}}>영역별 점수 비교</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={HEALTH_AREAS.map((a,i)=>({name:a.split('·')[0],점수:diagResult?diagResult.scores[i]:HISTORY[0].areas?Object.values(HISTORY[0].areas)[i]:70}))} margin={{top:5,right:5,bottom:5,left:-20}}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{fontSize:9,fill:'#64748B'}} />
+              <YAxis domain={[0,100]} tick={{fontSize:10,fill:'#64748B'}} />
+              <Tooltip contentStyle={{borderRadius:9,fontSize:12}} />
+              <Bar dataKey="점수" fill="#334155" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div>
+        {HISTORY.map((h,i)=>(
+          <div key={h.id} className="hist-item">
+            <div style={{width:36,height:36,borderRadius:8,background:'#F0FDF4',border:'1px solid #D1FAE5',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'#059669',flexShrink:0}}>{i+1}회</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#0F172A'}}>{h.date} 진단</div>
+              <div style={{fontSize:11,color:'#64748B',marginTop:2}}>전체 평균 {h.avg}점</div>
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              {Object.values(h.areas).map((v,j)=>(
+                <div key={j} style={{width:30,height:30,borderRadius:6,background:'#F8FAFC',border:'1px solid #E2E8F0',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'#334155'}}>{v}</div>
+              ))}
+            </div>
+            <button className="btn btn-outline btn-sm">보기</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── 앱 ───────────────────────────────────────────────────────────────────
+function App(){
+  const [page,setPage]=useState('main');
+  const [diagResult,setDiagResult]=useState(null);
+  const [cart,setCart]=useState([]);
+  const [toast,setToast]=useState(null);
+
+  const navItems=[
+    {key:'main',icon:'🏠',label:'건강 진단 홈'},
+    {key:'diagnosis',icon:'🔬',label:'건강 진단'},
+    {key:'products',icon:'💊',label:'맞춤 영양제'},
+    {key:'admin',icon:'📊',label:'어드민 분석'},
+    {key:'history',icon:'📈',label:'건강 히스토리'},
+  ];
+
+  const addToCart=(item)=>{
+    setCart(c=>{
+      const ex=c.find(i=>i.id===item.id);
+      if(ex) return c.map(i=>i.id===item.id?{...i,qty:i.qty+1}:i);
+      return [...c,{...item,qty:1}];
+    });
+    setToast(`${item.name} 장바구니에 담겼습니다`);
+  };
+
+  const pageTitle={main:'건강 진단 홈',diagnosis:'건강 진단',products:'맞춤 영양제',admin:'어드민 분석',history:'건강 히스토리'};
+
+  return(
+    <div className="layout">
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-wrap">
+            <div className="logo-icon">W</div>
+            <div>
+              <div className="logo-name">웰핏</div>
+              <div className="logo-sub">헬스케어 통합 플랫폼</div>
+            </div>
+          </div>
+        </div>
+        <div className="sidebar-nav">
+          <div className="nav-section-label">메뉴</div>
+          {navItems.map(n=>(
+            <button key={n.key} className={`nav-item${page===n.key?' active':''}`} onClick={()=>setPage(n.key)}>
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+              {n.key==='products' && cart.length>0 && <span className="nav-badge">{cart.length}</span>}
+              {n.key==='admin' && <span className="nav-badge-gray">NEW</span>}
+            </button>
+          ))}
+        </div>
+        {diagResult && (
+          <div style={{margin:'0 8px 8px',padding:'12px',background:'#F0FDF4',borderRadius:10,border:'1px solid #D1FAE5'}}>
+            <div style={{fontSize:10,color:'#059669',fontWeight:700,marginBottom:6}}>최근 진단 결과</div>
+            <div style={{fontSize:18,fontWeight:900,color:'#0F172A'}}>평균 {Math.round(diagResult.scores.reduce((a,b)=>a+b,0)/diagResult.scores.length)}점</div>
+            <div style={{fontSize:11,color:'#64748B',marginTop:2}}>건강 지수</div>
+          </div>
+        )}
+        <div className="sidebar-footer">
+          <div className="user-row">
+            <div className="user-av">박</div>
+            <div>
+              <div className="user-name">박지수 님</div>
+              <div className="user-tag">프리미엄 회원</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main className="main">
+        <div className="topbar">
+          <div className="topbar-left">
+            <span className="breadcrumb">웰핏 / <span>{pageTitle[page]}</span></span>
+          </div>
+          <div className="topbar-right">
+            <button className="btn btn-outline btn-sm" onClick={()=>setPage('diagnosis')}>🔬 재진단</button>
+            <button className="btn btn-primary btn-sm" onClick={()=>setPage('products')}>💊 장바구니 {cart.length>0?`(${cart.length})`:''}</button>
+          </div>
+        </div>
+        <div className="content">
+          {page==='main' && <MainPage diagResult={diagResult} onNav={setPage} cart={cart} />}
+          {page==='diagnosis' && <DiagnosisPage onDone={(r)=>{setDiagResult(r);setPage('products');}} />}
+          {page==='products' && <ProductsPage diagResult={diagResult} onCart={addToCart} />}
+          {page==='admin' && <AdminPage />}
+          {page==='history' && <HistoryPage diagResult={diagResult} onNav={setPage} />}
+        </div>
+      </main>
+
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

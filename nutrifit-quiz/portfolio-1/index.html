@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스킨핏 — 피부 타입 진단 스킨케어 추천</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://unpkg.com/react-is@18.3.1/umd/react-is.development.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F7FAFF;color:#1A2C4E;word-break:keep-all;overflow-wrap:break-word}
+.layout{display:flex;height:100vh;overflow:hidden}
+/* 사이드바 */
+.sidebar{width:260px;min-width:260px;background:#fff;border-right:1px solid #E2ECF7;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-logo{padding:24px 20px 16px;border-bottom:1px solid #E2ECF7}
+.logo-mark{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#0066CC,#0099FF);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700}
+.logo-text{font-size:18px;font-weight:800;color:#0066CC;letter-spacing:-0.5px}
+.logo-sub{font-size:11px;color:#6B7280;margin-top:1px}
+.sidebar-section{padding:12px 12px 8px}
+.sidebar-section-label{font-size:10px;font-weight:700;color:#9CA3AF;letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .15s;font-size:14px;font-weight:500;color:#4B5563;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:#F0F7FF;color:#0066CC}
+.nav-item.active{background:#EBF5FF;color:#0066CC;font-weight:700}
+.nav-item .nav-icon{font-size:17px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:#0066CC;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.sidebar-footer{margin-top:auto;padding:16px;border-top:1px solid #E2ECF7}
+.user-card{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#0066CC,#0099FF);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px}
+.user-info-name{font-size:13px;font-weight:700;color:#1A2C4E}
+.user-info-type{font-size:11px;color:#0066CC;font-weight:600}
+/* 메인 */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:60px;background:#fff;border-bottom:1px solid #E2ECF7;display:flex;align-items:center;justify-content:space-between;padding:0 28px}
+.topbar-title{font-size:17px;font-weight:800;color:#1A2C4E}
+.topbar-actions{display:flex;align-items:center;gap:12px}
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:#0066CC;color:#fff}
+.btn-primary:hover{background:#0055BB}
+.btn-outline{background:#fff;color:#0066CC;border:1.5px solid #0066CC}
+.btn-outline:hover{background:#EBF5FF}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:7px}
+.content{flex:1;overflow-y:auto;padding:28px}
+/* 카드 */
+.card{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,102,204,.08),0 4px 16px rgba(0,102,204,.05);padding:22px}
+.card-sm{padding:16px}
+/* 그리드 */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* 배지 */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-blue{background:#EBF5FF;color:#0066CC}
+.badge-green{background:#ECFDF5;color:#059669}
+.badge-pink{background:#FFF0F6;color:#DB2777}
+.badge-yellow{background:#FFFBEB;color:#D97706}
+.badge-purple{background:#F5F3FF;color:#7C3AED}
+/* 피부 타입 카드 */
+.skin-type-card{border-radius:14px;padding:20px;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;border:2px solid transparent}
+.skin-type-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.skin-type-card.selected{border-color:#0066CC}
+/* 제품 카드 */
+.product-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,102,204,.06),0 4px 12px rgba(0,102,204,.04);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.product-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,102,204,.12)}
+.product-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:52px}
+.product-info{padding:14px}
+.product-name{font-size:14px;font-weight:700;color:#1A2C4E;margin-bottom:4px}
+.product-brand{font-size:12px;color:#6B7280;margin-bottom:8px}
+.product-price{font-size:16px;font-weight:800;color:#0066CC}
+.product-fit{display:flex;align-items:center;gap:6px;margin-top:8px}
+.fit-bar-wrap{flex:1;height:6px;background:#E8F4FF;border-radius:3px;overflow:hidden}
+.fit-bar{height:100%;background:linear-gradient(90deg,#0066CC,#0099FF);border-radius:3px}
+/* 설문 */
+.quiz-step{background:#fff;border-radius:16px;padding:32px;box-shadow:0 2px 8px rgba(0,102,204,.08)}
+.quiz-progress{height:6px;background:#E8F4FF;border-radius:3px;overflow:hidden;margin-bottom:28px}
+.quiz-progress-bar{height:100%;background:linear-gradient(90deg,#0066CC,#0099FF);border-radius:3px;transition:width .4s ease}
+.quiz-q{font-size:20px;font-weight:800;color:#1A2C4E;margin-bottom:8px;line-height:1.4}
+.quiz-sub{font-size:14px;color:#6B7280;margin-bottom:24px}
+.quiz-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.quiz-option{padding:16px 18px;border:2px solid #E2ECF7;border-radius:12px;cursor:pointer;transition:all .15s;text-align:left;background:#fff;font-size:14px;font-weight:500;color:#374151}
+.quiz-option:hover{border-color:#0066CC;background:#F0F7FF;color:#0066CC}
+.quiz-option.selected{border-color:#0066CC;background:#EBF5FF;color:#0066CC;font-weight:700}
+.quiz-option .opt-emoji{font-size:22px;margin-bottom:6px;display:block}
+/* 결과 */
+.result-hero{background:linear-gradient(135deg,#0066CC 0%,#0088DD 50%,#0099FF 100%);border-radius:16px;padding:28px;color:#fff;margin-bottom:20px}
+.result-type-badge{display:inline-block;background:rgba(255,255,255,.2);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:700;margin-bottom:12px;backdrop-filter:blur(4px)}
+.result-type-name{font-size:28px;font-weight:900;margin-bottom:8px}
+.result-type-desc{font-size:14px;opacity:.9;line-height:1.6}
+.result-scores{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
+.score-item{background:rgba(255,255,255,.15);border-radius:10px;padding:12px 8px;text-align:center;backdrop-filter:blur(4px)}
+.score-label{font-size:11px;opacity:.85;margin-bottom:4px}
+.score-val{font-size:22px;font-weight:900}
+/* 장바구니 */
+.cart-item{display:flex;align-items:center;gap:16px;padding:16px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,102,204,.06);margin-bottom:10px}
+.cart-img{width:64px;height:64px;border-radius:10px;background:#F0F7FF;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.cart-name{font-size:14px;font-weight:700;color:#1A2C4E;margin-bottom:3px}
+.cart-brand{font-size:12px;color:#6B7280;margin-bottom:8px}
+.qty-ctrl{display:flex;align-items:center;gap:8px}
+.qty-btn{width:28px;height:28px;border-radius:6px;border:1.5px solid #D1D5DB;background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#374151;transition:all .15s}
+.qty-btn:hover{border-color:#0066CC;color:#0066CC}
+.qty-num{font-size:14px;font-weight:700;color:#1A2C4E;min-width:20px;text-align:center}
+.cart-price{margin-left:auto;text-align:right}
+.cart-price-val{font-size:16px;font-weight:800;color:#0066CC}
+.cart-summary{background:#fff;border-radius:14px;padding:22px;box-shadow:0 1px 4px rgba(0,102,204,.08)}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #F3F4F6;font-size:14px}
+.summary-row:last-child{border-bottom:none;font-weight:800;font-size:16px;color:#0066CC}
+/* 토스트 */
+.toast{position:fixed;bottom:28px;right:28px;background:#0066CC;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,102,204,.3);z-index:9999;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+/* stat */
+.stat-card{background:#fff;border-radius:14px;padding:20px;box-shadow:0 1px 4px rgba(0,102,204,.08)}
+.stat-label{font-size:12px;color:#6B7280;font-weight:600;margin-bottom:6px}
+.stat-val{font-size:28px;font-weight:900;color:#0066CC}
+.stat-sub{font-size:12px;color:#6B7280;margin-top:4px}
+/* 태그 */
+.skin-tag{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;margin:3px}
+/* routine */
+.routine-step{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid #F3F4F6}
+.routine-step:last-child{border-bottom:none}
+.routine-num{width:32px;height:32px;border-radius:50%;background:#0066CC;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.routine-name{font-size:14px;font-weight:700;color:#1A2C4E;margin-bottom:3px}
+.routine-desc{font-size:13px;color:#6B7280}
+/* 섹션 헤더 */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:16px;font-weight:800;color:#1A2C4E}
+.section-sub{font-size:13px;color:#6B7280;margin-top:2px}
+/* filter bar */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.filter-chip{padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid #D1D5DB;background:#fff;color:#4B5563;transition:all .15s}
+.filter-chip.active{border-color:#0066CC;background:#0066CC;color:#fff}
+.filter-chip:hover:not(.active){border-color:#0066CC;color:#0066CC}
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:20px;padding:32px;width:480px;max-width:90vw;max-height:80vh;overflow-y:auto;animation:fadeInScale .2s ease}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } = Recharts;
+
+// ─── 데이터 ───────────────────────────────────────────────────────────────
+const SKIN_TYPES = {
+  dry: { label: '건성 피부', emoji: '🌵', color: '#D97706', bg: '#FFFBEB', desc: '수분 부족으로 당김과 각질이 자주 발생하는 피부 타입', scores: [{s:'수분',v:28},{s:'유분',v:22},{s:'민감도',v:55},{s:'탄력',v:60},{s:'모공',v:20}] },
+  oily: { label: '지성 피부', emoji: '💧', color: '#059669', bg: '#ECFDF5', desc: '피지 분비가 왕성해 번들거림과 모공 확장이 나타나는 피부 타입', scores: [{s:'수분',v:72},{s:'유분',v:88},{s:'민감도',v:40},{s:'탄력',v:65},{s:'모공',v:82}] },
+  combination: { label: '복합성 피부', emoji: '☯️', color: '#0066CC', bg: '#EBF5FF', desc: 'T존은 지성, U존은 건성으로 부위마다 관리법이 다른 피부 타입', scores: [{s:'수분',v:52},{s:'유분',v:58},{s:'민감도',v:48},{s:'탄력',v:68},{s:'모공',v:55}] },
+  sensitive: { label: '민감성 피부', emoji: '🌸', color: '#DB2777', bg: '#FFF0F6', desc: '외부 자극에 쉽게 반응하며 붉어짐과 가려움이 잦은 피부 타입', scores: [{s:'수분',v:45},{s:'유분',v:35},{s:'민감도',v:90},{s:'탄력',v:50},{s:'모공',v:30}] },
+  normal: { label: '중성 피부', emoji: '✨', color: '#7C3AED', bg: '#F5F3FF', desc: '수분과 유분 균형이 잘 맞아 특별한 트러블 없이 건강한 피부 타입', scores: [{s:'수분',v:68},{s:'유분',v:62},{s:'민감도',v:30},{s:'탄력',v:75},{s:'모공',v:40}] },
+};
+const QUIZ_DATA = [
+  { id:1, q:'세안 후 아무것도 바르지 않았을 때 피부 상태는?', sub:'기초 피부 특성을 파악합니다', opts:[{e:'🌵',t:'많이 당기고 건조함'},{e:'💧',t:'금방 번들거림'},{e:'☯️',t:'T존만 번들거리고 볼은 건조'},{e:'✨',t:'특별한 불편함 없음'}] },
+  { id:2, q:'모공이 잘 보이는 부위는?', sub:'피지 분비 패턴을 확인합니다', opts:[{e:'🔍',t:'거의 보이지 않음'},{e:'👃',t:'코 주변에만 보임'},{e:'😮',t:'이마와 코 모두'},{e:'😱',t:'볼까지 전체적으로 넓음'}] },
+  { id:3, q:'피부 트러블이 자주 생기는 편인가요?', sub:'민감도와 피부 반응성을 파악합니다', opts:[{e:'😌',t:'거의 없음'},{e:'🤔',t:'가끔 올라옴'},{e:'😟',t:'계절 변화마다 심해짐'},{e:'😰',t:'자극에 쉽게 빨개지고 가려움'}] },
+  { id:4, q:'선크림 등 제품을 바른 후 반응은?', sub:'피부 민감성과 흡수력을 확인합니다', opts:[{e:'😊',t:'문제 없이 잘 흡수됨'},{e:'😑',t:'가끔 막힌 느낌'},{e:'😤',t:'지성감이 더해짐'},{e:'😣',t:'따갑거나 붉어질 때 있음'}] },
+  { id:5, q:'오후 2~3시, 외출 중 피부 상태는?', sub:'하루 중 피부 변화를 체크합니다', opts:[{e:'🌵',t:'여전히 건조하고 당김'},{e:'✨',t:'촉촉하게 유지'},{e:'💦',t:'T존이 번들거림'},{e:'🛢️',t:'얼굴 전체가 기름짐'}] },
+  { id:6, q:'피부에서 가장 신경 쓰이는 고민은?', sub:'맞춤 루틴 추천에 활용됩니다', opts:[{e:'🌊',t:'건조함/각질'},{e:'🕳️',t:'모공/번들거림'},{e:'🔴',t:'붉어짐/민감'},{e:'⏳',t:'탄력/주름'}] },
+];
+const PRODUCTS = [
+  { id:1, name:'하이드라 세라 토너', brand:'스킨핏 케어', price:38000, emoji:'💧', fit:95, type:'dry', category:'토너', desc:'히알루론산 5중 복합체로 수분을 깊은 층까지 전달하는 토너' },
+  { id:2, name:'수분 바리어 크림', brand:'스킨핏 케어', price:52000, emoji:'🌙', fit:92, type:'dry', category:'크림', desc:'세라마이드와 판테놀로 피부 장벽을 강화하는 보습 크림' },
+  { id:3, name:'포어 컨트롤 세럼', brand:'클린 스킨랩', price:45000, emoji:'🌿', fit:88, type:'oily', category:'세럼', desc:'나이아신아마이드와 아연으로 피지 분비를 조절하는 세럼' },
+  { id:4, name:'세보레귤레이팅 토너', brand:'클린 스킨랩', price:32000, emoji:'🍃', fit:85, type:'oily', category:'토너', desc:'BHA 성분으로 모공 속 노폐물을 부드럽게 정리하는 토너' },
+  { id:5, name:'발란싱 듀얼 에센스', brand:'더마 밸런스', price:56000, emoji:'☯️', fit:90, type:'combination', category:'에센스', desc:'T존은 피지 조절, U존은 보습을 동시에 케어하는 듀얼 에센스' },
+  { id:6, name:'진정 캐모마일 크림', brand:'센시티브 랩', price:48000, emoji:'🌸', fit:93, type:'sensitive', category:'크림', desc:'캐모마일과 병풀 추출물로 민감해진 피부를 빠르게 진정하는 크림' },
+  { id:7, name:'선스크린 글로우 SPF50+', brand:'썬케어 포뮬라', price:29000, emoji:'☀️', fit:88, type:'normal', category:'선크림', desc:'가볍고 촉촉한 텍스처의 SPF50+ 자외선 차단제' },
+  { id:8, name:'나이아신아마이드 앰플', brand:'스킨핏 케어', price:62000, emoji:'✨', fit:86, type:'combination', category:'앰플', desc:'나이아신아마이드 10% 고농도로 피부 톤을 균일하게 정돈하는 앰플' },
+];
+const ROUTINES = {
+  dry: [
+    {step:'클렌징', name:'저자극 클렌징 밀크', desc:'계면활성제 없는 약산성 클렌저로 피부 장벽 보호'},
+    {step:'토너', name:'하이드라 세라 토너', desc:'히알루론산 토너로 즉각적인 수분 공급'},
+    {step:'세럼', name:'수분 앰플', desc:'수용성 세럼을 먼저 적용 후 크림 레이어링'},
+    {step:'크림', name:'수분 바리어 크림', desc:'세라마이드 크림으로 수분 증발 방지'},
+    {step:'선크림', name:'보습 선크림 SPF50+', desc:'보습력 있는 썬크림으로 마무리'},
+  ],
+  oily: [
+    {step:'클렌징', name:'폼 클렌저 (BHA 함유)', desc:'과잉 피지와 모공 속 노폐물 제거'},
+    {step:'토너', name:'세보레귤레이팅 토너', desc:'BHA 성분으로 모공 케어 + 수분 공급'},
+    {step:'세럼', name:'포어 컨트롤 세럼', desc:'나이아신아마이드로 피지 조절'},
+    {step:'에멀전', name:'오일프리 에멀전', desc:'가벼운 텍스처로 유수분 밸런스 조절'},
+    {step:'선크림', name:'시트러스 선 젤 SPF50+', desc:'번들거림 없는 제형의 자외선 차단제'},
+  ],
+  combination: [
+    {step:'클렌징', name:'약산성 젤 클렌저', desc:'과도하지 않게 세정하여 부위별 밸런스 유지'},
+    {step:'토너', name:'발란싱 듀얼 토너', desc:'T존·U존에 맞게 다르게 레이어링'},
+    {step:'에센스', name:'발란싱 듀얼 에센스', desc:'부위에 따라 적용량 조절'},
+    {step:'크림', name:'부위별 크림', desc:'T존: 젤크림, U존: 크림 타입 이중 적용'},
+    {step:'선크림', name:'무기계 선크림 SPF40', desc:'자극 최소화 무기자차 마무리'},
+  ],
+  sensitive: [
+    {step:'클렌징', name:'수분 오일 클렌저', desc:'자극 없이 세정, 피부 장벽 손상 방지'},
+    {step:'토너', name:'무향 카밍 토너', desc:'향료·알코올 없는 진정 토너 사용'},
+    {step:'세럼', name:'병풀 앰플', desc:'CICA 성분으로 예민 피부 집중 진정'},
+    {step:'크림', name:'진정 캐모마일 크림', desc:'캐모마일·판테놀로 피부 안정화'},
+    {step:'선크림', name:'무기계 민감 선크림 SPF50', desc:'성분 최소화 물리적 자외선 차단제'},
+  ],
+  normal: [
+    {step:'클렌징', name:'폼 클렌저', desc:'피부 타입에 맞는 기본 폼 클렌저'},
+    {step:'토너', name:'멀티 토너', desc:'기능성 토너로 유수분 균형 유지'},
+    {step:'세럼', name:'비타민C 세럼', desc:'항산화 케어로 피부 광채 유지'},
+    {step:'크림', name:'올인원 크림', desc:'데일리 보습과 영양 공급'},
+    {step:'선크림', name:'글로우 선크림 SPF50+', desc:'자연스러운 광채 마무리 선크림'},
+  ],
+};
+const CART_INIT = [];
+
+// ─── 컴포넌트 ──────────────────────────────────────────────────────────────
+function Toast({ msg, onDone }) {
+  useEffect(() => { const t = setTimeout(onDone, 2200); return () => clearTimeout(t); }, []);
+  return <div className="toast">✓ {msg}</div>;
+}
+
+function MainHome({ onNav, diagResult }) {
+  const latestType = diagResult ? SKIN_TYPES[diagResult] : null;
+  return (
+    <div>
+      {/* 히어로 */}
+      <div style={{background:'linear-gradient(135deg,#0066CC 0%,#0088DD 60%,#0099FF 100%)',borderRadius:18,padding:'32px 36px',color:'#fff',marginBottom:24,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',right:32,top:-20,fontSize:140,opacity:.12,transform:'rotate(-15deg)'}}>🧴</div>
+        <div style={{position:'relative'}}>
+          <div style={{fontSize:13,fontWeight:700,background:'rgba(255,255,255,.2)',display:'inline-block',padding:'4px 12px',borderRadius:20,marginBottom:12}}>AI 피부 진단 시스템</div>
+          <div style={{fontSize:26,fontWeight:900,marginBottom:10,lineHeight:1.3}}>나만의 피부 타입을 알고<br/>맞춤 스킨케어를 받으세요</div>
+          <div style={{fontSize:14,opacity:.9,marginBottom:20,lineHeight:1.6}}>12가지 질문으로 피부 유형 분석 → 개인 맞춤 제품 추천 → 장바구니 한 번에 담기</div>
+          <button className="btn" style={{background:'#fff',color:'#0066CC',fontWeight:800,fontSize:14,padding:'10px 24px',borderRadius:10}} onClick={()=>onNav('quiz')}>
+            피부 진단 시작하기 →
+          </button>
+        </div>
+      </div>
+      {/* 통계 */}
+      <div className="grid-4" style={{marginBottom:24}}>
+        {[
+          {label:'진단 참여자',val:'48,291',sub:'누적 진단 완료',color:'#0066CC'},
+          {label:'추천 제품',val:'1,243',sub:'피부 타입별 큐레이션',color:'#059669'},
+          {label:'평균 진단 소요',val:'3.2분',sub:'12문항 기준',color:'#7C3AED'},
+          {label:'재진단율',val:'68%',sub:'30일 내 재방문',color:'#D97706'},
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <div className="stat-label">{s.label}</div>
+            <div className="stat-val" style={{color:s.color}}>{s.val}</div>
+            <div className="stat-sub">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      {/* 피부 타입 */}
+      <div className="section-header"><div><div className="section-title">피부 타입별 가이드</div><div className="section-sub">나의 피부 타입을 선택해 맞춤 정보를 확인하세요</div></div></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:24}}>
+        {Object.entries(SKIN_TYPES).map(([k,v])=>(
+          <div key={k} className="skin-type-card" style={{background:v.bg,borderColor:latestType===SKIN_TYPES[k]?v.color:'transparent'}} onClick={()=>onNav('quiz')}>
+            <div style={{fontSize:32,marginBottom:8}}>{v.emoji}</div>
+            <div style={{fontSize:13,fontWeight:800,color:v.color,marginBottom:4}}>{v.label}</div>
+            <div style={{fontSize:11,color:'#6B7280',lineHeight:1.5}}>{v.desc}</div>
+          </div>
+        ))}
+      </div>
+      {/* 인기 제품 */}
+      <div className="section-header"><div className="section-title">이번 주 인기 추천 제품</div></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        {PRODUCTS.slice(0,4).map(p=>(
+          <div key={p.id} className="product-card">
+            <div className="product-img" style={{background:p.id%2===0?'#F0F7FF':'#ECFDF5'}}>{p.emoji}</div>
+            <div className="product-info">
+              <div className="product-name">{p.name}</div>
+              <div className="product-brand">{p.brand}</div>
+              <div className="product-price">{p.price.toLocaleString()}원</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuizPage({ onDone }) {
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const total = QUIZ_DATA.length;
+  const cur = QUIZ_DATA[step];
+  const selectOpt = (idx) => {
+    const next = { ...answers, [cur.id]: idx };
+    setAnswers(next);
+    if (step < total - 1) { setTimeout(() => setStep(s => s+1), 350); }
+    else {
+      const typeKeys = ['dry','oily','combination','sensitive','normal'];
+      const typeIdx = Object.values(next).reduce((a,b)=>a+b,0) % typeKeys.length;
+      setTimeout(() => onDone(typeKeys[typeIdx]), 400);
+    }
+  };
+  const progress = ((step + (answers[cur.id]!==undefined ? 1 : 0)) / total) * 100;
+  return (
+    <div style={{maxWidth:680,margin:'0 auto'}}>
+      <div className="section-header" style={{marginBottom:20}}>
+        <div><div className="section-title">피부 진단 설문</div><div className="section-sub">질문 {step+1} / {total}</div></div>
+        <button className="btn btn-outline btn-sm" onClick={()=>setStep(Math.max(0,step-1))} disabled={step===0}>이전</button>
+      </div>
+      <div className="quiz-step">
+        <div className="quiz-progress"><div className="quiz-progress-bar" style={{width:`${progress}%`}} /></div>
+        <div className="quiz-q">{cur.q}</div>
+        <div className="quiz-sub">{cur.sub}</div>
+        <div className="quiz-options">
+          {cur.opts.map((o,i)=>(
+            <button key={i} className={`quiz-option${answers[cur.id]===i?' selected':''}`} onClick={()=>selectOpt(i)}>
+              <span className="opt-emoji">{o.e}</span>
+              {o.t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{marginTop:16,textAlign:'right'}}>
+        <div style={{fontSize:13,color:'#9CA3AF'}}>복수 선택이 가능한 문항은 모두 선택 후 자동 진행됩니다</div>
+      </div>
+    </div>
+  );
+}
+
+function ResultPage({ skinType, onNav, onAddToCart }) {
+  const type = SKIN_TYPES[skinType] || SKIN_TYPES.combination;
+  const routine = ROUTINES[skinType] || ROUTINES.combination;
+  const recProducts = PRODUCTS.filter(p => p.type === skinType || p.type === 'normal').slice(0,3);
+  const radarData = type.scores.map(s=>({subject:s.s, A:s.v, fullMark:100}));
+  return (
+    <div>
+      <div className="result-hero">
+        <div className="result-type-badge">진단 완료</div>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+          <span style={{fontSize:42}}>{type.emoji}</span>
+          <div>
+            <div className="result-type-name">{type.label}</div>
+            <div className="result-type-desc">{type.desc}</div>
+          </div>
+        </div>
+        <div className="result-scores">
+          {type.scores.map((s,i)=>(
+            <div key={i} className="score-item">
+              <div className="score-label">{s.s}</div>
+              <div className="score-val">{s.v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid-2" style={{marginBottom:20}}>
+        <div className="card">
+          <div className="section-header" style={{marginBottom:16}}><div className="section-title">피부 지표 레이더</div></div>
+          <ResponsiveContainer width="100%" height={220}>
+            <RadarChart data={radarData}>
+              <PolarGrid stroke="#E8F4FF" />
+              <PolarAngleAxis dataKey="subject" tick={{fontSize:12,fill:'#6B7280'}} />
+              <PolarRadiusAxis angle={90} domain={[0,100]} tick={false} />
+              <Radar dataKey="A" stroke="#0066CC" fill="#0066CC" fillOpacity={0.25} />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="section-title" style={{marginBottom:14}}>맞춤 스킨케어 루틴</div>
+          {routine.map((r,i)=>(
+            <div key={i} className="routine-step">
+              <div className="routine-num">{i+1}</div>
+              <div>
+                <div className="routine-name">{r.step} — {r.name}</div>
+                <div className="routine-desc">{r.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="section-header"><div className="section-title">맞춤 추천 제품</div></div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:16}}>
+        {recProducts.map(p=>(
+          <div key={p.id} className="product-card">
+            <div className="product-img" style={{background:type.bg}}>{p.emoji}</div>
+            <div className="product-info">
+              <div className="product-name">{p.name}</div>
+              <div className="product-brand">{p.brand}</div>
+              <div className="product-fit">
+                <span style={{fontSize:12,color:'#6B7280'}}>적합도</span>
+                <div className="fit-bar-wrap"><div className="fit-bar" style={{width:`${p.fit}%`}} /></div>
+                <span style={{fontSize:12,fontWeight:700,color:'#0066CC'}}>{p.fit}%</span>
+              </div>
+              <div className="product-price" style={{marginTop:8}}>{p.price.toLocaleString()}원</div>
+              <button className="btn btn-primary btn-sm" style={{width:'100%',marginTop:10}} onClick={()=>onAddToCart(p)}>장바구니 담기</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:10}}>
+        <button className="btn btn-outline" onClick={()=>onNav('products')}>전체 추천 제품 보기</button>
+        <button className="btn btn-primary" onClick={()=>onNav('cart')}>장바구니로 이동</button>
+      </div>
+    </div>
+  );
+}
+
+function ProductsPage({ onAddToCart, skinType }) {
+  const [activeFilter, setActiveFilter] = useState('전체');
+  const [activeType, setActiveType] = useState('전체');
+  const cats = ['전체','토너','세럼','크림','에센스','앰플','선크림'];
+  const types = ['전체','건성','지성','복합성','민감성','중성'];
+  const typeMap = {건성:'dry',지성:'oily',복합성:'combination',민감성:'sensitive',중성:'normal'};
+  const filtered = PRODUCTS.filter(p=>{
+    const catOk = activeFilter==='전체' || p.category===activeFilter;
+    const typeOk = activeType==='전체' || p.type===typeMap[activeType];
+    return catOk && typeOk;
+  });
+  return (
+    <div>
+      <div className="section-header" style={{marginBottom:16}}>
+        <div><div className="section-title">추천 제품</div><div className="section-sub">진단 결과 기반 맞춤 큐레이션 ({filtered.length}개)</div></div>
+      </div>
+      <div className="filter-bar">
+        {cats.map(c=><button key={c} className={`filter-chip${activeFilter===c?' active':''}`} onClick={()=>setActiveFilter(c)}>{c}</button>)}
+      </div>
+      <div className="filter-bar">
+        {types.map(t=><button key={t} className={`filter-chip${activeType===t?' active':''}`} onClick={()=>setActiveType(t)}>{t}</button>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+        {filtered.map(p=>(
+          <div key={p.id} className="product-card">
+            <div className="product-img" style={{background:p.id%3===0?'#F0F7FF':p.id%3===1?'#ECFDF5':'#FFF0F6'}}>{p.emoji}</div>
+            <div className="product-info">
+              <span className="badge badge-blue" style={{marginBottom:6}}>{p.category}</span>
+              <div className="product-name">{p.name}</div>
+              <div className="product-brand">{p.brand}</div>
+              <div style={{fontSize:12,color:'#6B7280',margin:'6px 0',lineHeight:1.5}}>{p.desc}</div>
+              <div className="product-fit">
+                <span style={{fontSize:11,color:'#6B7280'}}>적합도</span>
+                <div className="fit-bar-wrap"><div className="fit-bar" style={{width:`${p.fit}%`}} /></div>
+                <span style={{fontSize:11,fontWeight:700,color:'#0066CC'}}>{p.fit}%</span>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
+                <div className="product-price">{p.price.toLocaleString()}원</div>
+                <button className="btn btn-primary btn-sm" onClick={()=>onAddToCart(p)}>담기</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CartPage({ cart, setCart, onNav }) {
+  const updateQty = (id, delta) => setCart(c => c.map(i => i.id===id ? {...i,qty:Math.max(1,i.qty+delta)} : i));
+  const removeItem = (id) => setCart(c => c.filter(i => i.id !== id));
+  const total = cart.reduce((s,i) => s + i.price * i.qty, 0);
+  const delivery = total >= 50000 ? 0 : 3000;
+  const pages = [
+    {name:'현재 페이지',num:1},{name:'',num:2},{name:'',num:3}
+  ];
+  return (
+    <div>
+      <div className="section-header" style={{marginBottom:20}}>
+        <div><div className="section-title">장바구니</div><div className="section-sub">추천 제품을 선택해 한 번에 결제하세요</div></div>
+        <span className="badge badge-blue">{cart.length}개 제품</span>
+      </div>
+      {cart.length === 0 ? (
+        <div className="card" style={{textAlign:'center',padding:'60px 20px'}}>
+          <div style={{fontSize:48,marginBottom:16}}>🛒</div>
+          <div style={{fontSize:16,fontWeight:700,color:'#374151',marginBottom:8}}>장바구니가 비어있습니다</div>
+          <div style={{fontSize:14,color:'#6B7280',marginBottom:20}}>피부 진단을 통해 맞춤 제품을 추천받아보세요</div>
+          <button className="btn btn-primary" onClick={()=>onNav('quiz')}>피부 진단 시작</button>
+        </div>
+      ) : (
+        <div className="grid-2">
+          <div>
+            {cart.map(item=>(
+              <div key={item.id} className="cart-item">
+                <div className="cart-img">{item.emoji}</div>
+                <div style={{flex:1}}>
+                  <div className="cart-name">{item.name}</div>
+                  <div className="cart-brand">{item.brand}</div>
+                  <div className="qty-ctrl">
+                    <button className="qty-btn" onClick={()=>updateQty(item.id,-1)}>-</button>
+                    <span className="qty-num">{item.qty}</span>
+                    <button className="qty-btn" onClick={()=>updateQty(item.id,1)}>+</button>
+                    <button style={{marginLeft:8,background:'none',border:'none',cursor:'pointer',color:'#9CA3AF',fontSize:12}} onClick={()=>removeItem(item.id)}>삭제</button>
+                  </div>
+                </div>
+                <div className="cart-price">
+                  <div className="cart-price-val">{(item.price*item.qty).toLocaleString()}원</div>
+                  <div style={{fontSize:11,color:'#9CA3AF'}}>{item.price.toLocaleString()}원 × {item.qty}</div>
+                </div>
+              </div>
+            ))}
+            {/* 페이지네이션 */}
+            <div style={{display:'flex',justifyContent:'center',gap:6,marginTop:16}}>
+              {[1,2,3].map(n=>(
+                <button key={n} style={{width:32,height:32,borderRadius:6,border:'1.5px solid',borderColor:n===1?'#0066CC':'#D1D5DB',background:n===1?'#0066CC':'#fff',color:n===1?'#fff':'#6B7280',fontWeight:700,fontSize:13,cursor:'pointer'}}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="cart-summary">
+              <div style={{fontSize:15,fontWeight:800,color:'#1A2C4E',marginBottom:14}}>주문 요약</div>
+              <div className="summary-row"><span>상품 합계</span><span>{total.toLocaleString()}원</span></div>
+              <div className="summary-row"><span>배송비</span><span>{delivery===0?'무료':delivery.toLocaleString()+'원'}</span></div>
+              {delivery===0 && <div style={{fontSize:12,color:'#059669',fontWeight:600,padding:'4px 0'}}>✓ 5만원 이상 무료배송 적용</div>}
+              <div className="summary-row"><span>최종 결제금액</span><span>{(total+delivery).toLocaleString()}원</span></div>
+              <button className="btn btn-primary" style={{width:'100%',marginTop:16,padding:'13px 0',fontSize:15}}>
+                카페24 결제 페이지로 이동
+              </button>
+              <button className="btn btn-outline" style={{width:'100%',marginTop:8,padding:'11px 0'}} onClick={()=>onNav('products')}>
+                쇼핑 계속하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 앱 ───────────────────────────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState('main');
+  const [diagResult, setDiagResult] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  const navItems = [
+    { key:'main', icon:'🏠', label:'홈' },
+    { key:'quiz', icon:'📋', label:'피부 진단' },
+    { key:'result', icon:'🔬', label:'진단 결과' },
+    { key:'products', icon:'🧴', label:'추천 제품' },
+    { key:'cart', icon:'🛒', label:'장바구니' },
+  ];
+
+  const addToCart = (product) => {
+    setCart(c => {
+      const ex = c.find(i => i.id === product.id);
+      if (ex) return c.map(i => i.id===product.id ? {...i,qty:i.qty+1} : i);
+      return [...c, {...product, qty:1}];
+    });
+    setToast(`${product.name}을(를) 장바구니에 담았습니다`);
+  };
+
+  const pageTitle = {
+    main:'홈 대시보드', quiz:'피부 진단 설문', result:'진단 결과',
+    products:'추천 제품', cart:'장바구니',
+  };
+
+  return (
+    <div className="layout">
+      {/* 사이드바 */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <div className="logo-mark">
+            <div className="logo-icon">S</div>
+            <div>
+              <div className="logo-text">스킨핏</div>
+              <div className="logo-sub">피부 맞춤 스킨케어</div>
+            </div>
+          </div>
+        </div>
+        <div className="sidebar-section">
+          <div className="sidebar-section-label">메뉴</div>
+          {navItems.map(n=>(
+            <button key={n.key} className={`nav-item${page===n.key?' active':''}`} onClick={()=>setPage(n.key)}>
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+              {n.key==='cart' && cart.length>0 && <span className="nav-badge">{cart.length}</span>}
+            </button>
+          ))}
+        </div>
+        {diagResult && (
+          <div className="sidebar-section">
+            <div className="sidebar-section-label">내 피부 타입</div>
+            <div style={{background:SKIN_TYPES[diagResult].bg,borderRadius:10,padding:'12px 14px'}}>
+              <div style={{fontSize:22,marginBottom:4}}>{SKIN_TYPES[diagResult].emoji}</div>
+              <div style={{fontSize:13,fontWeight:800,color:SKIN_TYPES[diagResult].color}}>{SKIN_TYPES[diagResult].label}</div>
+              <div style={{fontSize:11,color:'#6B7280',marginTop:3}}>최근 진단 결과</div>
+            </div>
+          </div>
+        )}
+        <div className="sidebar-footer">
+          <div className="user-card">
+            <div className="user-avatar">김</div>
+            <div>
+              <div className="user-info-name">김지현 님</div>
+              <div className="user-info-type">{diagResult ? SKIN_TYPES[diagResult].label : '진단 전'}</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* 메인 */}
+      <main className="main">
+        <div className="topbar">
+          <div className="topbar-title">{pageTitle[page]}</div>
+          <div className="topbar-actions">
+            <button className="btn btn-outline btn-sm" onClick={()=>setPage('quiz')}>📋 재진단</button>
+            <button className="btn btn-primary btn-sm" onClick={()=>setPage('cart')}>🛒 {cart.length > 0 ? `${cart.length}개` : '장바구니'}</button>
+          </div>
+        </div>
+        <div className="content">
+          {page === 'main' && <MainHome onNav={setPage} diagResult={diagResult} />}
+          {page === 'quiz' && <QuizPage onDone={(t)=>{setDiagResult(t);setPage('result');}} />}
+          {page === 'result' && (diagResult ? <ResultPage skinType={diagResult} onNav={setPage} onAddToCart={addToCart} /> :
+            <div className="card" style={{textAlign:'center',padding:60}}>
+              <div style={{fontSize:48,marginBottom:16}}>🔬</div>
+              <div style={{fontSize:16,fontWeight:700,marginBottom:8}}>진단 결과가 없습니다</div>
+              <button className="btn btn-primary" onClick={()=>setPage('quiz')}>피부 진단 시작</button>
+            </div>)}
+          {page === 'products' && <ProductsPage onAddToCart={addToCart} skinType={diagResult} />}
+          {page === 'cart' && <CartPage cart={cart} setCart={setCart} onNav={setPage} />}
+        </div>
+      </main>
+
+      {toast && <Toast msg={toast} onDone={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
