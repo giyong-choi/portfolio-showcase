@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>모아스토어 — 라이프스타일 편집숍</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Pretendard',sans-serif;background:#FFF8F0;color:#1A1A1A;word-break:keep-all;overflow-wrap:break-word;overflow:hidden}
+    :root{--primary:#FF6B35;--secondary:#004E64;--accent:#25A18E;--bg:#FFF8F0;--surface:#FFFFFF;--txt:#1A1A1A;--txt2:#6B6B6B;--sidebar:260px;--topbar:60px}
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:#f1ede9}
+    ::-webkit-scrollbar-thumb{background:#d4c4b4;border-radius:3px}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    .skeleton{background:linear-gradient(90deg,#f0e8e0 25%,#e8ddd4 50%,#f0e8e0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .fade-in{animation:fadeIn .35s ease both}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const PRODUCTS = [
+  {id:1,name:'린넨 쿠션 커버 — 오트밀',category:'패브릭',price:38000,tag:'베스트',color:'#D4C5B0',desc:'국내산 워싱 린넨 소재. 은은한 색감과 자연스러운 주름이 특징입니다.',options:['40×40cm','50×50cm','60×60cm']},
+  {id:2,name:'세라믹 미니 화병 세트',category:'오브제',price:62000,tag:'신상',color:'#C8B8A2',desc:'수공예 세라믹으로 제작한 3가지 사이즈 화병 세트. 식탁이나 선반 위 포인트로 활용하세요.',options:['화이트','그레이','테라코타']},
+  {id:3,name:'우드 캔들 홀더 (소)',category:'오브제',price:29000,tag:'',color:'#9B8878',desc:'참나무 원목을 손으로 깎아 만든 캔들 홀더. 티라이트 캔들을 올려 따뜻한 분위기를 연출하세요.',options:['단품','3개 세트']},
+  {id:4,name:'니팅 담요 — 머스타드',category:'패브릭',price:89000,tag:'베스트',color:'#C8A96E',desc:'두툼한 코튼 니팅 소재의 담요. 소파나 침대 위에 걸쳐두면 공간에 온기를 더합니다.',options:['130×170cm','150×200cm']},
+  {id:5,name:'라탄 수납 바구니 (M)',category:'수납',price:45000,tag:'',color:'#B5975A',desc:'핸드메이드 라탄 소재 수납 바구니. 잡지, 담요 등 소품 수납에 활용하세요.',options:['S','M','L']},
+  {id:6,name:'가죽 코스터 4P 세트',category:'키친',price:34000,tag:'',color:'#8B6F47',desc:'식물성 가죽으로 제작한 원형 코스터 4장 세트. 오래 쓸수록 자연스러운 빈티지 텍스처가 생깁니다.',options:['브라운','블랙','탄']},
+  {id:7,name:'유리 디퓨저 — 히노키',category:'향기',price:56000,tag:'신상',color:'#A8C5BD',desc:'히노키 편백나무 에센셜 오일 베이스. 리드 스틱 10개 포함, 약 4~6주 지속됩니다.',options:['100ml','200ml']},
+  {id:8,name:'면 행주 세트 — 스트라이프',category:'키친',price:22000,tag:'',color:'#D4BFA8',desc:'국내산 순면 행주 3장 세트. 흡수력이 좋고 세탁 후에도 형태가 유지됩니다.',options:['화이트','네이비','그레이']},
+  {id:9,name:'원목 트레이 — 월넛',category:'수납',price:78000,tag:'베스트',color:'#6B4F3A',desc:'블랙 월넛 원목으로 제작한 직사각 트레이. 침대 옆 협탁이나 테이블 정리에 활용하세요.',options:['30×20cm','40×28cm']},
+];
+
+const MAGAZINES = [
+  {id:1,tag:'라이프스타일',title:'가을, 집에서 보내는 시간을 더 풍요롭게',desc:'계절이 바뀌는 시간, 공간을 조금씩 바꾸어 보세요. 패브릭과 조명으로 완성하는 가을 홈 스타일링 가이드.',date:'2025.09.12',mins:5,img:'fabric'},
+  {id:2,tag:'공간 이야기',title:'작은 공간을 넓게 쓰는 법: 수납의 미학',desc:'복잡해 보이는 공간도 올바른 수납 아이템 하나로 정돈된 느낌을 줄 수 있습니다. 전문가가 알려주는 공간 정리의 핵심.',date:'2025.09.01',mins:4,img:'storage'},
+  {id:3,tag:'소재 이야기',title:'모아리빙이 린넨을 선택하는 이유',desc:'화학 처리 없이 자연 건조한 국내산 워싱 린넨. 세탁할수록 부드러워지고 시간이 지날수록 아름다운 소재 이야기.',date:'2025.08.22',mins:6,img:'linen'},
+  {id:4,tag:'인터뷰',title:'도예가 오지원의 작업실을 방문하다',desc:'모아리빙과 함께 세라믹 컬렉션을 만들어 온 도예가 오지원의 작업실. 흙과 불로 탄생하는 그릇 이야기를 들었습니다.',date:'2025.08.10',mins:7,img:'ceramic'},
+  {id:5,tag:'라이프스타일',title:'새벽 시간을 위한 공간 만들기',desc:'조용한 새벽, 온전히 나만을 위한 시간을 위해 공간을 정비해 보세요. 캔들 하나가 만드는 아침의 차이.',date:'2025.07.28',mins:3,img:'morning'},
+];
+
+const TIMELINE = [
+  {year:'2018',title:'브랜드 시작',desc:'자연 소재와 느린 생활을 사랑하는 두 사람이 작은 온라인 편집숍 모아리빙을 시작했습니다.'},
+  {year:'2019',title:'첫 번째 컬렉션',desc:'국내 도예 작가들과 협업한 세라믹 컬렉션을 선보이며 처음으로 "모아스토어" 브랜드명을 공식화했습니다.'},
+  {year:'2021',title:'패브릭 라인 론칭',desc:'전북 임실 린넨 농가와 직접 협업하여 국내산 워싱 린넨 패브릭 라인을 출시했습니다.'},
+  {year:'2023',title:'리빙 편집숍 확장',desc:'오브제, 수납, 향기 카테고리까지 확장하며 일상의 공간을 아름답게 만드는 종합 라이프스타일 편집숍으로 자리 잡았습니다.'},
+  {year:'2025',title:'현재',desc:'매달 새로운 국내 작가·브랜드와의 협업 컬렉션을 선보이며 "느리지만 아름다운 일상"의 가치를 전하고 있습니다.'},
+];
+
+const COLORS = {패브릭:'#E8D5C4',오브제:'#D4C5B0',수납:'#C8B8A2',키친:'#B5975A',향기:'#A8C5BD'};
+
+function Badge({tag}){
+  if(!tag) return null;
+  return <span style={{display:'inline-block',padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:700,background:tag==='베스트'?'#FF6B35':tag==='신상'?'#25A18E':'#eee',color:tag==='베스트'||tag==='신상'?'#fff':'#666',letterSpacing:'0.5px'}}>{tag}</span>;
+}
+
+function Skel(){
+  return <div style={{padding:'0 28px',paddingTop:20}}>
+    {[1,2,3].map(i=><div key={i} className="skeleton" style={{height:24,borderRadius:8,marginBottom:12,width:['80%','60%','70%'][i-1]}}/>)}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginTop:24}}>
+      {[1,2,3,4,5,6].map(i=><div key={i} className="skeleton" style={{height:200,borderRadius:12}}/>)}
+    </div>
+  </div>;
+}
+
+function HomeView({onProduct}){
+  const featured = PRODUCTS.slice(0,6);
+  const [hovered, setHovered] = useState(null);
+  return(
+    <div className="fade-in">
+      {/* Hero */}
+      <div style={{background:'linear-gradient(135deg,#004E64 0%,#006080 60%,#25A18E 100%)',padding:'60px 36px',position:'relative',overflow:'hidden',minHeight:280}}>
+        <div style={{position:'absolute',top:'-30%',right:'-5%',width:400,height:400,borderRadius:'50%',background:'rgba(255,107,53,0.15)'}}/>
+        <div style={{position:'absolute',bottom:'-20%',left:'30%',width:300,height:300,borderRadius:'50%',background:'rgba(37,161,142,0.2)'}}/>
+        <div style={{position:'relative',zIndex:1,maxWidth:520}}>
+          <p style={{color:'rgba(255,248,240,0.7)',fontSize:12,letterSpacing:'3px',fontWeight:600,marginBottom:14,textTransform:'uppercase'}}>2025 Autumn Collection</p>
+          <h1 style={{color:'#FFF8F0',fontSize:34,fontWeight:800,lineHeight:1.25,marginBottom:16}}>자연이 머무는 공간,<br/>당신의 이야기가 담긴 집</h1>
+          <p style={{color:'rgba(255,248,240,0.8)',fontSize:15,lineHeight:1.7,marginBottom:28}}>계절과 함께 변하는 공간. 자연 소재로 완성하는<br/>따뜻하고 감성적인 라이프스타일 편집숍입니다.</p>
+          <div style={{display:'flex',gap:12}}>
+            <button onClick={()=>onProduct(null)} style={{background:'#FF6B35',color:'#fff',border:'none',borderRadius:8,padding:'12px 28px',fontSize:14,fontWeight:700,cursor:'pointer'}}>컬렉션 보기</button>
+            <button style={{background:'rgba(255,248,240,0.15)',color:'#FFF8F0',border:'1px solid rgba(255,248,240,0.3)',borderRadius:8,padding:'12px 24px',fontSize:14,fontWeight:600,cursor:'pointer',backdropFilter:'blur(4px)'}}>브랜드 스토리</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Season Pick */}
+      <div style={{padding:'40px 28px 0'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <div>
+            <p style={{color:'#FF6B35',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:4}}>Season Pick</p>
+            <h2 style={{fontSize:22,fontWeight:800,color:'#1A1A1A'}}>이 계절, 모아스토어의 추천</h2>
+          </div>
+          <button onClick={()=>onProduct(null)} style={{color:'#FF6B35',background:'none',border:'1px solid #FF6B35',borderRadius:6,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer'}}>전체 보기 →</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+          {featured.map(p=>(
+            <div key={p.id} onClick={()=>onProduct(p)} onMouseEnter={()=>setHovered(p.id)} onMouseLeave={()=>setHovered(null)}
+              style={{background:'#fff',borderRadius:14,overflow:'hidden',cursor:'pointer',boxShadow:hovered===p.id?'0 8px 28px rgba(0,0,0,0.12)':'0 2px 10px rgba(0,0,0,0.06)',transition:'all .25s',transform:hovered===p.id?'translateY(-4px)':'none'}}>
+              <div style={{background:p.color,height:160,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>
+                {['🪴','🏺','🕯️','🧶','🧺','🥂'][p.id-1]}
+              </div>
+              <div style={{padding:'14px 16px 16px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                  <span style={{fontSize:11,color:'#25A18E',fontWeight:600,background:'rgba(37,161,142,0.1)',padding:'2px 6px',borderRadius:4}}>{p.category}</span>
+                  <Badge tag={p.tag}/>
+                </div>
+                <p style={{fontSize:14,fontWeight:700,color:'#1A1A1A',marginBottom:6,lineHeight:1.4}}>{p.name}</p>
+                <p style={{fontSize:15,fontWeight:800,color:'#FF6B35'}}>{p.price.toLocaleString()}원</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Magazine teaser */}
+      <div style={{margin:'40px 28px',background:'linear-gradient(135deg,#FFF0E8,#FFE8D6)',borderRadius:16,padding:'28px',display:'flex',gap:24,alignItems:'center'}}>
+        <div style={{flex:1}}>
+          <p style={{color:'#FF6B35',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:8}}>Brand Magazine</p>
+          <h3 style={{fontSize:18,fontWeight:800,lineHeight:1.4,marginBottom:10}}>가을, 집에서 보내는 시간을<br/>더 풍요롭게</h3>
+          <p style={{fontSize:13,color:'#6B6B6B',lineHeight:1.6,marginBottom:16}}>계절이 바뀌는 시간, 공간을 조금씩 바꾸어 보세요. 패브릭과 조명으로 완성하는 가을 홈 스타일링 가이드.</p>
+          <button style={{background:'#FF6B35',color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',fontSize:13,fontWeight:700,cursor:'pointer'}}>아티클 읽기 →</button>
+        </div>
+        <div style={{width:120,height:120,borderRadius:16,background:'linear-gradient(135deg,#FF6B35,#D4843A)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:48,flexShrink:0}}>🍂</div>
+      </div>
+    </div>
+  );
+}
+
+function ProductsView({onSelect}){
+  const [category, setCategory] = useState('전체');
+  const [sort, setSort] = useState('추천순');
+  const [modal, setModal] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [selectedOpt, setSelectedOpt] = useState(0);
+  const [toastMsg, setToastMsg] = useState('');
+  const cats = ['전체','패브릭','오브제','수납','키친','향기'];
+  const sorted = PRODUCTS
+    .filter(p=>category==='전체'||p.category===category)
+    .sort((a,b)=>sort==='가격낮은순'?a.price-b.price:sort==='가격높은순'?b.price-a.price:a.id-b.id);
+
+  const addCart = () => {
+    setToastMsg(`${modal.name}이(가) 장바구니에 담겼습니다.`);
+    setTimeout(()=>setToastMsg(''),2500);
+    setModal(null);
+  };
+
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>상품</h2>
+        <p style={{color:'#6B6B6B',fontSize:13}}>자연 소재로 만든 라이프스타일 아이템을 만나보세요</p>
+      </div>
+      {/* Filters */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setCategory(c)} style={{padding:'7px 16px',borderRadius:20,border:category===c?'none':'1px solid #e0d8d0',background:category===c?'#FF6B35':'#fff',color:category===c?'#fff':'#6B6B6B',fontSize:13,fontWeight:category===c?700:400,cursor:'pointer',transition:'all .2s'}}>{c}</button>
+          ))}
+        </div>
+        <select value={sort} onChange={e=>setSort(e.target.value)} style={{border:'1px solid #e0d8d0',borderRadius:8,padding:'7px 12px',fontSize:13,color:'#1A1A1A',background:'#fff',cursor:'pointer',outline:'none'}}>
+          {['추천순','가격낮은순','가격높은순'].map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+      <p style={{fontSize:13,color:'#6B6B6B',marginBottom:16}}>{sorted.length}개 상품</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:18}}>
+        {sorted.map(p=>(
+          <div key={p.id} onClick={()=>{setModal(p);setQty(1);setSelectedOpt(0)}} style={{background:'#fff',borderRadius:14,overflow:'hidden',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.06)',transition:'all .25s'}}
+            onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,0.12)';e.currentTarget.style.transform='translateY(-4px)'}}
+            onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.06)';e.currentTarget.style.transform='none'}}>
+            <div style={{background:p.color,height:170,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,position:'relative'}}>
+              {['🪴','🏺','🕯️','🧶','🧺','🥂','🌿','🪣','🪵'][p.id-1]}
+              {p.tag && <div style={{position:'absolute',top:10,left:10}}><Badge tag={p.tag}/></div>}
+            </div>
+            <div style={{padding:'14px 16px 16px'}}>
+              <span style={{fontSize:11,color:'#25A18E',fontWeight:600}}>{p.category}</span>
+              <p style={{fontSize:14,fontWeight:700,color:'#1A1A1A',margin:'6px 0',lineHeight:1.4}}>{p.name}</p>
+              <p style={{fontSize:15,fontWeight:800,color:'#FF6B35'}}>{p.price.toLocaleString()}원</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'32px',width:520,maxHeight:'80vh',overflowY:'auto',animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{display:'flex',gap:24,marginBottom:24}}>
+              <div style={{width:160,height:160,borderRadius:14,background:modal.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48,flexShrink:0}}>
+                {['🪴','🏺','🕯️','🧶','🧺','🥂','🌿','🪣','🪵'][modal.id-1]}
+              </div>
+              <div style={{flex:1}}>
+                <span style={{fontSize:12,color:'#25A18E',fontWeight:600,background:'rgba(37,161,142,0.1)',padding:'3px 8px',borderRadius:4}}>{modal.category}</span>
+                <h3 style={{fontSize:17,fontWeight:800,margin:'10px 0 8px',lineHeight:1.4}}>{modal.name}</h3>
+                <p style={{fontSize:20,fontWeight:800,color:'#FF6B35',marginBottom:8}}>{modal.price.toLocaleString()}원</p>
+                <p style={{fontSize:13,color:'#6B6B6B',lineHeight:1.7}}>{modal.desc}</p>
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:8}}>옵션 선택</p>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {modal.options.map((o,i)=>(
+                  <button key={i} onClick={()=>setSelectedOpt(i)} style={{padding:'7px 14px',borderRadius:8,border:selectedOpt===i?'2px solid #FF6B35':'1px solid #e0d8d0',background:selectedOpt===i?'#FFF0E8':'#fff',color:selectedOpt===i?'#FF6B35':'#666',fontSize:13,fontWeight:selectedOpt===i?700:400,cursor:'pointer'}}>{o}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+              <p style={{fontSize:13,fontWeight:700}}>수량</p>
+              <div style={{display:'flex',alignItems:'center',gap:0,border:'1px solid #e0d8d0',borderRadius:8,overflow:'hidden'}}>
+                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:36,height:36,border:'none',background:'#fff',fontSize:18,cursor:'pointer',color:'#333'}}>−</button>
+                <span style={{width:40,textAlign:'center',fontSize:14,fontWeight:700}}>{qty}</span>
+                <button onClick={()=>setQty(q=>q+1)} style={{width:36,height:36,border:'none',background:'#fff',fontSize:18,cursor:'pointer',color:'#333'}}>+</button>
+              </div>
+              <span style={{fontSize:14,fontWeight:700,color:'#FF6B35',marginLeft:'auto'}}>{(modal.price*qty).toLocaleString()}원</span>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={addCart} style={{flex:1,background:'#FF6B35',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontSize:14,fontWeight:700,cursor:'pointer'}}>장바구니 담기</button>
+              <button onClick={addCart} style={{flex:1,background:'#004E64',color:'#fff',border:'none',borderRadius:10,padding:'13px',fontSize:14,fontWeight:700,cursor:'pointer'}}>바로 구매</button>
+            </div>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+      {toastMsg && <div style={{position:'fixed',bottom:32,left:'50%',transform:'translateX(-50%)',background:'#1A1A1A',color:'#fff',padding:'12px 24px',borderRadius:10,fontSize:14,fontWeight:600,zIndex:2000,whiteSpace:'nowrap'}}>{toastMsg}</div>}
+    </div>
+  );
+}
+
+function MagazineView(){
+  const [tag, setTag] = useState('전체');
+  const [selected, setSelected] = useState(null);
+  const tags = ['전체','라이프스타일','공간 이야기','소재 이야기','인터뷰'];
+  const filtered = MAGAZINES.filter(m=>tag==='전체'||m.tag===tag);
+  const emojis = {fabric:'🍂',storage:'📦',linen:'🌾',ceramic:'🏺',morning:'☕'};
+
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>매거진</h2>
+        <p style={{color:'#6B6B6B',fontSize:13}}>모아스토어가 전하는 라이프스타일 이야기</p>
+      </div>
+
+      {/* Featured */}
+      <div onClick={()=>setSelected(MAGAZINES[0])} style={{background:'linear-gradient(135deg,#004E64,#006A80)',borderRadius:18,padding:'32px',marginBottom:24,cursor:'pointer',display:'flex',gap:24,alignItems:'center',boxShadow:'0 4px 20px rgba(0,78,100,0.3)'}}>
+        <div style={{flex:1}}>
+          <span style={{background:'rgba(255,107,53,0.9)',color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:4,letterSpacing:'1px'}}>{MAGAZINES[0].tag.toUpperCase()}</span>
+          <h3 style={{color:'#FFF8F0',fontSize:22,fontWeight:800,margin:'12px 0 10px',lineHeight:1.35}}>{MAGAZINES[0].title}</h3>
+          <p style={{color:'rgba(255,248,240,0.75)',fontSize:13,lineHeight:1.7,marginBottom:16}}>{MAGAZINES[0].desc}</p>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <span style={{color:'rgba(255,248,240,0.6)',fontSize:12}}>{MAGAZINES[0].date}</span>
+            <span style={{color:'rgba(255,248,240,0.6)',fontSize:12}}>·</span>
+            <span style={{color:'rgba(255,248,240,0.6)',fontSize:12}}>읽기 {MAGAZINES[0].mins}분</span>
+          </div>
+        </div>
+        <div style={{width:120,height:120,borderRadius:16,background:'linear-gradient(135deg,#FF6B35,#D4843A)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:52,flexShrink:0}}>
+          {emojis[MAGAZINES[0].img]}
+        </div>
+      </div>
+
+      {/* Tag filter */}
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {tags.map(t=>(
+          <button key={t} onClick={()=>setTag(t)} style={{padding:'7px 16px',borderRadius:20,border:tag===t?'none':'1px solid #e0d8d0',background:tag===t?'#FF6B35':'#fff',color:tag===t?'#fff':'#6B6B6B',fontSize:13,fontWeight:tag===t?700:400,cursor:'pointer',transition:'all .2s'}}>{t}</button>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:18}}>
+        {filtered.slice(1).map(m=>(
+          <div key={m.id} onClick={()=>setSelected(m)} style={{background:'#fff',borderRadius:14,overflow:'hidden',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.06)',transition:'all .25s'}}
+            onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,0.12)';e.currentTarget.style.transform='translateY(-3px)'}}
+            onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.06)';e.currentTarget.style.transform='none'}}>
+            <div style={{height:140,background:'linear-gradient(135deg,#FFF0E8,#FFE8D6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>
+              {emojis[m.img]}
+            </div>
+            <div style={{padding:'16px'}}>
+              <span style={{fontSize:11,color:'#FF6B35',fontWeight:700,background:'rgba(255,107,53,0.08)',padding:'2px 8px',borderRadius:4}}>{m.tag}</span>
+              <p style={{fontSize:15,fontWeight:700,margin:'8px 0 6px',lineHeight:1.4}}>{m.title}</p>
+              <p style={{fontSize:12,color:'#6B6B6B',lineHeight:1.6,marginBottom:10}}>{m.desc.slice(0,60)}…</p>
+              <div style={{display:'flex',gap:8,color:'#999',fontSize:11}}>
+                <span>{m.date}</span><span>·</span><span>{m.mins}분</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Article modal */}
+      {selected && (
+        <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'36px',width:560,maxHeight:'80vh',overflowY:'auto',animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <span style={{background:'rgba(255,107,53,0.1)',color:'#FF6B35',fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4}}>{selected.tag}</span>
+            <h2 style={{fontSize:20,fontWeight:800,margin:'14px 0 10px',lineHeight:1.4}}>{selected.title}</h2>
+            <p style={{color:'#999',fontSize:12,marginBottom:20}}>{selected.date} · 읽기 {selected.mins}분</p>
+            <div style={{height:200,background:'linear-gradient(135deg,#FFF0E8,#FFE8D6)',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',fontSize:72,marginBottom:20}}>{emojis[selected.img]}</div>
+            <p style={{color:'#444',fontSize:15,lineHeight:1.8}}>{selected.desc}</p>
+            <p style={{color:'#444',fontSize:15,lineHeight:1.8,marginTop:16}}>공간을 바꾸는 일은 거창할 필요가 없습니다. 작은 패브릭 하나, 따뜻한 향초 하나가 일상의 온도를 높여줍니다. 모아스토어는 그 작은 변화를 함께 만들어가고 싶습니다.</p>
+            <button onClick={()=>setSelected(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BrandView(){
+  const [activeYear, setActiveYear] = useState('2025');
+  const values = [
+    {icon:'🌿',title:'자연 소재',desc:'화학 처리를 최소화한 국내산 소재를 직접 선별합니다.'},
+    {icon:'🤝',title:'로컬 협업',desc:'국내 작가·농가·장인과의 직접 협업으로 만들어집니다.'},
+    {icon:'♻️',title:'지속 가능성',desc:'오래 쓸수록 좋아지는 소재, 환경을 생각한 포장재를 사용합니다.'},
+    {icon:'🎨',title:'감성 디자인',desc:'기능과 미감이 균형 잡힌 일상의 오브제를 제안합니다.'},
+  ];
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>브랜드 소개</h2>
+        <p style={{color:'#6B6B6B',fontSize:13}}>모아리빙이 걸어온 길, 그리고 우리가 믿는 가치</p>
+      </div>
+
+      {/* Brand statement */}
+      <div style={{background:'linear-gradient(135deg,#004E64,#006A80)',borderRadius:18,padding:'36px',marginBottom:28,textAlign:'center'}}>
+        <p style={{color:'rgba(255,248,240,0.7)',fontSize:13,letterSpacing:'3px',textTransform:'uppercase',marginBottom:14}}>Brand Statement</p>
+        <p style={{color:'#FFF8F0',fontSize:20,fontWeight:800,lineHeight:1.6,marginBottom:16}}>"느리지만 아름다운 일상을 만드는 것,<br/>그것이 모아스토어가 존재하는 이유입니다."</p>
+        <p style={{color:'rgba(255,248,240,0.7)',fontSize:14,lineHeight:1.7}}>자연에서 온 소재, 손으로 만든 물건, 시간이 지나도 변하지 않는 가치. 모아스토어는 매일의 공간에 그런 물건들을 채워드립니다.</p>
+      </div>
+
+      {/* Values */}
+      <h3 style={{fontSize:16,fontWeight:800,marginBottom:16}}>우리가 믿는 가치</h3>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14,marginBottom:28}}>
+        {values.map((v,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:14,padding:'20px',display:'flex',gap:16,alignItems:'flex-start',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+            <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#FFF0E8,#FFE8D6)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{v.icon}</div>
+            <div>
+              <p style={{fontSize:15,fontWeight:700,marginBottom:6}}>{v.title}</p>
+              <p style={{fontSize:13,color:'#6B6B6B',lineHeight:1.6}}>{v.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Timeline */}
+      <h3 style={{fontSize:16,fontWeight:800,marginBottom:16}}>브랜드 히스토리</h3>
+      <div style={{background:'#fff',borderRadius:16,padding:'24px',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',gap:8,marginBottom:20,overflowX:'auto',paddingBottom:4}}>
+          {TIMELINE.map(t=>(
+            <button key={t.year} onClick={()=>setActiveYear(t.year)} style={{padding:'7px 16px',borderRadius:20,border:'none',background:activeYear===t.year?'#FF6B35':'#f0ece8',color:activeYear===t.year?'#fff':'#6B6B6B',fontSize:13,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0,transition:'all .2s'}}>{t.year}</button>
+          ))}
+        </div>
+        {TIMELINE.filter(t=>t.year===activeYear).map(t=>(
+          <div key={t.year} className="fade-in">
+            <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+              <div style={{width:48,height:48,borderRadius:12,background:'linear-gradient(135deg,#FF6B35,#D4843A)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:800,flexShrink:0}}>{t.year.slice(2)}</div>
+              <div>
+                <p style={{fontSize:16,fontWeight:800,marginBottom:8,color:'#1A1A1A'}}>{t.title}</p>
+                <p style={{fontSize:14,color:'#6B6B6B',lineHeight:1.7}}>{t.desc}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginTop:20}}>
+        {[{n:'7년',l:'브랜드 운영 기간'},{n:'42+',l:'협업 작가·브랜드'},{n:'1,200+',l:'취급 상품 수'}].map((s,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:14,padding:'20px',textAlign:'center',boxShadow:'0 2px 10px rgba(0,0,0,0.06)'}}>
+            <p style={{fontSize:26,fontWeight:900,color:'#FF6B35',marginBottom:4}}>{s.n}</p>
+            <p style={{fontSize:12,color:'#6B6B6B'}}>{s.l}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const [page, setPage] = useState('홈');
+  const [loading, setLoading] = useState(false);
+  const [cart, setCart] = useState(3);
+  const [productModal, setProductModal] = useState(null);
+
+  const navigate = (p) => {
+    if(p === page) return;
+    setLoading(true);
+    setTimeout(()=>{setPage(p);setLoading(false)}, 1500);
+  };
+
+  const goProduct = (p) => {
+    if(p) setProductModal(p);
+    navigate('상품');
+  };
+
+  const navItems = [
+    {label:'홈',icon:'🏠'},
+    {label:'상품',icon:'🛍️'},
+    {label:'매거진',icon:'📖'},
+    {label:'브랜드',icon:'✨'},
+  ];
+
+  return(
+    <div style={{display:'flex',height:'100vh',background:'#FFF8F0'}}>
+      {/* Sidebar */}
+      <aside style={{width:'var(--sidebar)',background:'#fff',borderRight:'1px solid #f0ece8',display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,height:'100vh',zIndex:100,boxShadow:'2px 0 12px rgba(0,0,0,0.05)'}}>
+        <div style={{padding:'24px 20px',borderBottom:'1px solid #f0ece8'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+            <div style={{width:34,height:34,borderRadius:10,background:'linear-gradient(135deg,#FF6B35,#D4843A)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:16,fontWeight:800}}>M</div>
+            <div>
+              <p style={{fontSize:16,fontWeight:900,color:'#1A1A1A',letterSpacing:'-0.3px'}}>모아스토어</p>
+              <p style={{fontSize:10,color:'#FF6B35',fontWeight:600,letterSpacing:'1px'}}>MOASTORE</p>
+            </div>
+          </div>
+        </div>
+
+        <nav style={{flex:1,padding:'16px 12px'}}>
+          <p style={{fontSize:10,fontWeight:700,color:'#ccc',letterSpacing:'2px',textTransform:'uppercase',padding:'0 8px',marginBottom:8}}>Menu</p>
+          {navItems.map(item=>(
+            <button key={item.label} onClick={()=>navigate(item.label)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'11px 12px',borderRadius:10,border:'none',background:page===item.label?'linear-gradient(135deg,#FFF0E8,#FFE8D6)':'none',color:page===item.label?'#FF6B35':'#6B6B6B',fontSize:14,fontWeight:page===item.label?700:500,cursor:'pointer',marginBottom:2,transition:'all .2s',textAlign:'left'}}>
+              <span style={{fontSize:17}}>{item.icon}</span>
+              {item.label}
+              {page===item.label && <span style={{marginLeft:'auto',width:4,height:4,borderRadius:'50%',background:'#FF6B35'}}/>}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{padding:'16px 20px',borderTop:'1px solid #f0ece8'}}>
+          <div style={{display:'flex',gap:8,marginBottom:12}}>
+            <button style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px',borderRadius:8,border:'1px solid #f0ece8',background:'#fff',cursor:'pointer',fontSize:12,color:'#666'}}>
+              <span>🔍</span>검색
+            </button>
+            <button onClick={()=>{}} style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px',borderRadius:8,border:'1px solid #f0ece8',background:'#fff',cursor:'pointer',fontSize:12,color:'#666',position:'relative'}}>
+              <span>🛒</span>장바구니
+              {cart>0 && <span style={{position:'absolute',top:4,right:4,background:'#FF6B35',color:'#fff',borderRadius:'50%',width:16,height:16,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>{cart}</span>}
+            </button>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'#f8f5f2',borderRadius:10}}>
+            <div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#FF6B35,#D4843A)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:800}}>이</div>
+            <div>
+              <p style={{fontSize:12,fontWeight:700,color:'#1A1A1A'}}>이소연</p>
+              <p style={{fontSize:11,color:'#FF6B35',fontWeight:600}}>VIP 회원</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main style={{marginLeft:'var(--sidebar)',flex:1,height:'100vh',overflowY:'auto'}}>
+        {/* Topbar */}
+        <div style={{height:'var(--topbar)',background:'#fff',borderBottom:'1px solid #f0ece8',display:'flex',alignItems:'center',padding:'0 28px',justifyContent:'space-between',position:'sticky',top:0,zIndex:50,backdropFilter:'blur(8px)'}}>
+          <div>
+            <p style={{fontSize:11,color:'#ccc',fontSize:11}}>모아스토어 / {page}</p>
+            <p style={{fontSize:16,fontWeight:800,color:'#1A1A1A',lineHeight:1.2}}>{page}</p>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button style={{padding:'7px 16px',borderRadius:20,background:'linear-gradient(135deg,#FF6B35,#E85A20)',color:'#fff',border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>신규 컬렉션 →</button>
+          </div>
+        </div>
+
+        {loading ? <Skel/> : (
+          page==='홈' ? <HomeView onProduct={goProduct}/> :
+          page==='상품' ? <ProductsView onSelect={setProductModal}/> :
+          page==='매거진' ? <MagazineView/> :
+          <BrandView/>
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

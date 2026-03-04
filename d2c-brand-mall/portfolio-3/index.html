@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>벨르아 — 뷰티 브랜드 자사몰 + CMS 어드민</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;word-break:keep-all;overflow-wrap:break-word;overflow:hidden}
+    :root{--primary:#7C3AED;--accent:#A78BFA;--bg:#FAF5FF;--sidebar:240px;--topbar:58px}
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:#f3eeff}
+    ::-webkit-scrollbar-thumb{background:#c4b5fd;border-radius:3px}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .skeleton{background:linear-gradient(90deg,#ede9fe 25%,#ddd6fe 50%,#ede9fe 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    .fade-in{animation:fadeIn .35s ease both}
+    .row-hover:hover{background:#f5f3ff!important}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+/* ── Data ── */
+const PRODUCTS_ADMIN = [
+  {id:1,name:'글로우 세럼 30ml',cat:'세럼',price:68000,stock:142,status:'판매중',sku:'BLA-SRM-001',sales:89},
+  {id:2,name:'수분 크림 50ml',cat:'크림',price:54000,stock:8,status:'재고부족',sku:'BLA-CRM-002',sales:61},
+  {id:3,name:'토너 패드 60매',cat:'토너',price:42000,stock:230,status:'판매중',sku:'BLA-TNR-003',sales:124},
+  {id:4,name:'아이크림 20ml',cat:'아이케어',price:78000,stock:0,status:'품절',sku:'BLA-EYE-004',sales:33},
+  {id:5,name:'클렌징 폼 150ml',cat:'클렌징',price:32000,stock:95,status:'판매중',sku:'BLA-CLN-005',sales:77},
+  {id:6,name:'선크림 SPF50+ 50ml',cat:'선케어',price:48000,stock:67,status:'판매중',sku:'BLA-SUN-006',sales:52},
+  {id:7,name:'앰플 10ml × 7개',cat:'앰플',price:92000,stock:5,status:'재고부족',sku:'BLA-AMP-007',sales:28},
+];
+
+const ORDERS = [
+  {id:'ORD-2503-1842',customer:'김지수',product:'글로우 세럼 30ml × 2',amount:136000,status:'배송완료',date:'2025.03.18',addr:'서울 마포구'},
+  {id:'ORD-2503-1841',customer:'이소연',product:'토너 패드 60매 × 1',amount:42000,status:'배송중',date:'2025.03.18',addr:'경기 분당'},
+  {id:'ORD-2503-1840',customer:'박민주',product:'수분 크림 50ml × 1, 클렌징 폼 × 1',amount:86000,status:'준비중',date:'2025.03.17',addr:'부산 해운대'},
+  {id:'ORD-2503-1839',customer:'최서연',product:'앰플 세트 × 1',amount:92000,status:'결제완료',date:'2025.03.17',addr:'대구 수성구'},
+  {id:'ORD-2503-1838',customer:'정다은',product:'선크림 × 2, 아이크림 × 1',amount:174000,status:'배송완료',date:'2025.03.16',addr:'인천 연수구'},
+  {id:'ORD-2503-1837',customer:'한아름',product:'글로우 세럼 × 1',amount:68000,status:'배송완료',date:'2025.03.16',addr:'서울 강남구'},
+  {id:'ORD-2503-1836',customer:'윤채원',product:'토너 패드 × 2, 수분 크림 × 1',amount:138000,status:'환불처리',date:'2025.03.15',addr:'서울 종로구'},
+];
+
+const CONTENTS = [
+  {id:1,title:'봄 스킨케어 루틴 완성 가이드',status:'발행',date:'2025.03.15',views:1842,tag:'스킨케어'},
+  {id:2,title:'글로우 세럼 성분 심층 분석',status:'발행',date:'2025.03.10',views:2341,tag:'성분 이야기'},
+  {id:3,title:'4월 신상품 미리 보기',status:'예약',date:'2025.04.01',views:0,tag:'신상품'},
+  {id:4,title:'피부 타입별 추천 루틴',status:'초안',date:'—',views:0,tag:'루틴'},
+  {id:5,title:'민감성 피부를 위한 클렌징 방법',status:'발행',date:'2025.02.28',views:1124,tag:'피부 고민'},
+];
+
+const SHOP_PRODS = [
+  {id:1,name:'글로우 세럼',sub:'비타민C + 나이아신아마이드 복합 세럼',price:68000,emoji:'✨',skin:['건성','복합'],color:'#EDE9FE'},
+  {id:2,name:'수분 크림',sub:'히알루론산 5중 복합체 데일리 크림',price:54000,emoji:'💧',skin:['건성','민감'],color:'#DDD6FE'},
+  {id:3,name:'토너 패드',sub:'PHA + 판테놀 저자극 각질 케어',price:42000,emoji:'🌸',skin:['지성','복합'],color:'#C4B5FD'},
+  {id:4,name:'아이크림',sub:'레티놀 + 펩타이드 눈가 탄력 케어',price:78000,emoji:'👁️',skin:['건성','민감'],color:'#A78BFA'},
+];
+
+/* ── Skeleton ── */
+function Skel(){
+  return <div style={{padding:'24px 28px'}}>
+    {[1,2].map(i=><div key={i} className="skeleton" style={{height:22,borderRadius:8,marginBottom:14,width:['60%','40%'][i-1]}}/>)}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginTop:20}}>
+      {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:90,borderRadius:12}}/>)}
+    </div>
+    <div className="skeleton" style={{height:240,borderRadius:12,marginTop:20}}/>
+  </div>;
+}
+
+/* ── Storefront ── */
+function ShopView(){
+  const [skinFilter, setSkinFilter] = useState('전체');
+  const [modal, setModal] = useState(null);
+  const [selectedOpt, setSelectedOpt] = useState(0);
+  const [qty, setQty] = useState(1);
+  const skins = ['전체','건성','지성','복합','민감'];
+  const filtered = SHOP_PRODS.filter(p=>skinFilter==='전체'||p.skin.includes(skinFilter));
+
+  return(
+    <div className="fade-in">
+      {/* Hero */}
+      <div style={{background:'linear-gradient(135deg,#1E1B4B 0%,#312E81 50%,#4C1D95 100%)',padding:'56px 36px',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:'-20%',right:'-5%',width:360,height:360,borderRadius:'50%',background:'rgba(167,139,250,0.12)'}}/>
+        <div style={{position:'absolute',bottom:'-30%',left:'20%',width:300,height:300,borderRadius:'50%',background:'rgba(124,58,237,0.2)'}}/>
+        <div style={{position:'relative',zIndex:1,maxWidth:540}}>
+          <p style={{color:'rgba(196,181,253,0.8)',fontSize:11,letterSpacing:'3px',fontWeight:600,marginBottom:14,textTransform:'uppercase'}}>Belleua Premium Skincare</p>
+          <h1 style={{color:'#FAF5FF',fontSize:32,fontWeight:900,lineHeight:1.25,marginBottom:16,letterSpacing:'-0.5px'}}>피부가 원하는 것을 알고,<br/>정확하게 채워주는 스킨케어</h1>
+          <p style={{color:'rgba(250,245,255,0.7)',fontSize:14,lineHeight:1.8,marginBottom:28}}>피부 타입별 맞춤 성분 설계. 과학적 근거를 바탕으로<br/>피부 본연의 힘을 강화하는 벨르아 스킨케어입니다.</p>
+          <div style={{display:'flex',gap:12}}>
+            <button style={{background:'#A78BFA',color:'#1E1B4B',border:'none',borderRadius:10,padding:'12px 28px',fontSize:14,fontWeight:800,cursor:'pointer'}}>지금 쇼핑하기 →</button>
+            <button style={{background:'rgba(250,245,255,0.1)',color:'#FAF5FF',border:'1px solid rgba(250,245,255,0.25)',borderRadius:10,padding:'12px 20px',fontSize:14,fontWeight:600,cursor:'pointer',backdropFilter:'blur(4px)'}}>피부 고민 상담</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:'32px 28px'}}>
+        {/* Skin type filter */}
+        <div style={{marginBottom:24}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div>
+              <p style={{color:'#7C3AED',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:4}}>For Your Skin</p>
+              <h2 style={{fontSize:20,fontWeight:800}}>피부 타입별 추천</h2>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,marginBottom:20}}>
+            {skins.map(s=>(
+              <button key={s} onClick={()=>setSkinFilter(s)} style={{padding:'7px 18px',borderRadius:20,border:skinFilter===s?'none':'1px solid #e9d5ff',background:skinFilter===s?'#7C3AED':'#fff',color:skinFilter===s?'#fff':'#6B7280',fontSize:13,fontWeight:skinFilter===s?700:400,cursor:'pointer',transition:'all .2s'}}>{s}</button>
+            ))}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+            {filtered.map(p=>(
+              <div key={p.id} onClick={()=>{setModal(p);setSelectedOpt(0);setQty(1)}} style={{background:'#fff',borderRadius:16,overflow:'hidden',cursor:'pointer',boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe',transition:'all .25s'}}
+                onMouseEnter={e=>{e.currentTarget.style.boxShadow='0 8px 28px rgba(124,58,237,0.18)';e.currentTarget.style.transform='translateY(-4px)'}}
+                onMouseLeave={e=>{e.currentTarget.style.boxShadow='0 2px 12px rgba(124,58,237,0.08)';e.currentTarget.style.transform='none'}}>
+                <div style={{height:160,background:`linear-gradient(135deg,${p.color},${p.color}90)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:52}}>{p.emoji}</div>
+                <div style={{padding:'16px'}}>
+                  <div style={{display:'flex',gap:4,marginBottom:8}}>
+                    {p.skin.map(s=><span key={s} style={{background:'rgba(124,58,237,0.08)',color:'#7C3AED',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:4}}>{s}</span>)}
+                  </div>
+                  <p style={{fontSize:16,fontWeight:800,marginBottom:4}}>{p.name}</p>
+                  <p style={{fontSize:12,color:'#6B7280',marginBottom:10,lineHeight:1.5}}>{p.sub}</p>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:17,fontWeight:900,color:'#7C3AED'}}>{p.price.toLocaleString()}원</span>
+                    <button style={{background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,padding:'7px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>담기</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Brand promise */}
+        <div style={{background:'linear-gradient(135deg,#F5F3FF,#EDE9FE)',borderRadius:16,padding:'28px',border:'1px solid #ddd6fe'}}>
+          <p style={{color:'#7C3AED',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:12}}>Brand Promise</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+            {[{icon:'🔬',t:'성분 투명성',d:'모든 성분 전성분 공개, 동물 실험 없음'},
+              {icon:'🌿',t:'저자극 포뮬러',d:'피부과 테스트 완료, 민감성 피부 적합'},
+              {icon:'📦',t:'친환경 패키징',d:'재활용 가능 용기, 최소한의 포장재'}].map((b,i)=>(
+              <div key={i} style={{textAlign:'center',padding:'16px'}}>
+                <div style={{fontSize:28,marginBottom:10}}>{b.icon}</div>
+                <p style={{fontSize:14,fontWeight:700,marginBottom:6}}>{b.t}</p>
+                <p style={{fontSize:12,color:'#6B7280',lineHeight:1.5}}>{b.d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'32px',width:500,animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{display:'flex',gap:20,marginBottom:20}}>
+              <div style={{width:130,height:130,borderRadius:16,background:`linear-gradient(135deg,${modal.color},${modal.color}80)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:52,flexShrink:0}}>{modal.emoji}</div>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',gap:4,marginBottom:10}}>
+                  {modal.skin.map(s=><span key={s} style={{background:'rgba(124,58,237,0.1)',color:'#7C3AED',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{s}</span>)}
+                </div>
+                <h3 style={{fontSize:18,fontWeight:800,marginBottom:4}}>{modal.name}</h3>
+                <p style={{fontSize:13,color:'#6B7280',lineHeight:1.6,marginBottom:8}}>{modal.sub}</p>
+                <p style={{fontSize:22,fontWeight:900,color:'#7C3AED'}}>{modal.price.toLocaleString()}원</p>
+              </div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:8}}>용량 선택</p>
+              <div style={{display:'flex',gap:8}}>
+                {['기본','세트(2개)','대용량'].map((o,i)=>(
+                  <button key={i} onClick={()=>setSelectedOpt(i)} style={{padding:'7px 16px',borderRadius:8,border:selectedOpt===i?'2px solid #7C3AED':'1px solid #e9d5ff',background:selectedOpt===i?'#F5F3FF':'#fff',color:selectedOpt===i?'#7C3AED':'#6B7280',fontSize:13,fontWeight:selectedOpt===i?700:400,cursor:'pointer'}}>{o}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+              <p style={{fontSize:13,fontWeight:700}}>수량</p>
+              <div style={{display:'flex',alignItems:'center',border:'1px solid #e9d5ff',borderRadius:8,overflow:'hidden'}}>
+                <button onClick={()=>setQty(q=>Math.max(1,q-1))} style={{width:36,height:36,border:'none',background:'#fff',fontSize:18,cursor:'pointer'}}>−</button>
+                <span style={{width:40,textAlign:'center',fontSize:14,fontWeight:700}}>{qty}</span>
+                <button onClick={()=>setQty(q=>q+1)} style={{width:36,height:36,border:'none',background:'#fff',fontSize:18,cursor:'pointer'}}>+</button>
+              </div>
+              <span style={{fontSize:14,fontWeight:700,color:'#7C3AED',marginLeft:'auto'}}>{(modal.price*qty*(selectedOpt===1?1.85:selectedOpt===2?2.5:1)).toLocaleString()}원</span>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setModal(null)} style={{flex:1,padding:'12px',borderRadius:10,border:'1px solid #7C3AED',background:'#fff',color:'#7C3AED',fontSize:14,fontWeight:700,cursor:'pointer'}}>장바구니</button>
+              <button onClick={()=>setModal(null)} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:'#7C3AED',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>바로 구매</button>
+            </div>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── CMS View ── */
+function CMSView(){
+  const [selected, setSelected] = useState(null);
+  const [editModal, setEditModal] = useState(null);
+  const [blocks, setBlocks] = useState([
+    {id:1,type:'text',content:'봄 시즌 스킨케어 루틴을 완성하는 핵심 제품들을 소개합니다.'},
+    {id:2,type:'image',content:'메인 비주얼 이미지 (1200×600)'},
+    {id:3,type:'product-embed',content:'글로우 세럼 30ml — 연결 상품'},
+  ]);
+  const statusColor = {발행:'#059669',예약:'#D97706',초안:'#6B7280',발행중:'#7C3AED'};
+  const typeIcon = {text:'📝',image:'🖼️','product-embed':'🛍️',infographic:'📊'};
+
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>콘텐츠 관리</h2>
+          <p style={{color:'#6B7280',fontSize:13}}>블록 기반 CMS 에디터 — 매거진·브랜드 스토리 콘텐츠</p>
+        </div>
+        <button onClick={()=>setEditModal({})} style={{background:'#7C3AED',color:'#fff',border:'none',borderRadius:10,padding:'10px 20px',fontSize:13,fontWeight:700,cursor:'pointer'}}>+ 새 콘텐츠</button>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 360px',gap:20}}>
+        {/* List */}
+        <div style={{background:'#fff',borderRadius:16,overflow:'hidden',boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe'}}>
+          <div style={{padding:'14px 20px',borderBottom:'1px solid #ede9fe',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <p style={{fontSize:14,fontWeight:700}}>전체 콘텐츠 ({CONTENTS.length})</p>
+            <div style={{display:'flex',gap:8}}>
+              {['전체','발행','예약','초안'].map(s=>(
+                <button key={s} style={{padding:'4px 10px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:12,color:'#6B7280',cursor:'pointer'}}>{s}</button>
+              ))}
+            </div>
+          </div>
+          {CONTENTS.map(c=>(
+            <div key={c.id} onClick={()=>setSelected(c)} className="row-hover" style={{padding:'14px 20px',borderBottom:'1px solid #f5f3ff',cursor:'pointer',background:selected?.id===c.id?'#f5f3ff':'#fff',transition:'all .15s'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                <div style={{flex:1,marginRight:12}}>
+                  <div style={{display:'flex',gap:6,marginBottom:6}}>
+                    <span style={{background:`${statusColor[c.status]}15`,color:statusColor[c.status],fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{c.status}</span>
+                    <span style={{background:'rgba(124,58,237,0.08)',color:'#7C3AED',fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:4}}>{c.tag}</span>
+                  </div>
+                  <p style={{fontSize:14,fontWeight:700,marginBottom:4,lineHeight:1.4}}>{c.title}</p>
+                  <p style={{fontSize:12,color:'#9CA3AF'}}>{c.date}{c.views>0?` · 조회 ${c.views.toLocaleString()}회`:''}</p>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <button onClick={e=>{e.stopPropagation();setEditModal(c)}} style={{padding:'5px 10px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:12,color:'#7C3AED',fontWeight:600,cursor:'pointer'}}>수정</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Block editor preview */}
+        <div style={{background:'#fff',borderRadius:16,boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe',overflow:'hidden'}}>
+          <div style={{padding:'14px 20px',borderBottom:'1px solid #ede9fe',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <p style={{fontSize:14,fontWeight:700}}>블록 에디터</p>
+            <span style={{fontSize:12,color:'#9CA3AF'}}>드래그로 순서 변경</span>
+          </div>
+          <div style={{padding:'16px'}}>
+            <div style={{marginBottom:12,padding:'10px 14px',background:'#F5F3FF',borderRadius:10,border:'1px solid #ede9fe'}}>
+              <p style={{fontSize:11,color:'#6B7280',fontWeight:600,marginBottom:4}}>제목</p>
+              <p style={{fontSize:14,fontWeight:700}}>봄 스킨케어 루틴 완성 가이드</p>
+            </div>
+            {blocks.map((bl,idx)=>(
+              <div key={bl.id} style={{marginBottom:10,padding:'10px 14px',background:'#fff',borderRadius:10,border:'1px solid #ede9fe',display:'flex',gap:10,alignItems:'center'}}>
+                <span style={{fontSize:14,cursor:'grab',color:'#C4B5FD'}}>⠿</span>
+                <span style={{fontSize:16}}>{typeIcon[bl.type]}</span>
+                <div style={{flex:1}}>
+                  <p style={{fontSize:10,color:'#A78BFA',fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',marginBottom:2}}>{bl.type}</p>
+                  <p style={{fontSize:12,color:'#374151',lineHeight:1.4}}>{bl.content}</p>
+                </div>
+                <div style={{display:'flex',gap:4}}>
+                  <button onClick={()=>setBlocks(b=>b.filter(x=>x.id!==bl.id))} style={{width:24,height:24,border:'none',background:'#FEE2E2',borderRadius:4,color:'#EF4444',fontSize:13,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+                </div>
+              </div>
+            ))}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8,marginTop:12}}>
+              {Object.entries(typeIcon).map(([type,icon])=>(
+                <button key={type} onClick={()=>setBlocks(b=>[...b,{id:Date.now(),type,content:`새 ${type} 블록`}])} style={{padding:'8px 10px',borderRadius:8,border:'1px dashed #C4B5FD',background:'#FAFAFF',color:'#7C3AED',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                  <span>{icon}</span>{type}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{padding:'12px 16px',borderTop:'1px solid #ede9fe',display:'flex',gap:8}}>
+            <button style={{flex:1,padding:'9px',borderRadius:8,border:'1px solid #ede9fe',background:'#fff',color:'#6B7280',fontSize:13,fontWeight:600,cursor:'pointer'}}>미리보기</button>
+            <button style={{flex:1,padding:'9px',borderRadius:8,border:'none',background:'#7C3AED',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>발행하기</button>
+          </div>
+        </div>
+      </div>
+
+      {editModal && (
+        <div onClick={()=>setEditModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'32px',width:480,animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <h3 style={{fontSize:17,fontWeight:800,marginBottom:20}}>{editModal.id?'콘텐츠 수정':'새 콘텐츠 작성'}</h3>
+            <div style={{marginBottom:14}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:6}}>제목</p>
+              <input defaultValue={editModal.title||''} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #ede9fe',fontSize:14,outline:'none'}} placeholder="콘텐츠 제목을 입력하세요"/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:6}}>태그</p>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {['스킨케어','성분 이야기','루틴','피부 고민','신상품'].map(t=>(
+                  <button key={t} style={{padding:'5px 12px',borderRadius:16,border:'1px solid #ede9fe',background:editModal.tag===t?'#7C3AED':'#fff',color:editModal.tag===t?'#fff':'#6B7280',fontSize:12,cursor:'pointer'}}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:6}}>발행 상태</p>
+              <div style={{display:'flex',gap:8}}>
+                {['초안','발행','예약'].map(s=>(
+                  <button key={s} style={{padding:'7px 16px',borderRadius:8,border:'1px solid #ede9fe',background:'#fff',color:'#6B7280',fontSize:13,cursor:'pointer'}}>{s}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setEditModal(null)} style={{flex:1,padding:'11px',borderRadius:10,border:'1px solid #ede9fe',background:'#fff',color:'#6B7280',fontSize:14,fontWeight:600,cursor:'pointer'}}>취소</button>
+              <button onClick={()=>setEditModal(null)} style={{flex:1,padding:'11px',borderRadius:10,border:'none',background:'#7C3AED',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>저장</button>
+            </div>
+            <button onClick={()=>setEditModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Product Admin ── */
+function ProductAdmin(){
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 5;
+  const filtered = PRODUCTS_ADMIN.filter(p=>p.name.includes(search)||p.sku.includes(search));
+  const paged = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
+  const totalPages = Math.ceil(filtered.length/PER_PAGE);
+  const statusColor = {'판매중':'#059669','재고부족':'#D97706','품절':'#EF4444'};
+  const cats = [...new Set(PRODUCTS_ADMIN.map(p=>p.cat))];
+
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>상품 관리</h2>
+          <p style={{color:'#6B7280',fontSize:13}}>상품 등록·수정·재고·옵션 통합 관리</p>
+        </div>
+        <div style={{display:'flex',gap:10}}>
+          <button style={{padding:'10px 16px',borderRadius:10,border:'1px solid #ede9fe',background:'#fff',color:'#7C3AED',fontSize:13,fontWeight:700,cursor:'pointer'}}>CSV 업로드</button>
+          <button onClick={()=>setModal({new:true})} style={{background:'#7C3AED',color:'#fff',border:'none',borderRadius:10,padding:'10px 20px',fontSize:13,fontWeight:700,cursor:'pointer'}}>+ 상품 등록</button>
+        </div>
+      </div>
+
+      {/* KPI */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {[
+          {label:'전체 상품',value:PRODUCTS_ADMIN.length,sub:'등록 상품',color:'#7C3AED'},
+          {label:'판매 중',value:PRODUCTS_ADMIN.filter(p=>p.status==='판매중').length,sub:'활성 상품',color:'#059669'},
+          {label:'재고 부족',value:PRODUCTS_ADMIN.filter(p=>p.status==='재고부족').length,sub:'10개 미만',color:'#D97706'},
+          {label:'이번 주 판매',value:PRODUCTS_ADMIN.reduce((s,p)=>s+p.sales,0),sub:'누적 판매 수',color:'#7C3AED'},
+        ].map((k,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:14,padding:'16px 18px',boxShadow:'0 2px 10px rgba(124,58,237,0.07)',border:'1px solid #ede9fe'}}>
+            <p style={{fontSize:12,color:'#9CA3AF',marginBottom:6}}>{k.label}</p>
+            <p style={{fontSize:26,fontWeight:900,color:k.color,marginBottom:2}}>{k.value}</p>
+            <p style={{fontSize:11,color:'#C4B5FD'}}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + Table */}
+      <div style={{background:'#fff',borderRadius:16,boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe',overflow:'hidden'}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid #ede9fe',display:'flex',gap:12,alignItems:'center'}}>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="상품명 또는 SKU 검색..." style={{flex:1,padding:'8px 14px',borderRadius:8,border:'1px solid #ede9fe',fontSize:13,outline:'none'}}/>
+          <select style={{padding:'8px 12px',borderRadius:8,border:'1px solid #ede9fe',fontSize:13,color:'#374151',outline:'none',cursor:'pointer'}}>
+            <option>전체 카테고리</option>
+            {cats.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFAFF'}}>
+              {['상품명','카테고리','판매가','재고','판매수','상태','관리'].map(h=>(
+                <th key={h} style={{padding:'10px 16px',fontSize:12,fontWeight:700,color:'#6B7280',textAlign:'left',borderBottom:'1px solid #ede9fe'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map(p=>(
+              <tr key={p.id} className="row-hover" style={{borderBottom:'1px solid #f5f3ff',cursor:'pointer',transition:'all .15s'}}>
+                <td style={{padding:'12px 16px'}}>
+                  <p style={{fontSize:14,fontWeight:600}}>{p.name}</p>
+                  <p style={{fontSize:11,color:'#9CA3AF'}}>{p.sku}</p>
+                </td>
+                <td style={{padding:'12px 16px'}}><span style={{background:'rgba(124,58,237,0.08)',color:'#7C3AED',fontSize:12,fontWeight:600,padding:'3px 8px',borderRadius:6}}>{p.cat}</span></td>
+                <td style={{padding:'12px 16px',fontSize:14,fontWeight:700}}>{p.price.toLocaleString()}원</td>
+                <td style={{padding:'12px 16px'}}>
+                  <span style={{color:p.stock<10?'#D97706':p.stock===0?'#EF4444':'#374151',fontWeight:p.stock<10?700:400,fontSize:14}}>{p.stock}개</span>
+                </td>
+                <td style={{padding:'12px 16px',fontSize:14,color:'#374151'}}>{p.sales}개</td>
+                <td style={{padding:'12px 16px'}}>
+                  <span style={{background:`${statusColor[p.status]}15`,color:statusColor[p.status],fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:6}}>{p.status}</span>
+                </td>
+                <td style={{padding:'12px 16px'}}>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setModal(p)} style={{padding:'5px 10px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:12,color:'#7C3AED',fontWeight:600,cursor:'pointer'}}>수정</button>
+                    <button style={{padding:'5px 10px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:12,color:'#6B7280',cursor:'pointer'}}>삭제</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{padding:'12px 20px',borderTop:'1px solid #ede9fe',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <p style={{fontSize:13,color:'#6B7280'}}>{filtered.length}개 상품 · {page}/{totalPages} 페이지</p>
+          <div style={{display:'flex',gap:6}}>
+            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{padding:'5px 12px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:13,cursor:'pointer',color:page===1?'#C4B5FD':'#7C3AED',fontWeight:600}}>← 이전</button>
+            {Array.from({length:totalPages},(_,i)=>i+1).map(n=>(
+              <button key={n} onClick={()=>setPage(n)} style={{padding:'5px 10px',borderRadius:6,border:'none',background:page===n?'#7C3AED':'#f5f3ff',color:page===n?'#fff':'#6B7280',fontSize:13,fontWeight:700,cursor:'pointer'}}>{n}</button>
+            ))}
+            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{padding:'5px 12px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:13,cursor:'pointer',color:page===totalPages?'#C4B5FD':'#7C3AED',fontWeight:600}}>다음 →</button>
+          </div>
+        </div>
+      </div>
+
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'32px',width:480,animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <h3 style={{fontSize:17,fontWeight:800,marginBottom:20}}>{modal.new?'상품 등록':'상품 수정'}</h3>
+            {['상품명','판매가','재고 수량','카테고리'].map((f,i)=>(
+              <div key={i} style={{marginBottom:14}}>
+                <p style={{fontSize:13,fontWeight:700,marginBottom:6}}>{f}</p>
+                <input defaultValue={[modal.name,modal.price,modal.stock,modal.cat][i]||''} style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #ede9fe',fontSize:14,outline:'none'}} placeholder={`${f} 입력`}/>
+              </div>
+            ))}
+            <div style={{marginBottom:20}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:8}}>재고 알림 임계값</p>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <input type="range" min={0} max={50} defaultValue={10} style={{flex:1,accentColor:'#7C3AED'}}/>
+                <span style={{fontSize:14,fontWeight:700,color:'#7C3AED',width:40,textAlign:'center'}}>10개</span>
+              </div>
+              <p style={{fontSize:12,color:'#9CA3AF',marginTop:4}}>재고가 임계값 이하로 떨어지면 알림을 발송합니다</p>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setModal(null)} style={{flex:1,padding:'11px',borderRadius:10,border:'1px solid #ede9fe',background:'#fff',color:'#6B7280',fontSize:14,fontWeight:600,cursor:'pointer'}}>취소</button>
+              <button onClick={()=>setModal(null)} style={{flex:1,padding:'11px',borderRadius:10,border:'none',background:'#7C3AED',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>저장</button>
+            </div>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Order Dashboard ── */
+function OrderDashboard(){
+  const [filter, setFilter] = useState('전체');
+  const [modal, setModal] = useState(null);
+  const [period, setPeriod] = useState('7일');
+  const statusColor = {'배송완료':'#059669','배송중':'#0EA5E9','준비중':'#D97706','결제완료':'#7C3AED','환불처리':'#EF4444'};
+  const statuses = ['전체','결제완료','준비중','배송중','배송완료','환불처리'];
+  const filtered = ORDERS.filter(o=>filter==='전체'||o.status===filter);
+
+  const kpis = [
+    {label:'전체 주문',value:'847',sub:'이번 달',color:'#7C3AED',icon:'📦'},
+    {label:'배송 완료',value:'612',sub:'완료율 72.3%',color:'#059669',icon:'✅'},
+    {label:'총 매출',value:'38,420,000',sub:'원 (이번 달)',color:'#7C3AED',icon:'💰'},
+    {label:'평균 주문 금액',value:'45,400',sub:'원',color:'#0EA5E9',icon:'📊'},
+  ];
+
+  const weeklyData = [
+    {day:'월',orders:42,amount:1890000},
+    {day:'화',orders:38,amount:1710000},
+    {day:'수',orders:55,amount:2475000},
+    {day:'목',orders:61,amount:2745000},
+    {day:'금',orders:73,amount:3285000},
+    {day:'토',orders:89,amount:4005000},
+    {day:'일',orders:47,amount:2115000},
+  ];
+  const maxOrders = Math.max(...weeklyData.map(d=>d.orders));
+
+  return(
+    <div className="fade-in" style={{padding:'24px 28px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:800,marginBottom:4}}>주문 관리</h2>
+          <p style={{color:'#6B7280',fontSize:13}}>주문 현황·배송 상태·고객 구매 이력 통합 대시보드</p>
+        </div>
+        <div style={{display:'flex',gap:6}}>
+          {['7일','30일','3개월'].map(p=>(
+            <button key={p} onClick={()=>setPeriod(p)} style={{padding:'7px 14px',borderRadius:8,border:'none',background:period===p?'#7C3AED':'#f5f3ff',color:period===p?'#fff':'#6B7280',fontSize:13,fontWeight:period===p?700:400,cursor:'pointer'}}>{p}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        {kpis.map((k,i)=>(
+          <div key={i} style={{background:'#fff',borderRadius:14,padding:'16px 18px',boxShadow:'0 2px 10px rgba(124,58,237,0.07)',border:'1px solid #ede9fe'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <p style={{fontSize:12,color:'#9CA3AF'}}>{k.label}</p>
+              <span style={{fontSize:20}}>{k.icon}</span>
+            </div>
+            <p style={{fontSize:22,fontWeight:900,color:k.color,marginBottom:2}}>{k.value}</p>
+            <p style={{fontSize:11,color:'#C4B5FD'}}>{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:20,marginBottom:20}}>
+        {/* Chart */}
+        <div style={{background:'#fff',borderRadius:16,padding:'20px',boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <p style={{fontSize:14,fontWeight:700}}>일별 주문 추이</p>
+            <div style={{display:'flex',gap:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:5}}><div style={{width:10,height:10,borderRadius:'50%',background:'#7C3AED'}}/><span style={{fontSize:12,color:'#6B7280'}}>주문 수</span></div>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:10,height:130}}>
+            {weeklyData.map((d,i)=>(
+              <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                <p style={{fontSize:11,color:'#7C3AED',fontWeight:700}}>{d.orders}</p>
+                <div style={{width:'100%',borderRadius:'6px 6px 0 0',background:`linear-gradient(180deg,#A78BFA,#7C3AED)`,height:`${(d.orders/maxOrders)*100}px`,minHeight:4,transition:'height .3s'}}/>
+                <p style={{fontSize:11,color:'#9CA3AF'}}>{d.day}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Status breakdown */}
+        <div style={{background:'#fff',borderRadius:16,padding:'20px',boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe'}}>
+          <p style={{fontSize:14,fontWeight:700,marginBottom:16}}>상태별 현황</p>
+          {[{s:'배송완료',n:612,pct:72},{s:'배송중',n:98,pct:12},{s:'준비중',n:67,pct:8},{s:'결제완료',n:42,pct:5},{s:'환불처리',n:28,pct:3}].map((item,i)=>(
+            <div key={i} style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:statusColor[item.s]}}/>
+                  <span style={{fontSize:13,color:'#374151'}}>{item.s}</span>
+                </div>
+                <span style={{fontSize:13,fontWeight:700,color:'#374151'}}>{item.n}건</span>
+              </div>
+              <div style={{height:6,background:'#f5f3ff',borderRadius:3,overflow:'hidden'}}>
+                <div style={{width:`${item.pct}%`,height:'100%',background:statusColor[item.s],borderRadius:3,transition:'width .4s'}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Order table */}
+      <div style={{background:'#fff',borderRadius:16,boxShadow:'0 2px 12px rgba(124,58,237,0.08)',border:'1px solid #ede9fe',overflow:'hidden'}}>
+        <div style={{padding:'14px 20px',borderBottom:'1px solid #ede9fe',display:'flex',gap:8,alignItems:'center',overflowX:'auto'}}>
+          {statuses.map(s=>(
+            <button key={s} onClick={()=>setFilter(s)} style={{padding:'6px 14px',borderRadius:20,border:'none',background:filter===s?'#7C3AED':'#f5f3ff',color:filter===s?'#fff':'#6B7280',fontSize:12,fontWeight:filter===s?700:400,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>{s}</button>
+          ))}
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#FAFAFF'}}>
+              {['주문번호','고객명','주문 상품','결제금액','상태','주문일','관리'].map(h=>(
+                <th key={h} style={{padding:'10px 16px',fontSize:12,fontWeight:700,color:'#6B7280',textAlign:'left',borderBottom:'1px solid #ede9fe'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(o=>(
+              <tr key={o.id} onClick={()=>setModal(o)} className="row-hover" style={{borderBottom:'1px solid #f5f3ff',cursor:'pointer',transition:'all .15s'}}>
+                <td style={{padding:'12px 16px',fontSize:13,fontWeight:600,color:'#7C3AED'}}>{o.id}</td>
+                <td style={{padding:'12px 16px',fontSize:14,fontWeight:600}}>{o.customer}</td>
+                <td style={{padding:'12px 16px',fontSize:13,color:'#374151',maxWidth:200}}><span style={{display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}}>{o.product}</span></td>
+                <td style={{padding:'12px 16px',fontSize:14,fontWeight:700,color:'#1E1B4B'}}>{o.amount.toLocaleString()}원</td>
+                <td style={{padding:'12px 16px'}}><span style={{background:`${statusColor[o.status]}15`,color:statusColor[o.status],fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:6}}>{o.status}</span></td>
+                <td style={{padding:'12px 16px',fontSize:13,color:'#6B7280'}}>{o.date}</td>
+                <td style={{padding:'12px 16px'}}>
+                  <button onClick={e=>{e.stopPropagation();setModal(o)}} style={{padding:'5px 10px',borderRadius:6,border:'1px solid #ede9fe',background:'#fff',fontSize:12,color:'#7C3AED',fontWeight:600,cursor:'pointer'}}>상세</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'32px',width:480,animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+              <div>
+                <p style={{fontSize:12,color:'#9CA3AF',marginBottom:4}}>{modal.date}</p>
+                <h3 style={{fontSize:16,fontWeight:800,color:'#7C3AED'}}>{modal.id}</h3>
+              </div>
+              <span style={{background:`${statusColor[modal.status]}15`,color:statusColor[modal.status],fontSize:13,fontWeight:700,padding:'5px 12px',borderRadius:8}}>{modal.status}</span>
+            </div>
+            {[{l:'고객명',v:modal.customer},{l:'배송지',v:modal.addr},{l:'주문 상품',v:modal.product},{l:'결제 금액',v:`${modal.amount.toLocaleString()}원`}].map((r,i)=>(
+              <div key={i} style={{display:'flex',gap:12,padding:'10px 0',borderBottom:'1px solid #f5f3ff'}}>
+                <p style={{fontSize:13,color:'#9CA3AF',width:80,flexShrink:0}}>{r.l}</p>
+                <p style={{fontSize:14,fontWeight:600,flex:1}}>{r.v}</p>
+              </div>
+            ))}
+            <div style={{marginTop:20}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:10}}>주문 상태 변경</p>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {['준비중','배송중','배송완료','환불처리'].map(s=>(
+                  <button key={s} onClick={()=>setModal(null)} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${statusColor[s]}`,background:'#fff',color:statusColor[s],fontSize:13,fontWeight:600,cursor:'pointer'}}>{s}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── App ── */
+function App(){
+  const [page, setPage] = useState('쇼핑몰');
+  const [loading, setLoading] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const navigate = (p) => {
+    if(p===page) return;
+    setLoading(true);
+    setTimeout(()=>{setPage(p);setLoading(false)},1500);
+  };
+
+  const navItems = [
+    {label:'쇼핑몰',icon:'🛍️',desc:'자사몰 프론트'},
+    {label:'콘텐츠',icon:'✏️',desc:'CMS 에디터'},
+    {label:'상품관리',icon:'📦',desc:'재고·옵션'},
+    {label:'주문관리',icon:'📋',desc:'주문·배송'},
+  ];
+
+  const sidebarW = collapsed ? 64 : 240;
+
+  return(
+    <div style={{display:'flex',height:'100vh',background:'#FAF5FF'}}>
+      {/* Sidebar */}
+      <aside style={{width:sidebarW,background:'#fff',borderRight:'1px solid #ede9fe',display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,height:'100vh',zIndex:100,transition:'width .2s',overflow:'hidden',boxShadow:'2px 0 12px rgba(124,58,237,0.06)'}}>
+        {/* Logo */}
+        <div style={{padding:collapsed?'20px 14px':'20px 18px',borderBottom:'1px solid #ede9fe',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,overflow:'hidden'}}>
+            <div style={{width:34,height:34,borderRadius:10,background:'linear-gradient(135deg,#7C3AED,#5B21B6)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:16,fontWeight:800,flexShrink:0}}>B</div>
+            {!collapsed && <div style={{overflow:'hidden'}}>
+              <p style={{fontSize:15,fontWeight:900,color:'#1E1B4B',whiteSpace:'nowrap'}}>벨르아</p>
+              <p style={{fontSize:10,color:'#A78BFA',fontWeight:600,letterSpacing:'1.5px',whiteSpace:'nowrap'}}>BELLEUA</p>
+            </div>}
+          </div>
+          <button onClick={()=>setCollapsed(c=>!c)} style={{background:'none',border:'none',cursor:'pointer',color:'#C4B5FD',fontSize:16,flexShrink:0,padding:0}}>{collapsed?'›':'‹'}</button>
+        </div>
+
+        <nav style={{flex:1,padding:'14px 10px',overflow:'hidden'}}>
+          {!collapsed && <p style={{fontSize:10,fontWeight:700,color:'#C4B5FD',letterSpacing:'2px',textTransform:'uppercase',padding:'0 8px',marginBottom:8}}>Menu</p>}
+          {navItems.map(item=>(
+            <button key={item.label} onClick={()=>navigate(item.label)} title={collapsed?item.label:''} style={{width:'100%',display:'flex',alignItems:'center',gap:collapsed?0:10,padding:collapsed?'11px':'11px 12px',borderRadius:10,border:'none',background:page===item.label?'linear-gradient(135deg,#F5F3FF,#EDE9FE)':'none',color:page===item.label?'#7C3AED':'#6B7280',fontSize:13,fontWeight:page===item.label?700:500,cursor:'pointer',marginBottom:2,transition:'all .2s',textAlign:'left',justifyContent:collapsed?'center':'flex-start'}}>
+              <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
+              {!collapsed && <div style={{overflow:'hidden'}}>
+                <p style={{fontWeight:page===item.label?700:500,whiteSpace:'nowrap'}}>{item.label}</p>
+                <p style={{fontSize:10,color:'#C4B5FD',whiteSpace:'nowrap'}}>{item.desc}</p>
+              </div>}
+            </button>
+          ))}
+        </nav>
+
+        {!collapsed && <div style={{padding:'14px 18px',borderTop:'1px solid #ede9fe',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'#F5F3FF',borderRadius:10}}>
+            <div style={{width:30,height:30,borderRadius:'50%',background:'linear-gradient(135deg,#7C3AED,#5B21B6)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:800,flexShrink:0}}>박</div>
+            <div style={{overflow:'hidden'}}>
+              <p style={{fontSize:12,fontWeight:700,color:'#1E1B4B',whiteSpace:'nowrap'}}>박민지 관리자</p>
+              <p style={{fontSize:11,color:'#A78BFA',whiteSpace:'nowrap'}}>슈퍼 어드민</p>
+            </div>
+          </div>
+        </div>}
+      </aside>
+
+      {/* Main */}
+      <main style={{marginLeft:sidebarW,flex:1,height:'100vh',overflowY:'auto',transition:'margin-left .2s'}}>
+        {/* Topbar */}
+        <div style={{height:58,background:'#fff',borderBottom:'1px solid #ede9fe',display:'flex',alignItems:'center',padding:'0 28px',justifyContent:'space-between',position:'sticky',top:0,zIndex:50,boxShadow:'0 1px 6px rgba(124,58,237,0.05)'}}>
+          <div>
+            <p style={{fontSize:11,color:'#C4B5FD'}}>벨르아 어드민 / {page}</p>
+            <p style={{fontSize:15,fontWeight:800,color:'#1E1B4B',lineHeight:1.2}}>{page}</p>
+          </div>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            <div style={{position:'relative'}}>
+              <button style={{width:36,height:36,borderRadius:10,border:'1px solid #ede9fe',background:'#fff',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}}>🔔</button>
+              <div style={{position:'absolute',top:2,right:2,width:8,height:8,borderRadius:'50%',background:'#EF4444'}}/>
+            </div>
+            <button style={{background:'#7C3AED',color:'#fff',border:'none',borderRadius:8,padding:'7px 16px',fontSize:13,fontWeight:700,cursor:'pointer'}}>+ 빠른 등록</button>
+          </div>
+        </div>
+
+        {loading ? <Skel/> : (
+          page==='쇼핑몰' ? <ShopView/> :
+          page==='콘텐츠' ? <CMSView/> :
+          page==='상품관리' ? <ProductAdmin/> :
+          <OrderDashboard/>
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

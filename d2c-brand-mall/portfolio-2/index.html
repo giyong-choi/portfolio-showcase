@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>그린루트 — 유기농 식품 D2C</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#111827;word-break:keep-all;overflow-wrap:break-word;overflow:hidden}
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:#e8f5e9}
+    ::-webkit-scrollbar-thumb{background:#a7d7c5;border-radius:3px}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .skeleton{background:linear-gradient(90deg,#d1ead6 25%,#c5e0ca 50%,#d1ead6 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    .fade-in{animation:fadeIn .35s ease both}
+    .card-hover{transition:all .25s}
+    .card-hover:hover{box-shadow:0 10px 32px rgba(5,150,105,0.15)!important;transform:translateY(-4px)}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const PRODS = [
+  {id:1,name:'국내산 유기농 쌀 (5kg)',cat:'곡류',price:32000,origin:'충남 당진',cert:'유기농 인증',emoji:'🌾',nutrition:{탄수화물:'78g',단백질:'7g',식이섬유:'1.4g',나트륨:'0mg'},color:'#D4B896'},
+  {id:2,name:'제주 무농약 감귤 (3kg)',cat:'과일',price:24000,origin:'제주 서귀포',cert:'무농약 인증',emoji:'🍊',nutrition:{당류:'11g',비타민C:'48mg',칼슘:'34mg',칼로리:'52kcal'},color:'#F4C97A'},
+  {id:3,name:'국내산 참기름 (180ml)',cat:'오일·소스',price:18000,origin:'경북 의성',cert:'유기농 인증',emoji:'🫙',nutrition:{지방:'100g',포화지방:'15g',불포화지방:'79g',나트륨:'0mg'},color:'#C8A060'},
+  {id:4,name:'무농약 채소 혼합 세트 (2kg)',cat:'채소',price:28000,origin:'전남 강진',cert:'무농약 인증',emoji:'🥬',nutrition:{식이섬유:'3.2g',비타민A:'280μg',엽산:'92μg',칼슘:'48mg'},color:'#7DC87A'},
+  {id:5,name:'귀리 그래놀라 (400g)',cat:'가공식품',price:16000,origin:'미국 유기농',cert:'유기농 인증',emoji:'🫘',nutrition:{탄수화물:'62g',단백질:'10g',지방:'18g',식이섬유:'8g'},color:'#C8B074'},
+  {id:6,name:'제주 유기농 그린티 (30티백)',cat:'음료',price:22000,origin:'제주 오설록',cert:'유기농 인증',emoji:'🍵',nutrition:{카페인:'30mg',폴리페놀:'150mg',비타민C:'4mg',칼로리:'2kcal'},color:'#8EBD8A'},
+];
+
+const PLANS = [
+  {id:1,name:'주간 채소 박스',badge:'인기',price:38000,cycle:'매주',desc:'주 1회 무농약 채소 5~7종 구성. 제철 채소 위주로 매주 다르게 구성됩니다.',items:['무농약 상추·청경채·시금치','제철 채소 2~3종','모둠 쌈채소'],savings:'4,000원 절약',color:'#059669'},
+  {id:2,name:'격주 과일 박스',badge:'',price:52000,cycle:'격주',desc:'2주 1회 무농약·유기농 과일 3~4종. 제주산 감귤·한라봉·청포도 등 제철 과일로 구성됩니다.',items:['제주 무농약 과일 2종','국내산 제철 과일 1~2종','원산지 카드 포함'],savings:'6,000원 절약',color:'#0EA5A0'},
+  {id:3,name:'건강 식품 박스',badge:'프리미엄',price:78000,cycle:'매월',desc:'월 1회 유기농 곡류·오일·소스 큐레이션. 그린루트 셰프가 직접 선별한 요리 재료 패키지입니다.',items:['유기농 잡곡·오트 2종','저온 압착 오일 1병','발효 소스 1~2종'],savings:'12,000원 절약',color:'#7C3AED'},
+];
+
+const RECIPES = [
+  {id:1,name:'봄나물 된장국',time:25,diff:'쉬움',emoji:'🥣',tag:'국·찌개',ingredients:['무농약 냉이 100g','두부 200g','새우젓 1T','된장 2T','다진마늘 1T'],steps:['냉이를 깨끗이 씻어 뿌리를 다듬습니다.','냄비에 물 500ml를 끓이다가 새우젓으로 육수를 냅니다.','된장을 풀고 냉이와 두부를 넣어 5분 더 끓입니다.','다진마늘을 넣고 한 번 더 끓이면 완성입니다.'],relatedProducts:[1,4]},
+  {id:2,name:'오이 참기름 무침',time:10,diff:'쉬움',emoji:'🥒',tag:'반찬',ingredients:['오이 2개','참기름 1T','소금 1/2t','통깨 적당량','다진마늘 1/2t'],steps:['오이를 반달 모양으로 썰어 소금에 절입니다.','10분 후 물기를 꼭 짜냅니다.','참기름, 다진마늘, 통깨를 넣고 무쳐 냅니다.'],relatedProducts:[3,4]},
+  {id:3,name:'귀리 그래놀라 볼',time:5,diff:'쉬움',emoji:'🥣',tag:'아침 식사',ingredients:['그래놀라 80g','우유 or 귀리유 200ml','바나나 1/2개','블루베리 적당량','꿀 1t'],steps:['컵에 그래놀라를 담습니다.','차가운 우유를 부어줍니다.','바나나 슬라이스와 블루베리를 올립니다.','꿀을 살짝 뿌리면 완성입니다.'],relatedProducts:[5,6]},
+  {id:4,name:'감귤 그린티 스무디',time:8,diff:'쉬움',emoji:'🍹',tag:'음료',ingredients:['제주 감귤 2개','그린티 1잔 (냉각)','꿀 1t','얼음 적당량'],steps:['그린티를 미리 우려 식힙니다.','감귤 과육을 분리합니다.','모든 재료를 블렌더에 넣고 갈아줍니다.','컵에 담고 감귤 슬라이스로 장식합니다.'],relatedProducts:[2,6]},
+];
+
+function NavBar({page, onNav}){
+  const tabs = ['홈','구독박스','레시피','상품'];
+  return(
+    <nav style={{background:'#fff',borderBottom:'1px solid #e8f5e9',position:'sticky',top:0,zIndex:100,boxShadow:'0 2px 8px rgba(5,150,105,0.08)'}}>
+      <div style={{maxWidth:1100,margin:'0 auto',padding:'0 28px',display:'flex',alignItems:'center',justifyContent:'space-between',height:64}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#059669,#047857)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🌿</div>
+          <div>
+            <p style={{fontSize:17,fontWeight:900,color:'#064E3B',letterSpacing:'-0.5px'}}>그린루트</p>
+            <p style={{fontSize:9,color:'#059669',fontWeight:600,letterSpacing:'2px'}}>GREENROOT</p>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:4}}>
+          {tabs.map(t=>(
+            <button key={t} onClick={()=>onNav(t)} style={{padding:'8px 18px',borderRadius:8,border:'none',background:page===t?'#059669':'none',color:page===t?'#fff':'#374151',fontSize:14,fontWeight:page===t?700:500,cursor:'pointer',transition:'all .2s'}}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <button style={{background:'none',border:'1px solid #d1fae5',borderRadius:8,padding:'7px 14px',fontSize:12,color:'#059669',fontWeight:600,cursor:'pointer'}}>로그인</button>
+          <button style={{background:'#059669',border:'none',borderRadius:8,padding:'7px 14px',fontSize:12,color:'#fff',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>🛒 <span>2</span></button>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+function Skel(){
+  return <div style={{padding:'24px 28px',maxWidth:1100,margin:'0 auto'}}>
+    {[1,2,3].map(i=><div key={i} className="skeleton" style={{height:20,borderRadius:8,marginBottom:14,width:['70%','50%','60%'][i-1]}}/>)}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:18,marginTop:20}}>
+      {[1,2,3,4,5,6].map(i=><div key={i} className="skeleton" style={{height:220,borderRadius:14}}/>)}
+    </div>
+  </div>;
+}
+
+function HomeView({onNav}){
+  const seasons = [{emoji:'🥬',name:'봄나물 채소 세트'},{emoji:'🌾',name:'햇곡식 5종 세트'},{emoji:'🍊',name:'제주 감귤 특선'},{emoji:'🫙',name:'발효 오일 컬렉션'}];
+  return(
+    <div className="fade-in">
+      {/* Hero */}
+      <div style={{background:'linear-gradient(135deg,#064E3B 0%,#065F46 50%,#047857 100%)',padding:'72px 28px',textAlign:'center',position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:'10%',left:'5%',width:200,height:200,borderRadius:'50%',background:'rgba(52,211,153,0.1)'}}/>
+        <div style={{position:'absolute',bottom:'5%',right:'8%',width:280,height:280,borderRadius:'50%',background:'rgba(5,150,105,0.15)'}}/>
+        <div style={{position:'relative',zIndex:1}}>
+          <span style={{display:'inline-block',background:'rgba(52,211,153,0.2)',color:'#34D399',fontSize:12,fontWeight:700,padding:'5px 14px',borderRadius:20,letterSpacing:'2px',marginBottom:18}}>🌱 FROM FARM TO TABLE</span>
+          <h1 style={{color:'#F0FDF4',fontSize:38,fontWeight:900,lineHeight:1.2,marginBottom:16,letterSpacing:'-0.5px'}}>땅이 주는 진짜 맛,<br/>직접 고른 유기농 식품</h1>
+          <p style={{color:'rgba(240,253,244,0.75)',fontSize:16,lineHeight:1.7,marginBottom:32,maxWidth:480,margin:'0 auto 32px'}}>농약 없이 자란 제철 채소, 직접 방문한 농장의 곡물. 그린루트가 엄선한 유기농 식품을 구독으로 만나보세요.</p>
+          <div style={{display:'flex',gap:12,justifyContent:'center'}}>
+            <button onClick={()=>onNav('구독박스')} style={{background:'#34D399',color:'#064E3B',border:'none',borderRadius:10,padding:'13px 28px',fontSize:15,fontWeight:800,cursor:'pointer'}}>구독 시작하기 →</button>
+            <button onClick={()=>onNav('레시피')} style={{background:'rgba(240,253,244,0.15)',color:'#F0FDF4',border:'1px solid rgba(240,253,244,0.3)',borderRadius:10,padding:'13px 24px',fontSize:15,fontWeight:600,cursor:'pointer',backdropFilter:'blur(4px)'}}>레시피 보기</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Trust badges */}
+      <div style={{background:'#fff',padding:'20px 28px',borderBottom:'1px solid #e8f5e9'}}>
+        <div style={{maxWidth:900,margin:'0 auto',display:'flex',justifyContent:'center',gap:40,flexWrap:'wrap'}}>
+          {[{icon:'✅',t:'유기농·무농약 인증'},{icon:'🚜',t:'산지 직거래'},{icon:'❄️',t:'신선도 보장 배송'},{icon:'🔄',t:'언제든 구독 변경'}].map((b,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#374151',fontWeight:600}}>
+              <span style={{fontSize:18}}>{b.icon}</span>{b.t}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{maxWidth:1100,margin:'0 auto',padding:'36px 28px 0'}}>
+        {/* Season picks */}
+        <div style={{marginBottom:36}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <div>
+              <p style={{color:'#059669',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:4}}>Spring Season</p>
+              <h2 style={{fontSize:22,fontWeight:800}}>이번 주 제철 추천</h2>
+            </div>
+            <button onClick={()=>onNav('상품')} style={{color:'#059669',background:'none',border:'1px solid #059669',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:600,cursor:'pointer'}}>전체 상품 →</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+            {seasons.map((s,i)=>(
+              <div key={i} onClick={()=>onNav('상품')} style={{background:'#fff',borderRadius:14,padding:'20px',textAlign:'center',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.05)',border:'1px solid #e8f5e9',transition:'all .2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#059669';e.currentTarget.style.boxShadow='0 6px 20px rgba(5,150,105,0.15)'}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e8f5e9';e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.05)'}}>
+                <div style={{fontSize:36,marginBottom:12}}>{s.emoji}</div>
+                <p style={{fontSize:13,fontWeight:700,color:'#1A1A1A',lineHeight:1.4}}>{s.name}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Subscription banner */}
+        <div style={{background:'linear-gradient(135deg,#ECFDF5,#D1FAE5)',borderRadius:18,padding:'32px 36px',display:'flex',gap:32,alignItems:'center',marginBottom:36,border:'1px solid #A7F3D0'}}>
+          <div style={{fontSize:56}}>📦</div>
+          <div style={{flex:1}}>
+            <p style={{color:'#059669',fontSize:12,fontWeight:700,letterSpacing:'2px',textTransform:'uppercase',marginBottom:8}}>정기 구독</p>
+            <h3 style={{fontSize:20,fontWeight:800,marginBottom:8,color:'#064E3B'}}>구독하면 최대 15% 할인 + 무료 배송</h3>
+            <p style={{fontSize:14,color:'#4B5563',lineHeight:1.6}}>주간 채소 박스, 격주 과일 박스, 월간 건강 식품 박스. 언제든지 일시정지·변경·해지 가능합니다.</p>
+          </div>
+          <button onClick={()=>onNav('구독박스')} style={{background:'#059669',color:'#fff',border:'none',borderRadius:10,padding:'13px 24px',fontSize:14,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>구독 시작 →</button>
+        </div>
+
+        {/* Hot recipes */}
+        <div style={{marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <h2 style={{fontSize:22,fontWeight:800}}>이번 주 추천 레시피</h2>
+            <button onClick={()=>onNav('레시피')} style={{color:'#059669',background:'none',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>더 보기 →</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+            {RECIPES.slice(0,2).map(r=>(
+              <div key={r.id} onClick={()=>onNav('레시피')} style={{background:'#fff',borderRadius:14,padding:'20px',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.05)',border:'1px solid #e8f5e9',display:'flex',gap:16,alignItems:'center',transition:'all .2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#059669';e.currentTarget.style.boxShadow='0 6px 20px rgba(5,150,105,0.12)'}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e8f5e9';e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.05)'}}>
+                <div style={{fontSize:40}}>{r.emoji}</div>
+                <div>
+                  <span style={{background:'rgba(5,150,105,0.1)',color:'#059669',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{r.tag}</span>
+                  <p style={{fontSize:15,fontWeight:700,marginTop:6,marginBottom:4}}>{r.name}</p>
+                  <p style={{fontSize:12,color:'#6B7280'}}>⏱ {r.time}분 · {r.diff}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionView(){
+  const [selected, setSelected] = useState(null);
+  const [status, setStatus] = useState({1:'active',2:'pause',3:null});
+  const [modal, setModal] = useState(null);
+  const [step, setStep] = useState(1);
+
+  const subscribe = (plan) => { setModal(plan); setStep(1); };
+  const confirm = () => {
+    if(step<3) setStep(s=>s+1);
+    else { setStatus(s=>({...s,[modal.id]:'active'})); setModal(null); }
+  };
+
+  return(
+    <div className="fade-in" style={{maxWidth:1100,margin:'0 auto',padding:'32px 28px'}}>
+      <div style={{marginBottom:28}}>
+        <h2 style={{fontSize:24,fontWeight:900,marginBottom:6,color:'#064E3B'}}>구독박스</h2>
+        <p style={{color:'#6B7280',fontSize:14}}>정기 구독으로 신선한 유기농 식품을 더 저렴하게 받아보세요</p>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20,marginBottom:32}}>
+        {PLANS.map(plan=>{
+          const st = status[plan.id];
+          return(
+            <div key={plan.id} style={{background:'#fff',borderRadius:18,border:st==='active'?`2px solid ${plan.color}`:'1px solid #e8f5e9',overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.06)',position:'relative'}}>
+              {plan.badge && <div style={{position:'absolute',top:12,right:12,background:plan.color,color:'#fff',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:12}}>{plan.badge}</div>}
+              <div style={{background:`linear-gradient(135deg,${plan.color}15,${plan.color}25)`,padding:'28px 24px 20px'}}>
+                <p style={{fontSize:11,color:plan.color,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',marginBottom:8}}>{plan.cycle} 배송</p>
+                <h3 style={{fontSize:18,fontWeight:800,marginBottom:8,color:'#064E3B'}}>{plan.name}</h3>
+                <div style={{display:'flex',alignItems:'baseline',gap:4}}>
+                  <span style={{fontSize:26,fontWeight:900,color:plan.color}}>{plan.price.toLocaleString()}</span>
+                  <span style={{fontSize:14,color:'#6B7280'}}>원 / {plan.cycle==='매주'?'주':plan.cycle==='격주'?'2주':'월'}</span>
+                </div>
+                <p style={{fontSize:12,color:'#059669',fontWeight:600,marginTop:4}}>🎁 {plan.savings}</p>
+              </div>
+              <div style={{padding:'16px 24px 24px'}}>
+                <p style={{fontSize:13,color:'#4B5563',lineHeight:1.7,marginBottom:14}}>{plan.desc}</p>
+                <ul style={{listStyle:'none',marginBottom:18}}>
+                  {plan.items.map((it,i)=>(
+                    <li key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#374151',marginBottom:6}}>
+                      <span style={{color:plan.color,fontSize:15}}>✓</span>{it}
+                    </li>
+                  ))}
+                </ul>
+                {st==='active' ? (
+                  <div>
+                    <div style={{background:'#ECFDF5',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:13,color:'#059669',fontWeight:700}}>● 구독 중</span>
+                      <span style={{fontSize:12,color:'#6B7280'}}>다음 배송 4월 22일</span>
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                      <button onClick={()=>setStatus(s=>({...s,[plan.id]:'pause'}))} style={{flex:1,padding:'9px',borderRadius:8,border:'1px solid #e8f5e9',background:'#fff',fontSize:13,color:'#6B7280',fontWeight:600,cursor:'pointer'}}>일시정지</button>
+                      <button onClick={()=>setStatus(s=>({...s,[plan.id]:null}))} style={{flex:1,padding:'9px',borderRadius:8,border:'1px solid #FCA5A5',background:'#FFF5F5',fontSize:13,color:'#EF4444',fontWeight:600,cursor:'pointer'}}>해지</button>
+                    </div>
+                  </div>
+                ) : st==='pause' ? (
+                  <div>
+                    <div style={{background:'#FFFBEB',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:13,color:'#D97706',fontWeight:700}}>⏸ 일시정지 중</span>
+                    </div>
+                    <button onClick={()=>setStatus(s=>({...s,[plan.id]:'active'}))} style={{width:'100%',padding:'10px',borderRadius:8,border:'none',background:plan.color,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>재개하기</button>
+                  </div>
+                ) : (
+                  <button onClick={()=>subscribe(plan)} style={{width:'100%',padding:'11px',borderRadius:10,border:'none',background:plan.color,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',transition:'all .2s'}}
+                    onMouseEnter={e=>e.currentTarget.style.opacity='0.9'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                    구독 시작하기
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* FAQ */}
+      <div style={{background:'#fff',borderRadius:16,padding:'24px',border:'1px solid #e8f5e9'}}>
+        <h3 style={{fontSize:16,fontWeight:800,marginBottom:16,color:'#064E3B'}}>구독 FAQ</h3>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+          {[
+            {q:'구독은 언제 취소할 수 있나요?',a:'다음 배송일 3일 전까지 언제든지 앱에서 취소 가능합니다. 위약금이나 별도 비용은 없습니다.'},
+            {q:'배송은 얼마나 걸리나요?',a:'결제 확인 후 1~2일 이내에 신선도 유지 포장으로 배송됩니다. 제주/도서 지역은 2~3일 소요됩니다.'},
+            {q:'구성 상품을 변경할 수 있나요?',a:'결제 전까지 마이페이지에서 박스 구성을 변경할 수 있습니다. 구독 플랜 자체도 언제든 변경 가능합니다.'},
+            {q:'신선도 문제 시 어떻게 하나요?',a:'수령 후 24시간 이내 사진과 함께 고객센터에 문의주시면 전액 환불 또는 재발송 처리해드립니다.'},
+          ].map((f,i)=>(
+            <div key={i} style={{padding:'16px',background:'#F9FFF9',borderRadius:10,border:'1px solid #e8f5e9'}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:6,color:'#064E3B'}}>Q. {f.q}</p>
+              <p style={{fontSize:13,color:'#6B7280',lineHeight:1.6}}>A. {f.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Subscription modal */}
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'36px',width:480,animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{display:'flex',justifyContent:'center',gap:0,marginBottom:28}}>
+              {['플랜 확인','배송 정보','결제'].map((s,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center'}}>
+                  <div style={{width:28,height:28,borderRadius:'50%',background:step>i?modal.color:'#e5e7eb',color:step>i?'#fff':'#9ca3af',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}}>{i+1}</div>
+                  {i<2 && <div style={{width:40,height:2,background:step>i+1?modal.color:'#e5e7eb'}}/>}
+                </div>
+              ))}
+            </div>
+            {step===1 && <div>
+              <h3 style={{fontSize:18,fontWeight:800,marginBottom:6}}>{modal.name}</h3>
+              <p style={{fontSize:22,fontWeight:900,color:modal.color,marginBottom:16}}>{modal.price.toLocaleString()}원<span style={{fontSize:14,color:'#6B7280',fontWeight:400}}> / {modal.cycle==='매주'?'주':'월'}</span></p>
+              <ul style={{listStyle:'none',marginBottom:20}}>
+                {modal.items.map((it,i)=><li key={i} style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:'#374151',marginBottom:8}}><span style={{color:modal.color}}>✓</span>{it}</li>)}
+              </ul>
+            </div>}
+            {step===2 && <div>
+              <h3 style={{fontSize:16,fontWeight:800,marginBottom:16}}>배송 정보 확인</h3>
+              <div style={{background:'#F9FFF9',borderRadius:10,padding:'16px',marginBottom:16}}>
+                <p style={{fontSize:13,fontWeight:700,marginBottom:8}}>기본 배송지</p>
+                <p style={{fontSize:14,color:'#374151'}}>서울 마포구 합정동 123-45<br/>김지수 | 010-1234-5678</p>
+              </div>
+              <p style={{fontSize:13,color:'#6B7280'}}>첫 배송은 결제 후 1~2일 이내 출발합니다.</p>
+            </div>}
+            {step===3 && <div>
+              <h3 style={{fontSize:16,fontWeight:800,marginBottom:16}}>결제 수단 선택</h3>
+              {['신용·체크카드','카카오페이','네이버페이'].map((p,i)=>(
+                <div key={i} style={{padding:'12px 16px',borderRadius:10,border:i===0?`2px solid ${modal.color}`:'1px solid #e5e7eb',marginBottom:8,cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:20,height:20,borderRadius:'50%',background:i===0?modal.color:'#e5e7eb',border:'none'}}/>
+                  <span style={{fontSize:14,fontWeight:i===0?700:400}}>{p}</span>
+                </div>
+              ))}
+              <div style={{background:'#F9FFF9',borderRadius:10,padding:'12px 16px',marginTop:12}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:14}}><span>구독 금액</span><span style={{fontWeight:700}}>{modal.price.toLocaleString()}원</span></div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:14,color:'#059669',marginTop:4}}><span>구독 할인</span><span style={{fontWeight:700}}>-{modal.savings}</span></div>
+              </div>
+            </div>}
+            <button onClick={confirm} style={{width:'100%',marginTop:20,padding:'13px',borderRadius:10,border:'none',background:modal.color,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>
+              {step<3?'다음 →':'구독 시작'}
+            </button>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecipeView(){
+  const [selected, setSelected] = useState(null);
+  const [tag, setTag] = useState('전체');
+  const tags = ['전체','국·찌개','반찬','아침 식사','음료'];
+  const filtered = RECIPES.filter(r=>tag==='전체'||r.tag===tag);
+
+  return(
+    <div className="fade-in" style={{maxWidth:1100,margin:'0 auto',padding:'32px 28px'}}>
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontSize:24,fontWeight:900,marginBottom:6,color:'#064E3B'}}>레시피</h2>
+        <p style={{color:'#6B7280',fontSize:14}}>그린루트 식재료로 만드는 건강한 레시피</p>
+      </div>
+
+      {/* Featured */}
+      <div onClick={()=>setSelected(RECIPES[0])} style={{background:'linear-gradient(135deg,#064E3B,#065F46)',borderRadius:18,padding:'32px',marginBottom:24,cursor:'pointer',display:'flex',gap:24,alignItems:'center',boxShadow:'0 4px 20px rgba(6,78,59,0.3)'}}>
+        <div style={{flex:1}}>
+          <span style={{background:'rgba(52,211,153,0.25)',color:'#34D399',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:4,letterSpacing:'1px'}}>이번 주 추천</span>
+          <h3 style={{color:'#F0FDF4',fontSize:22,fontWeight:800,margin:'12px 0 10px',lineHeight:1.35}}>{RECIPES[0].name}</h3>
+          <p style={{color:'rgba(240,253,244,0.7)',fontSize:13,lineHeight:1.7,marginBottom:16}}>재료: {RECIPES[0].ingredients.slice(0,3).join(', ')} 등 {RECIPES[0].ingredients.length}가지</p>
+          <div style={{display:'flex',gap:16}}>
+            <span style={{color:'rgba(240,253,244,0.7)',fontSize:12}}>⏱ {RECIPES[0].time}분</span>
+            <span style={{color:'rgba(240,253,244,0.7)',fontSize:12}}>👨‍🍳 {RECIPES[0].diff}</span>
+          </div>
+        </div>
+        <div style={{fontSize:72}}>{RECIPES[0].emoji}</div>
+      </div>
+
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {tags.map(t=>(
+          <button key={t} onClick={()=>setTag(t)} style={{padding:'7px 16px',borderRadius:20,border:tag===t?'none':'1px solid #d1fae5',background:tag===t?'#059669':'#fff',color:tag===t?'#fff':'#6B7280',fontSize:13,fontWeight:tag===t?700:400,cursor:'pointer',transition:'all .2s'}}>{t}</button>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:18}}>
+        {filtered.map(r=>(
+          <div key={r.id} onClick={()=>setSelected(r)} className="card-hover" style={{background:'#fff',borderRadius:14,padding:'20px',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.05)',border:'1px solid #e8f5e9',display:'flex',gap:16,alignItems:'center'}}>
+            <div style={{fontSize:44,flexShrink:0}}>{r.emoji}</div>
+            <div style={{flex:1}}>
+              <span style={{background:'rgba(5,150,105,0.1)',color:'#059669',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{r.tag}</span>
+              <p style={{fontSize:16,fontWeight:700,margin:'8px 0 6px'}}>{r.name}</p>
+              <p style={{fontSize:12,color:'#6B7280'}}>⏱ {r.time}분 · 재료 {r.ingredients.length}가지 · {r.diff}</p>
+            </div>
+            <span style={{color:'#059669',fontSize:18}}>›</span>
+          </div>
+        ))}
+      </div>
+
+      {selected && (
+        <div onClick={()=>setSelected(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'36px',width:540,maxHeight:'82vh',overflowY:'auto',animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{textAlign:'center',fontSize:56,marginBottom:16}}>{selected.emoji}</div>
+            <span style={{background:'rgba(5,150,105,0.1)',color:'#059669',fontSize:12,fontWeight:700,padding:'3px 10px',borderRadius:4}}>{selected.tag}</span>
+            <h2 style={{fontSize:22,fontWeight:900,margin:'12px 0 6px',color:'#064E3B'}}>{selected.name}</h2>
+            <p style={{color:'#6B7280',fontSize:13,marginBottom:20}}>⏱ {selected.time}분 · {selected.diff}</p>
+            <div style={{background:'#F0FDF4',borderRadius:12,padding:'16px',marginBottom:20}}>
+              <p style={{fontSize:13,fontWeight:800,marginBottom:10,color:'#064E3B'}}>재료</p>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                {selected.ingredients.map((ing,i)=>(
+                  <span key={i} style={{background:'#fff',border:'1px solid #d1fae5',borderRadius:20,padding:'4px 12px',fontSize:13,color:'#374151'}}>{ing}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p style={{fontSize:13,fontWeight:800,marginBottom:12,color:'#064E3B'}}>만드는 법</p>
+              {selected.steps.map((step,i)=>(
+                <div key={i} style={{display:'flex',gap:12,marginBottom:12,alignItems:'flex-start'}}>
+                  <div style={{width:24,height:24,borderRadius:'50%',background:'#059669',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                  <p style={{fontSize:14,color:'#374151',lineHeight:1.6,paddingTop:2}}>{step}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setSelected(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductView(){
+  const [cat, setCat] = useState('전체');
+  const [modal, setModal] = useState(null);
+  const [tab, setTab] = useState('정보');
+  const cats = ['전체','곡류','과일','오일·소스','채소','가공식품','음료'];
+
+  return(
+    <div className="fade-in" style={{maxWidth:1100,margin:'0 auto',padding:'32px 28px'}}>
+      <div style={{marginBottom:24}}>
+        <h2 style={{fontSize:24,fontWeight:900,marginBottom:6,color:'#064E3B'}}>상품</h2>
+        <p style={{color:'#6B7280',fontSize:14}}>엄선한 유기농·무농약 식품 라인업</p>
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:24,flexWrap:'wrap'}}>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setCat(c)} style={{padding:'7px 16px',borderRadius:20,border:cat===c?'none':'1px solid #d1fae5',background:cat===c?'#059669':'#fff',color:cat===c?'#fff':'#6B7280',fontSize:13,fontWeight:cat===c?700:400,cursor:'pointer',transition:'all .2s'}}>{c}</button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:18}}>
+        {PRODS.filter(p=>cat==='전체'||p.cat===cat).map(p=>(
+          <div key={p.id} onClick={()=>{setModal(p);setTab('정보')}} className="card-hover" style={{background:'#fff',borderRadius:16,overflow:'hidden',cursor:'pointer',boxShadow:'0 2px 10px rgba(0,0,0,0.05)',border:'1px solid #e8f5e9'}}>
+            <div style={{height:160,background:`${p.color}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:44,position:'relative'}}>
+              {p.emoji}
+              <span style={{position:'absolute',bottom:8,left:8,background:'#059669',color:'#fff',fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{p.cert}</span>
+            </div>
+            <div style={{padding:'14px 16px 18px'}}>
+              <span style={{fontSize:11,color:'#059669',fontWeight:600}}>{p.cat}</span>
+              <p style={{fontSize:14,fontWeight:700,margin:'6px 0',lineHeight:1.4}}>{p.name}</p>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:15,fontWeight:800,color:'#059669'}}>{p.price.toLocaleString()}원</span>
+                <span style={{fontSize:12,color:'#6B7280'}}>📍 {p.origin}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {modal && (
+        <div onClick={()=>setModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000}}>
+          <div onClick={e=>e.stopPropagation()} style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',background:'#fff',borderRadius:20,padding:'36px',width:520,maxHeight:'80vh',overflowY:'auto',animation:'fadeInScale .2s ease both',zIndex:1001}}>
+            <div style={{display:'flex',gap:20,marginBottom:20}}>
+              <div style={{width:120,height:120,borderRadius:14,background:`${modal.color}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:52,flexShrink:0}}>{modal.emoji}</div>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',gap:6,marginBottom:8}}>
+                  <span style={{background:'rgba(5,150,105,0.1)',color:'#059669',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4}}>{modal.cert}</span>
+                  <span style={{background:'rgba(107,114,128,0.1)',color:'#6B7280',fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:4}}>{modal.cat}</span>
+                </div>
+                <h3 style={{fontSize:17,fontWeight:800,marginBottom:8,lineHeight:1.4}}>{modal.name}</h3>
+                <p style={{fontSize:22,fontWeight:900,color:'#059669',marginBottom:4}}>{modal.price.toLocaleString()}원</p>
+                <p style={{fontSize:12,color:'#6B7280'}}>📍 원산지: {modal.origin}</p>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:4,marginBottom:16}}>
+              {['정보','영양성분'].map(t=>(
+                <button key={t} onClick={()=>setTab(t)} style={{padding:'7px 16px',borderRadius:8,border:'none',background:tab===t?'#059669':'#f3f4f6',color:tab===t?'#fff':'#6B7280',fontSize:13,fontWeight:tab===t?700:400,cursor:'pointer'}}>{t}</button>
+              ))}
+            </div>
+            {tab==='정보' && <div style={{background:'#F0FDF4',borderRadius:12,padding:'16px'}}>
+              <p style={{fontSize:14,color:'#374151',lineHeight:1.7}}>국내 유기농 인증 농가에서 재배한 {modal.name}입니다. 화학 비료와 농약을 사용하지 않고 자연 순환 농법으로 재배되었습니다. 산지에서 직접 수확하여 신선도를 유지한 채로 배송됩니다.</p>
+            </div>}
+            {tab==='영양성분' && <div style={{background:'#F0FDF4',borderRadius:12,padding:'16px'}}>
+              <p style={{fontSize:13,fontWeight:700,marginBottom:10,color:'#064E3B'}}>100g 기준 영양성분</p>
+              {Object.entries(modal.nutrition).map(([k,v])=>(
+                <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #d1fae5',fontSize:13}}>
+                  <span style={{color:'#374151'}}>{k}</span><span style={{fontWeight:700,color:'#064E3B'}}>{v}</span>
+                </div>
+              ))}
+            </div>}
+            <div style={{display:'flex',gap:10,marginTop:20}}>
+              <button style={{flex:1,padding:'12px',borderRadius:10,border:'1px solid #059669',background:'#fff',color:'#059669',fontSize:14,fontWeight:700,cursor:'pointer'}}>장바구니</button>
+              <button style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:'#059669',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}}>바로 구매</button>
+            </div>
+            <button onClick={()=>setModal(null)} style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#999'}}>✕</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App(){
+  const [page, setPage] = useState('홈');
+  const [loading, setLoading] = useState(false);
+
+  const navigate = (p) => {
+    if(p===page) return;
+    setLoading(true);
+    setTimeout(()=>{setPage(p);setLoading(false)},1500);
+  };
+
+  return(
+    <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'#F0FDF4',overflow:'hidden'}}>
+      <NavBar page={page} onNav={navigate}/>
+      <div style={{flex:1,overflowY:'auto'}}>
+        {loading ? <Skel/> : (
+          page==='홈' ? <HomeView onNav={navigate}/> :
+          page==='구독박스' ? <SubscriptionView/> :
+          page==='레시피' ? <RecipeView/> :
+          <ProductView/>
+        )}
+        <div style={{height:40}}/>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
