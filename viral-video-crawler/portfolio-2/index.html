@@ -169,7 +169,7 @@ function Drawer({item,onClose,setToast}){
         {item.type==='alert'&&(
           <>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
-              {[{l:'상품',v:item.data.product},{l:'조건 타입',v:item.data.type},{l:'조건',v:item.data.condition},{l:'대상 플랫폼',v:item.data.platform},{l:'상태',v:item.data.status==='active'?'활성':'발동'},{l:'생성일',v:'2025.01.15'}].map(d=>(
+              {[{l:'상품',v:item.data.product},{l:'조건 타입',v:item.data.type},{l:'조건',v:item.data.condition},{l:'대상 플랫폼',v:item.data.platform},{l:'상태',v:item.data.status==='active'?'활성':'발동'},{l:'생성일',v:'2025.10.15'}].map(d=>(
                 <div key={d.l} style={{padding:12,borderRadius:10,background:'#F8FAFC'}}>
                   <div style={{fontSize:11,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textLight,marginBottom:4}}>{d.l}</div>
                   <div style={{fontSize:14,fontWeight:600}}>{d.v}</div>
