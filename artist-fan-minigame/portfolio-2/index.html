@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>스포츠 브랜드 마케팅 캠페인 미니게임 플랫폼</title>
+  <link href="https://cdn.jsdelivr.net/npm/pretendard@latest/dist/web/variable/pretendardvariable.css" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Pretendard Variable',Pretendard,sans-serif;background:#FFFBF5;color:#1A1A1A;overflow:hidden;height:100vh;}
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:#F5F0E8;}
+    ::-webkit-scrollbar-thumb{background:#FFCBA4;border-radius:3px;}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes fadeInScale{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes barGrow{from{width:0}to{width:var(--tw)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes runBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+    @keyframes obstSlide{0%{right:-80px}100%{right:105%}}
+    @keyframes bgTile{0%{background-position:0 0}100%{background-position:-40px 0}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    @keyframes liveFlash{0%,100%{opacity:1}50%{opacity:0.3}}
+    @keyframes rankUpdate{0%{background:rgba(255,107,53,0.2)}100%{background:transparent}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line}=Recharts;
+
+const C={
+  bg:'#FFFBF5',surf:'#FFFFFF',surfAlt:'#FFF5EB',
+  primary:'#FF6B35',sec:'#FFB347',accent:'#2ECC71',
+  text:'#1A1A1A',sub:'#6B7280',muted:'#9CA3AF',
+  border:'#F0E6D3',
+  grad:'linear-gradient(135deg,#FF6B35,#FFB347)',
+};
+
+const TABS=[
+  {id:'main',label:'캠페인 랜딩 & 게임 진입'},
+  {id:'game-stage',label:'브랜드 장애물 러닝 게임'},
+  {id:'leaderboard',label:'실시간 랭킹 보드'},
+  {id:'share-reward',label:'SNS 공유 & 리워드'},
+];
+
+const PAGE_META={
+  main:{title:'런런마케팅 스프링 캠페인',desc:'브랜드 캐릭터 러닝 게임에 참여하고 특별 리워드를 획득하세요!',
+    kpis:[{label:'참여자',val:24180},{label:'평균 점수',val:1340},{label:'완료율',val:'68%'}]},
+  'game-stage':{title:'브랜드 장애물 러닝 게임',desc:'로고 장애물을 피하고 별을 수집해 최고 점수를 달성하세요',
+    kpis:[{label:'최고 점수',val:9870},{label:'스테이지',val:'3단계'},{label:'보상 포인트',val:500}]},
+  leaderboard:{title:'실시간 랭킹 보드',desc:'참가자들과 경쟁하고 TOP 10에 도전하세요',
+    kpis:[{label:'참가자',val:24180},{label:'오늘 경쟁자',val:4821},{label:'업데이트',val:'실시간'}]},
+  'share-reward':{title:'SNS 공유 & 리워드',desc:'결과를 공유하고 추가 포인트를 획득하세요',
+    kpis:[{label:'공유 완료',val:8920},{label:'획득 포인트',val:500},{label:'이번 주 리워드',val:'상품권'}]},
+};
+
+function CountUp({end,suffix='',duration=1200}){
+  const isNum=typeof end==='number';
+  const [v,setV]=useState(0);
+  useEffect(()=>{
+    if(!isNum) return;
+    let cur=0;const step=end/(duration/16);
+    const t=setInterval(()=>{
+      cur+=step;
+      if(cur>=end){setV(end);clearInterval(t);}
+      else setV(Math.floor(cur));
+    },16);
+    return()=>clearInterval(t);
+  },[end]);
+  if(!isNum) return <span>{end}</span>;
+  return <span>{v.toLocaleString()}{suffix}</span>;
+}
+
+function Drawer({item,onClose}){
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.3)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'fixed',top:0,right:0,bottom:0,width:420,background:C.surf,
+        boxShadow:'-8px 0 40px rgba(0,0,0,0.12)',zIndex:201,overflowY:'auto',
+        animation:'slideInRight 200ms ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+          padding:'20px 24px',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,background:C.surf}}>
+          <h3 style={{fontSize:17,fontWeight:700}}>참가자 상세</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:C.muted}}>✕</button>
+        </div>
+        <div style={{padding:24}}>
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,
+            padding:'18px',background:C.bg,borderRadius:12,border:`1px solid ${C.border}`}}>
+            <div style={{width:52,height:52,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'#fff'}}>
+              {item.avatar}
+            </div>
+            <div>
+              <div style={{fontWeight:800,fontSize:17}}>{item.name}</div>
+              <div style={{fontSize:13,color:C.sub,marginTop:2}}>참여일: {item.date}</div>
+            </div>
+            <div style={{marginLeft:'auto',textAlign:'right'}}>
+              <div style={{fontSize:11,color:C.muted}}>랭킹</div>
+              <div style={{fontSize:28,fontWeight:900,color:C.primary}}>#{item.rank}</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+            {[
+              {label:'최고 점수',val:item.score.toLocaleString(),color:C.primary},
+              {label:'플레이 횟수',val:`${item.plays}회`,color:C.sec},
+              {label:'클리어 횟수',val:`${item.clears}회`,color:C.accent},
+              {label:'획득 포인트',val:`${item.points}P`,color:'#8B5CF6'},
+            ].map(s=>(
+              <div key={s.label} style={{background:C.bg,borderRadius:10,padding:'14px',border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:11,color:C.muted,marginBottom:4}}>{s.label}</div>
+                <div style={{fontSize:20,fontWeight:800,color:s.color}}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginBottom:20}}>
+            <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>점수 이력</h4>
+            {[
+              {game:'3회차',score:item.score,date:'오늘 14:32'},
+              {game:'2회차',score:Math.floor(item.score*0.8),date:'어제 19:14'},
+              {game:'1회차',score:Math.floor(item.score*0.6),date:'2일 전 11:40'},
+            ].map((h,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                padding:'10px 14px',background:i===0?'rgba(255,107,53,0.06)':C.bg,
+                border:`1px solid ${i===0?'rgba(255,107,53,0.2)':C.border}`,
+                borderRadius:8,marginBottom:8}}>
+                <span style={{fontSize:13,color:C.sub}}>{h.game}</span>
+                <span style={{fontSize:15,fontWeight:700,color:i===0?C.primary:C.text}}>{h.score.toLocaleString()}</span>
+                <span style={{fontSize:11,color:C.muted}}>{h.date}</span>
+              </div>
+            ))}
+          </div>
+          <button style={{width:'100%',padding:'12px',background:C.grad,color:'#fff',border:'none',
+            borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer',
+            boxShadow:'0 4px 16px rgba(255,107,53,0.35)'}}>
+            공유하기
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Toast({msg,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[]);
+  return(
+    <div style={{position:'fixed',bottom:28,right:28,zIndex:9999,
+      background:C.grad,color:'#fff',padding:'13px 22px',borderRadius:10,
+      animation:'slideUp 300ms ease',boxShadow:'0 6px 20px rgba(255,107,53,0.4)',fontWeight:600,fontSize:14}}>
+      {msg}
+    </div>
+  );
+}
+
+// --- Pages ---
+function PageMain(){
+  const features=[
+    {icon:'🏃',title:'브랜드 러닝 게임',desc:'브랜드 마스코트 캐릭터가 로고 장애물을 피하며 달리는 캠페인 테마 미니게임'},
+    {icon:'🏆',title:'실시간 랭킹',desc:'FastAPI WebSocket 기반 실시간 점수 집계 및 랭킹 업데이트'},
+    {icon:'📱',title:'SNS 공유',desc:'게임 결과를 카카오/트위터로 공유하고 추가 포인트 획득'},
+    {icon:'🎁',title:'리워드 시스템',desc:'점수에 따른 차등 포인트 지급 및 상품권 추첨 이벤트'},
+    {icon:'📊',title:'Open Graph 공유 카드',desc:'Canvas toDataURL로 게임 결과 이미지 자동 생성 후 SNS 최적화 카드 생성'},
+    {icon:'🔒',title:'소셜 로그인',desc:'OAuth 2.0 기반 카카오/구글 로그인, JWT 세션 인증'},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{marginBottom:28}}>
+        <h2 style={{fontSize:20,fontWeight:800,marginBottom:6}}>캠페인 참여 방법</h2>
+        <p style={{fontSize:14,color:C.sub}}>3단계로 간단하게 참여하고 리워드를 획득하세요!</p>
+      </div>
+      {/* Steps */}
+      <div style={{display:'flex',gap:0,marginBottom:32,position:'relative'}}>
+        <div style={{position:'absolute',top:20,left:'12.5%',right:'12.5%',height:2,
+          background:`linear-gradient(90deg,${C.primary},${C.sec})`,zIndex:0}}/>
+        {[
+          {step:1,icon:'🔐',label:'소셜 로그인'},
+          {step:2,icon:'🎮',label:'게임 플레이'},
+          {step:3,icon:'📱',label:'결과 공유'},
+          {step:4,icon:'🎁',label:'리워드 획득'},
+        ].map((s,i)=>(
+          <div key={s.step} style={{flex:1,textAlign:'center',position:'relative',zIndex:1,
+            animation:`slideUp 400ms ease ${i*100}ms both`}}>
+            <div style={{width:40,height:40,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,
+              margin:'0 auto 10px',boxShadow:'0 4px 16px rgba(255,107,53,0.4)'}}>
+              {s.icon}
+            </div>
+            <div style={{fontSize:13,fontWeight:700,color:C.text}}>{s.label}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>STEP {s.step}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Feature Cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {features.map((f,i)=>(
+          <div key={f.title}
+            style={{background:C.surf,borderRadius:16,padding:20,
+              boxShadow:'0 4px 16px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,
+              cursor:'pointer',animation:`slideUp 400ms ease ${i*70}ms both`,transition:'all 200ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 28px rgba(0,0,0,0.1)';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)';}}>
+            <div style={{fontSize:32,marginBottom:12}}>{f.icon}</div>
+            <h3 style={{fontSize:15,fontWeight:800,marginBottom:6}}>{f.title}</h3>
+            <p style={{fontSize:13,color:C.sub,lineHeight:1.6}}>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PageGame(){
+  const [score,setScore]=useState(0);
+  const [running,setRunning]=useState(false);
+  const [stage,setStage]=useState(1);
+  const [modal,setModal]=useState(false);
+  const timerRef=useRef(null);
+
+  const start=()=>{
+    setScore(0);setRunning(true);
+    if(timerRef.current) clearInterval(timerRef.current);
+    timerRef.current=setInterval(()=>setScore(s=>{
+      const limit=stage*2000;
+      if(s>=limit){clearInterval(timerRef.current);setRunning(false);return s;}
+      return s+(5+stage*2);
+    }),50);
+  };
+  const crash=()=>{
+    if(timerRef.current) clearInterval(timerRef.current);
+    setRunning(false);setModal(true);
+  };
+  useEffect(()=>()=>{if(timerRef.current) clearInterval(timerRef.current);},[]);
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease',display:'grid',gridTemplateColumns:'1fr 300px',gap:20}}>
+      <div>
+        {/* Stage Select */}
+        <div style={{display:'flex',gap:10,marginBottom:16}}>
+          {[1,2,3].map(s=>(
+            <button key={s} onClick={()=>{setStage(s);setScore(0);setRunning(false);}}
+              style={{flex:1,padding:'12px',borderRadius:10,border:`2px solid ${stage===s?C.primary:C.border}`,
+                background:stage===s?'rgba(255,107,53,0.08)':C.surf,
+                color:stage===s?C.primary:C.sub,fontWeight:stage===s?700:400,
+                cursor:'pointer',fontSize:13,fontFamily:'inherit',transition:'all 200ms'}}>
+              Stage {s}<br/>
+              <span style={{fontSize:11}}>{['초보자','일반','고급'][s-1]} · {s*2000}점 목표</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Game Viewport */}
+        <div style={{borderRadius:16,overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,0.12)',marginBottom:14}}>
+          {/* HUD */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+            padding:'12px 20px',background:'#1A1A1A',color:'#fff'}}>
+            <div style={{display:'flex',gap:24}}>
+              <div>
+                <div style={{fontSize:10,color:'#888',textTransform:'uppercase',letterSpacing:'0.08em'}}>SCORE</div>
+                <div style={{fontSize:22,fontWeight:900,color:C.sec,fontVariantNumeric:'tabular-nums'}}>
+                  {score.toString().padStart(6,'0')}
+                </div>
+              </div>
+              <div style={{width:1,background:'#333'}}/>
+              <div>
+                <div style={{fontSize:10,color:'#888',textTransform:'uppercase',letterSpacing:'0.08em'}}>STAGE</div>
+                <div style={{fontSize:22,fontWeight:900,color:C.primary}}>0{stage}</div>
+              </div>
+              <div style={{width:1,background:'#333'}}/>
+              <div>
+                <div style={{fontSize:10,color:'#888',textTransform:'uppercase',letterSpacing:'0.08em'}}>TARGET</div>
+                <div style={{fontSize:22,fontWeight:900,color:C.accent}}>{(stage*2000).toLocaleString()}</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:4}}>
+              {[...Array(3-stage+1)].map((_,i)=>(
+                <div key={i} style={{fontSize:18,animation:running?`pulse 1s ${i*300}ms infinite`:'none'}}>❤️</div>
+              ))}
+              {[...Array(stage-1)].map((_,i)=>(
+                <div key={i} style={{fontSize:18,opacity:0.25}}>💔</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Canvas Area */}
+          <div style={{position:'relative',height:220,
+            background:'linear-gradient(180deg,#87CEEB 0%,#87CEEB 60%,#90EE90 60%,#90EE90 75%,#8B7355 75%)',
+            overflow:'hidden'}}>
+            {/* Clouds */}
+            {[20,55,78].map((l,i)=>(
+              <div key={i} style={{position:'absolute',top:`${10+i*8}%`,left:`${l}%`,
+                width:50+i*20,height:20+i*6,borderRadius:20,background:'rgba(255,255,255,0.85)',
+                animation:`float ${3+i}s ease-in-out ${i*1000}ms infinite`}}/>
+            ))}
+
+            {/* Ground pattern */}
+            <div style={{position:'absolute',bottom:33,left:0,right:0,height:2,background:'#5a7a3a'}}/>
+
+            {/* Character */}
+            <div style={{position:'absolute',bottom:35,left:70,width:34,height:44,
+              animation:running?'runBob 0.35s ease-in-out infinite':'none'}}>
+              <div style={{width:'100%',height:'100%',borderRadius:'8px 8px 4px 4px',
+                background:'linear-gradient(180deg,#FF6B35,#FFB347)',
+                boxShadow:running?'0 4px 16px rgba(255,107,53,0.5)':'none',
+                position:'relative'}}>
+                <div style={{position:'absolute',top:10,left:7,width:6,height:6,background:'#333',borderRadius:'50%'}}/>
+                <div style={{position:'absolute',top:10,right:7,width:6,height:6,background:'#333',borderRadius:'50%'}}/>
+                <div style={{position:'absolute',bottom:10,left:'50%',transform:'translateX(-50%)',
+                  width:10,height:5,borderBottom:'2px solid #333',borderRadius:'0 0 5px 5px'}}/>
+                <div style={{position:'absolute',top:-12,left:'50%',transform:'translateX(-50%)',
+                  fontSize:16}}>🏃</div>
+              </div>
+            </div>
+
+            {/* Obstacles */}
+            {running&&[
+              {delay:'0s',width:24,height:40,color:'#FF6B35',top:35},
+              {delay:'1.8s',width:18,height:30,color:'#2ECC71',top:35},
+              {delay:'3.5s',width:30,height:50,color:'#8B5CF6',top:35},
+            ].map((o,i)=>(
+              <div key={i} style={{position:'absolute',bottom:o.top,right:'-80px',
+                width:o.width,height:o.height,background:o.color,borderRadius:4,
+                animation:`obstSlide ${2.8-stage*0.2}s linear ${o.delay} infinite`,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff'}}>
+                {['🏋️','⚽','🏆'][i]}
+              </div>
+            ))}
+
+            {/* Power-ups (stars) */}
+            {running&&(
+              <div style={{position:'absolute',bottom:80,right:'-40px',fontSize:22,
+                animation:`obstSlide ${3.5}s linear 0.9s infinite`}}>⭐</div>
+            )}
+
+            {/* Start overlay */}
+            {!running&&(
+              <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',
+                background:'rgba(255,255,255,0.7)',backdropFilter:'blur(3px)'}}>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontSize:42,marginBottom:10}}>🏃</div>
+                  <div style={{fontSize:16,fontWeight:800,color:'#1A1A1A',marginBottom:4}}>BRAND RUNNER</div>
+                  <div style={{fontSize:12,color:C.sub,marginBottom:16}}>Stage {stage} · {stage*2000}점 목표</div>
+                  <button onClick={start} style={{background:C.grad,color:'#fff',border:'none',
+                    borderRadius:10,padding:'12px 30px',fontSize:15,fontWeight:700,cursor:'pointer',
+                    boxShadow:'0 4px 16px rgba(255,107,53,0.4)'}}>
+                    게임 시작
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div style={{display:'flex',gap:10,padding:'12px 16px',background:'#F9F9F9',borderTop:`1px solid ${C.border}`}}>
+            <button onClick={start} style={{flex:2,background:C.grad,color:'#fff',border:'none',
+              borderRadius:8,padding:'10px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+              {running?'재시작':'게임 시작'}
+            </button>
+            {running&&(
+              <button onClick={crash} style={{flex:1,background:C.surf,color:'#EF4444',
+                border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'10px',
+                fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                충돌 (테스트)
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Side Panel */}
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div style={{background:C.surf,borderRadius:14,padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>오늘의 나의 기록</h3>
+          {[
+            {label:'최고 점수',val:'2,840',color:C.primary},
+            {label:'플레이 횟수',val:'5회',color:C.sec},
+            {label:'클리어',val:'3회',color:C.accent},
+            {label:'획득 포인트',val:'500P',color:'#8B5CF6'},
+          ].map(s=>(
+            <div key={s.label} style={{display:'flex',justifyContent:'space-between',
+              padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+              <span style={{fontSize:13,color:C.sub}}>{s.label}</span>
+              <span style={{fontSize:14,fontWeight:700,color:s.color}}>{s.val}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:'linear-gradient(135deg,rgba(255,107,53,0.08),rgba(255,179,71,0.06))',
+          borderRadius:14,padding:20,border:'1px solid rgba(255,107,53,0.2)'}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>기술 구현 포인트</h3>
+          <div style={{fontSize:12,color:C.sub,lineHeight:1.6}}>
+            {['OffscreenCanvas 레이어 분리 렌더링','스프라이트 시트 프레임 애니메이션','배경 패럴랙스 다층 스크롤 구현','FastAPI WebSocket 실시간 점수 전송'].map(t=>(
+              <div key={t} style={{padding:'6px 10px',background:'rgba(255,255,255,0.6)',
+                borderRadius:6,marginBottom:6,borderLeft:`3px solid ${C.primary}`}}>{t}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Game Over Modal */}
+      {modal&&(
+        <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onClick={()=>setModal(false)} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms'}}/>
+          <div style={{position:'relative',width:440,background:C.surf,borderRadius:20,
+            animation:'fadeInScale 200ms ease',boxShadow:'0 24px 80px rgba(0,0,0,0.2)',
+            padding:36,textAlign:'center',zIndex:501}}>
+            <div style={{fontSize:56,marginBottom:12}}>💥</div>
+            <h2 style={{fontSize:22,fontWeight:800,marginBottom:8}}>게임 오버!</h2>
+            <div style={{fontSize:42,fontWeight:900,color:C.primary,marginBottom:4}}>{score.toLocaleString()}</div>
+            <div style={{fontSize:14,color:C.sub,marginBottom:20}}>목표: {(stage*2000).toLocaleString()}점</div>
+            <div style={{padding:'12px',background:'rgba(255,107,53,0.08)',borderRadius:10,marginBottom:20,border:'1px solid rgba(255,107,53,0.2)'}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.primary}}>
+                {score>=stage*2000?'🎉 스테이지 클리어! 포인트가 지급됩니다':'아쉬워요! 다시 도전해보세요'}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>{setModal(false);start();}}
+                style={{flex:1,background:C.grad,color:'#fff',border:'none',borderRadius:10,
+                  padding:'12px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+                다시 도전
+              </button>
+              <button onClick={()=>setModal(false)}
+                style={{flex:1,background:C.bg,color:C.sub,border:`1px solid ${C.border}`,borderRadius:10,
+                  padding:'12px',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                종료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const RANK_DATA=[
+  {rank:1,name:'이준호',avatar:'이',score:9870,plays:12,clears:8,points:1500,date:'오늘',updated:true},
+  {rank:2,name:'김서연',avatar:'김',score:8420,plays:9,clears:6,points:1200,date:'오늘',updated:false},
+  {rank:3,name:'박하나',avatar:'박',score:7850,plays:11,clears:5,points:1000,date:'오늘',updated:true},
+  {rank:4,name:'최우진',avatar:'최',score:7230,plays:8,clears:4,points:800,date:'어제',updated:false},
+  {rank:5,name:'정민수',avatar:'정',score:6910,plays:7,clears:4,points:800,date:'어제',updated:false},
+  {rank:6,name:'강유진',avatar:'강',score:6540,plays:10,clears:3,points:600,date:'어제',updated:true},
+  {rank:7,name:'윤서준',avatar:'윤',score:5980,plays:6,clears:3,points:600,date:'2일전',updated:false},
+  {rank:8,name:'장하은',avatar:'장',score:5670,plays:8,clears:2,points:400,date:'2일전',updated:false},
+];
+
+function PageLeaderboard(){
+  const [filter,setFilter]=useState('전체');
+  const [drawer,setDrawer]=useState(null);
+  const [liveCount,setLiveCount]=useState(4821);
+
+  useEffect(()=>{
+    const t=setInterval(()=>setLiveCount(n=>n+(Math.random()>0.5?1:-1)),2000);
+    return()=>clearInterval(t);
+  },[]);
+
+  const filters=['전체','이번 주','오늘'];
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      {/* Live indicator */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#10B981',
+            animation:'liveFlash 1.5s ease-in-out infinite'}}/>
+          <span style={{fontSize:13,fontWeight:700,color:'#10B981'}}>실시간 업데이트 중</span>
+          <span style={{fontSize:13,color:C.muted}}>· 현재 {liveCount.toLocaleString()}명 플레이 중</span>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          {filters.map(f=>(
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{padding:'6px 16px',borderRadius:20,border:`1.5px solid ${filter===f?C.primary:C.border}`,
+                background:filter===f?'rgba(255,107,53,0.08)':C.surf,
+                color:filter===f?C.primary:C.sub,fontSize:13,fontWeight:filter===f?700:400,cursor:'pointer',fontFamily:'inherit'}}>
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Podium */}
+      <div style={{display:'flex',gap:12,marginBottom:20,justifyContent:'center',alignItems:'flex-end'}}>
+        {[RANK_DATA[1],RANK_DATA[0],RANK_DATA[2]].map((r,i)=>{
+          const heights=[80,100,60];const medals=['🥈','🥇','🥉'];const colors=['#C0C0C0','#FFD700','#CD7F32'];
+          return(
+            <div key={r.rank} onClick={()=>setDrawer(r)}
+              style={{flex:1,background:C.surf,borderRadius:'12px 12px 0 0',
+                height:heights[i]+120,display:'flex',flexDirection:'column',alignItems:'center',
+                justifyContent:'flex-end',padding:'0 16px 16px',
+                boxShadow:'0 4px 16px rgba(0,0,0,0.08)',border:`1px solid ${C.border}`,cursor:'pointer',
+                transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-4px)';}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='';}}>
+              <div style={{fontSize:32,marginBottom:8}}>{medals[i]}</div>
+              <div style={{width:44,height:44,borderRadius:'50%',background:C.grad,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:800,color:'#fff',marginBottom:8}}>
+                {r.avatar}
+              </div>
+              <div style={{fontWeight:800,fontSize:14,marginBottom:2}}>{r.name}</div>
+              <div style={{fontSize:16,fontWeight:900,color:colors[i]}}>{r.score.toLocaleString()}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Table */}
+      <div style={{background:C.surf,borderRadius:14,overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+        <div style={{display:'grid',gridTemplateColumns:'50px 1fr 100px 80px 80px 100px',
+          padding:'10px 16px',background:'#F9F5F0',borderBottom:`1px solid ${C.border}`,
+          fontSize:12,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+          <span>순위</span><span>참가자</span><span style={{textAlign:'right'}}>점수</span>
+          <span style={{textAlign:'right'}}>클리어</span><span style={{textAlign:'right'}}>포인트</span>
+          <span style={{textAlign:'right'}}>갱신</span>
+        </div>
+        {RANK_DATA.map((r,i)=>(
+          <div key={r.rank} onClick={()=>setDrawer(r)}
+            style={{display:'grid',gridTemplateColumns:'50px 1fr 100px 80px 80px 100px',
+              padding:'12px 16px',borderBottom:i<RANK_DATA.length-1?`1px solid ${C.border}`:'none',
+              cursor:'pointer',transition:'background 150ms',
+              animation:r.updated?'rankUpdate 1s ease':'none'}}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,107,53,0.04)';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';}}>
+            <span style={{fontSize:15,fontWeight:800,color:r.rank<=3?['#FFD700','#C0C0C0','#CD7F32'][r.rank-1]:C.muted}}>
+              {r.rank<=3?['1️⃣','2️⃣','3️⃣'][r.rank-1]:`#${r.rank}`}
+            </span>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:32,height:32,borderRadius:'50%',background:C.grad,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'#fff'}}>
+                {r.avatar}
+              </div>
+              <div>
+                <div style={{fontSize:14,fontWeight:700}}>{r.name}</div>
+                {r.updated&&<div style={{fontSize:11,color:'#10B981'}}>방금 갱신 ↑</div>}
+              </div>
+            </div>
+            <span style={{fontSize:15,fontWeight:800,color:C.primary,textAlign:'right'}}>{r.score.toLocaleString()}</span>
+            <span style={{fontSize:14,color:C.sub,textAlign:'right'}}>{r.clears}회</span>
+            <span style={{fontSize:14,fontWeight:700,color:'#8B5CF6',textAlign:'right'}}>{r.points}P</span>
+            <span style={{fontSize:11,color:C.muted,textAlign:'right'}}>{r.date}</span>
+          </div>
+        ))}
+      </div>
+
+      {drawer&&<Drawer item={drawer} onClose={()=>setDrawer(null)}/>}
+    </div>
+  );
+}
+
+function PageShare(){
+  const [shared,setShared]=useState([]);
+  const [toast,setToast]=useState(null);
+
+  const share=(platform)=>{
+    setShared(s=>[...s,platform]);
+    setToast(`${platform}에 공유 완료! +100포인트 획득`);
+  };
+
+  const history=[
+    {platform:'KakaoTalk',date:'오늘 15:32',points:100,score:2840},
+    {platform:'Twitter',date:'오늘 15:33',points:100,score:2840},
+    {platform:'Instagram',date:'어제 11:20',points:100,score:1920},
+  ];
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease',display:'grid',gridTemplateColumns:'1fr 340px',gap:20}}>
+      {/* Share Card + Buttons */}
+      <div>
+        {/* Result Card Preview */}
+        <div style={{background:'linear-gradient(135deg,#FF6B35,#FFB347,#2ECC71)',
+          borderRadius:20,padding:32,marginBottom:16,textAlign:'center',
+          boxShadow:'0 8px 32px rgba(255,107,53,0.4)',position:'relative',overflow:'hidden'}}>
+          <div style={{position:'absolute',top:-20,right:-20,width:120,height:120,borderRadius:'50%',
+            background:'rgba(255,255,255,0.1)'}}/>
+          <div style={{position:'absolute',bottom:-30,left:-30,width:100,height:100,borderRadius:'50%',
+            background:'rgba(255,255,255,0.08)'}}/>
+          <div style={{position:'relative',zIndex:1}}>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.12em',color:'rgba(255,255,255,0.8)',marginBottom:8}}>
+              런런마케팅 스프링 캠페인
+            </div>
+            <div style={{fontSize:48,fontWeight:900,color:'#fff',letterSpacing:'-0.03em',marginBottom:4}}>
+              2,840
+            </div>
+            <div style={{fontSize:14,color:'rgba(255,255,255,0.85)',marginBottom:12}}>나의 최고 점수</div>
+            <div style={{display:'flex',gap:16,justifyContent:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>3회</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>클리어</div>
+              </div>
+              <div style={{width:1,background:'rgba(255,255,255,0.3)'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>#4위</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>랭킹</div>
+              </div>
+              <div style={{width:1,background:'rgba(255,255,255,0.3)'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>500P</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>포인트</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{fontSize:12,color:C.muted,textAlign:'center',marginBottom:20}}>
+          Canvas toDataURL로 자동 생성된 공유 카드 · Open Graph 메타태그 최적화 완료
+        </div>
+
+        {/* Share Buttons */}
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:14}}>공유하고 포인트 받기</h3>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+          {[
+            {platform:'KakaoTalk',icon:'💛',color:'#FEE500',text:'#191919'},
+            {platform:'Twitter',icon:'🐦',color:'#1DA1F2',text:'#fff'},
+            {platform:'Instagram',icon:'📸',color:'linear-gradient(135deg,#833AB4,#E1306C,#FCAF45)',text:'#fff'},
+          ].map(s=>(
+            <button key={s.platform} onClick={()=>share(s.platform)}
+              disabled={shared.includes(s.platform)}
+              style={{padding:'14px 16px',borderRadius:12,border:'none',
+                background:shared.includes(s.platform)?'#F0F0F0':s.color,
+                color:shared.includes(s.platform)?C.muted:s.text,
+                cursor:shared.includes(s.platform)?'not-allowed':'pointer',
+                fontSize:14,fontWeight:700,fontFamily:'inherit',transition:'all 200ms',
+                display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
+              <span style={{fontSize:18}}>{s.icon}</span>
+              <span>{shared.includes(s.platform)?'공유 완료':s.platform}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{padding:'14px 18px',background:'rgba(255,107,53,0.06)',borderRadius:10,
+          border:'1px solid rgba(255,107,53,0.2)',fontSize:13,color:C.sub}}>
+          💡 각 채널 공유 시 <strong style={{color:C.primary}}>+100포인트</strong> 적립 · 총 최대 300포인트 획득 가능
+        </div>
+      </div>
+
+      {/* Reward Panel */}
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div style={{background:C.surf,borderRadius:14,padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:4}}>나의 포인트</h3>
+          <div style={{fontSize:36,fontWeight:900,color:C.primary,marginBottom:4}}><CountUp end={500} suffix="P"/></div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>공유 보너스 포함</div>
+          <div style={{background:'linear-gradient(135deg,rgba(255,107,53,0.08),rgba(255,179,71,0.06))',
+            borderRadius:10,padding:14,border:'1px solid rgba(255,107,53,0.2)'}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:6}}>이번 주 리워드 기준</div>
+            {[
+              {grade:'GOLD',min:5000,reward:'5만원 상품권'},
+              {grade:'SILVER',min:2000,reward:'편의점 상품권'},
+              {grade:'BRONZE',min:500,reward:'할인 쿠폰 10%'},
+            ].map(g=>(
+              <div key={g.grade} style={{display:'flex',justifyContent:'space-between',
+                padding:'8px 10px',borderRadius:6,
+                background:500>=g.min&&(g.grade==='BRONZE'||500<2000)?'rgba(255,107,53,0.15)':'transparent',
+                marginBottom:4}}>
+                <span style={{fontSize:12,fontWeight:600,color:C.sub}}>{g.grade} {g.min.toLocaleString()}P+</span>
+                <span style={{fontSize:12,fontWeight:700,color:C.text}}>{g.reward}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{background:C.surf,borderRadius:14,padding:20,boxShadow:'0 2px 12px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>공유 이력</h3>
+          {history.map((h,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+              padding:'10px 0',borderBottom:i<history.length-1?`1px solid ${C.border}`:'none'}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:700}}>{h.platform}</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:1}}>{h.date}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.accent}}>+{h.points}P</div>
+                <div style={{fontSize:11,color:C.muted}}>{h.score.toLocaleString()}점</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// ---- APP ----
+function App(){
+  const [tab,setTab]=useState('main');
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{const t=setTimeout(()=>setLoading(false),1200);return()=>clearTimeout(t);},[]);
+
+  const meta=PAGE_META[tab];
+
+  const renderContent=()=>{
+    switch(tab){
+      case'main': return <PageMain/>;
+      case'game-stage': return <PageGame/>;
+      case'leaderboard': return <PageLeaderboard/>;
+      case'share-reward': return <PageShare/>;
+      default: return <PageMain/>;
+    }
+  };
+
+  return(
+    <div style={{minHeight:'100vh',background:C.bg,fontFamily:'inherit'}}>
+      {/* TopNav */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:C.surf,
+        borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',
+        height:56,padding:'0 24px',gap:6,boxShadow:'0 1px 8px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginRight:24}}>
+          <div style={{width:32,height:32,borderRadius:8,background:C.grad,
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🏃</div>
+          <span style={{fontWeight:800,fontSize:15,color:C.text}}>RUN CAMPAIGN</span>
+        </div>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={{padding:'6px 14px',borderRadius:6,border:'none',fontFamily:'inherit',
+              background:tab===t.id?'rgba(255,107,53,0.1)':'transparent',
+              color:tab===t.id?C.primary:C.sub,fontSize:13,fontWeight:tab===t.id?700:400,
+              cursor:'pointer',whiteSpace:'nowrap',transition:'all 150ms'}}>
+            {t.label}
+          </button>
+        ))}
+        <div style={{flex:1}}/>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:'#F9F5F0',
+            borderRadius:8,padding:'6px 12px',border:`1px solid ${C.border}`}}>
+            <span style={{fontSize:14}}>🔍</span>
+            <input placeholder="검색" style={{background:'none',border:'none',outline:'none',
+              fontSize:13,color:C.sub,width:120,fontFamily:'inherit'}}/>
+          </div>
+          <button style={{background:'none',border:`1px solid ${C.border}`,borderRadius:8,
+            width:34,height:34,fontSize:16,cursor:'pointer'}}>🔔</button>
+          <div style={{width:34,height:34,borderRadius:'50%',background:C.grad,
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'#fff',cursor:'pointer'}}>
+            이
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Banner */}
+      <div style={{background:`linear-gradient(135deg,${C.primary},${C.sec})`,
+        padding:'28px 32px',color:'#fff'}}>
+        <h1 style={{fontSize:26,fontWeight:900,letterSpacing:'-0.02em',marginBottom:6}}>{meta.title}</h1>
+        <p style={{fontSize:14,opacity:0.9,marginBottom:18}}>{meta.desc}</p>
+        <div style={{display:'flex',gap:32}}>
+          {meta.kpis.map((k,i)=>(
+            <div key={i} style={{textAlign:'left'}}>
+              <div style={{fontSize:22,fontWeight:900,letterSpacing:'-0.02em'}}>
+                {typeof k.val==='number'?<CountUp end={k.val}/>:k.val}
+              </div>
+              <div style={{fontSize:12,opacity:0.8,marginTop:2}}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <main style={{padding:'24px 32px',height:'calc(100vh - 56px - 120px)',overflowY:'auto'}}>
+        {loading?(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+            {[...Array(6)].map((_,i)=>(
+              <div key={i} style={{height:140,borderRadius:14,
+                background:'linear-gradient(90deg,#F5F0E8 25%,#EDE5D8 50%,#F5F0E8 75%)',
+                backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+            ))}
+          </div>
+        ):(
+          <div key={tab} style={{animation:'fadeIn 300ms ease'}}>
+            {renderContent()}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

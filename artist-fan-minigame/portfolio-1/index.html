@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>케이팝 그룹 데뷔 기념 캐릭터 러닝 미니게임</title>
+  <link href="https://cdn.jsdelivr.net/npm/pretendard@latest/dist/web/variable/pretendardvariable.css" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Pretendard Variable',Pretendard,sans-serif;background:#0F0A1E;color:#F9FAFB;overflow:hidden;height:100vh;}
+    ::-webkit-scrollbar{width:5px;}
+    ::-webkit-scrollbar-track{background:#0F0A1E;}
+    ::-webkit-scrollbar-thumb{background:#3D2B6E;border-radius:3px;}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes barGrow{from{width:0}to{width:var(--tw)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.45}}
+    @keyframes glowPulse{0%,100%{box-shadow:0 0 18px rgba(124,58,237,0.5)}50%{box-shadow:0 0 36px rgba(236,72,153,0.7)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+    @keyframes runBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+    @keyframes bgScroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+    @keyframes obstSlide{0%{right:-60px}100%{right:102%}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes badgePop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback}=React;
+const {AreaChart,Area,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}=Recharts;
+
+const C={
+  bg:'#0F0A1E',surf:'#1E1340',surfHov:'#261855',
+  primary:'#7C3AED',sec:'#EC4899',accent:'#F59E0B',
+  text:'#F9FAFB',sub:'#A78BFA',muted:'#6B5D9A',
+  border:'#2D1B69',sidebar:'#080514',
+  grad:'linear-gradient(135deg,#7C3AED,#EC4899)',
+};
+
+const NAVS=[
+  {id:'main',icon:'🎮',label:'메인 랜딩 & 게임 진입'},
+  {id:'game-play',icon:'🏃',label:'횡스크롤 미니게임'},
+  {id:'social-login',icon:'🔐',label:'소셜 로그인'},
+  {id:'fan-message',icon:'💌',label:'팬 메시지 작성 & 갤러리'},
+];
+
+const CHART_DATA=[
+  {day:'3/1',참여자:1240,메시지:820},
+  {day:'3/2',참여자:1850,메시지:1200},
+  {day:'3/3',참여자:2100,메시지:1450},
+  {day:'3/4',참여자:1920,메시지:1380},
+  {day:'3/5',참여자:2380,메시지:1720},
+  {day:'3/6',참여자:1957,메시지:750},
+];
+
+const MESSAGES=[
+  {id:1,name:'김서연',date:'2026.03.05',msg:'루나 언니 데뷔 축하해요! 항상 응원할게요 게임도 너무 재밌어요~ 클리어하고 기뻐서 소리질렀어요ㅋㅋ',score:1820,badge:'클리어'},
+  {id:2,name:'이준호',date:'2026.03.05',msg:'데뷔 1주년까지 함께 달려요! 새벽에 연습하는 모습이 감동이었어요. 앞으로도 빛나는 무대 부탁해요!',score:2100,badge:'클리어'},
+  {id:3,name:'박하나',date:'2026.03.04',msg:'드디어 데뷔했구나! 게임 3번 해서 겨우 클리어했어요 포기 안 하길 잘했다~ 메시지 쓸 수 있어서 행복해요',score:980,badge:'클리어'},
+  {id:4,name:'최예린',date:'2026.03.04',msg:'우리 오로라 데뷔 축하해! 앞으로도 빛나는 무대 많이 보여줘. 첫 무대 영상 무한반복 중이에요!',score:1560,badge:'클리어'},
+  {id:5,name:'정민수',date:'2026.03.03',msg:'게임이 생각보다 어려웠지만 클리어하고 나니 뿌듯해요. 멤버 모두 사랑해요!',score:1340,badge:'클리어'},
+  {id:6,name:'강유진',date:'2026.03.03',msg:'매일 유튜브 챙겨보고 있어요. 컴백 때도 열심히 응원할게요. 항상 건강하게 활동해줘서 감사해요!',score:1780,badge:'클리어'},
+];
+
+function CountUp({end,suffix='',duration=1200}){
+  const [v,setV]=useState(0);
+  useEffect(()=>{
+    let cur=0;const step=end/(duration/16);
+    const t=setInterval(()=>{
+      cur+=step;
+      if(cur>=end){setV(end);clearInterval(t);}
+      else setV(Math.floor(cur));
+    },16);
+    return()=>clearInterval(t);
+  },[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{v.toLocaleString()}{suffix}</span>;
+}
+
+function Modal({title,onClose,children,width=580}){
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.65)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:C.surf,borderRadius:16,zIndex:501,
+        animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',
+        boxShadow:'0 24px 80px rgba(0,0,0,0.6)',border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:17,fontWeight:700,color:C.text}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.muted,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Toast({msg,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[]);
+  return(
+    <div style={{position:'fixed',bottom:28,right:28,zIndex:9999,
+      background:C.grad,color:'#fff',padding:'13px 24px',borderRadius:10,
+      animation:'slideUp 300ms ease',boxShadow:'0 8px 24px rgba(124,58,237,0.4)',fontWeight:600,fontSize:14}}>
+      {msg}
+    </div>
+  );
+}
+
+// ---- PAGES ----
+function PageMain(){
+  const kpis=[
+    {label:'총 참여자',val:12847,suf:'명',icon:'👥',color:'#7C3AED'},
+    {label:'팬 메시지',val:8320,suf:'개',icon:'💌',color:'#EC4899'},
+    {label:'게임 클리어',val:9154,suf:'명',icon:'🏆',color:'#F59E0B'},
+    {label:'이벤트 종료',val:'D-3',icon:'⏰',color:'#10B981',raw:true},
+  ];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      {/* Hero Banner */}
+      <div style={{background:'linear-gradient(135deg,#7C3AED 0%,#EC4899 50%,#F59E0B 100%)',
+        borderRadius:16,padding:'32px 36px',marginBottom:24,position:'relative',overflow:'hidden'}}>
+        <div style={{position:'absolute',top:0,right:0,width:300,height:'100%',
+          background:'radial-gradient(ellipse at right,rgba(255,255,255,0.1),transparent)',pointerEvents:'none'}}/>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,letterSpacing:'0.1em',opacity:0.85,marginBottom:8}}>K-POP EVENT</div>
+            <h1 style={{fontSize:26,fontWeight:800,marginBottom:8,letterSpacing:'-0.02em'}}>오로라 (AURORA) 데뷔 기념</h1>
+            <p style={{fontSize:15,opacity:0.9,marginBottom:20}}>캐릭터 러닝 미니게임 팬 이벤트 · 2026.03.03 – 2026.03.09</p>
+            <button style={{background:'rgba(255,255,255,0.2)',color:'#fff',border:'2px solid rgba(255,255,255,0.5)',
+              borderRadius:10,padding:'10px 28px',fontSize:15,fontWeight:700,cursor:'pointer',
+              backdropFilter:'blur(8px)'}}>
+              게임 시작하기 →
+            </button>
+          </div>
+          <div style={{fontSize:80,animation:'float 3s ease-in-out infinite'}}>🎮</div>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {kpis.map((k,i)=>(
+          <div key={k.label} style={{background:C.surf,borderRadius:12,padding:'20px 22px',
+            border:`1px solid ${C.border}`,animation:`slideUp 400ms ease ${i*80}ms both`,
+            transition:'all 200ms',cursor:'default'}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 20px rgba(0,0,0,0.3)';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='';}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <span style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:'0.05em',textTransform:'uppercase'}}>{k.label}</span>
+              <span style={{fontSize:22}}>{k.icon}</span>
+            </div>
+            <div style={{fontSize:28,fontWeight:800,color:k.color}}>
+              {k.raw?k.val:<CountUp end={k.val} suffix={k.suf}/>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart + Sidebar */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 340px',gap:16}}>
+        <div style={{background:C.surf,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <h3 style={{fontSize:16,fontWeight:700}}>일별 참여 현황</h3>
+            <span style={{fontSize:12,color:C.muted}}>최근 6일</span>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={CHART_DATA}>
+              <defs>
+                <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#7C3AED" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#EC4899" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
+              <XAxis dataKey="day" tick={{fill:C.muted,fontSize:12}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fill:C.muted,fontSize:12}} axisLine={false} tickLine={false} width={45}/>
+              <Tooltip contentStyle={{background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+              <Area type="monotone" dataKey="참여자" stroke="#7C3AED" strokeWidth={2} fill="url(#g1)"/>
+              <Area type="monotone" dataKey="메시지" stroke="#EC4899" strokeWidth={2} fill="url(#g2)"/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surf,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>이벤트 현황</h3>
+          {[
+            {label:'참여율',pct:68,color:'#7C3AED'},
+            {label:'클리어율',pct:71,color:'#EC4899'},
+            {label:'메시지 작성률',pct:91,color:'#F59E0B'},
+          ].map((b,i)=>(
+            <div key={b.label} style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:13,marginBottom:6}}>
+                <span style={{color:C.sub}}>{b.label}</span>
+                <span style={{fontWeight:700,color:b.color}}>{b.pct}%</span>
+              </div>
+              <div style={{background:C.bg,borderRadius:4,height:6,overflow:'hidden'}}>
+                <div style={{height:'100%',background:b.color,borderRadius:4,
+                  animation:`barGrow 900ms ease ${i*150}ms both`,'--tw':`${b.pct}%`,width:`${b.pct}%`}}/>
+              </div>
+            </div>
+          ))}
+          <div style={{marginTop:20,padding:'14px 16px',background:C.bg,borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:4}}>다음 주요 일정</div>
+            <div style={{fontSize:14,fontWeight:600,color:C.text}}>이벤트 종료: 2026.03.09</div>
+            <div style={{fontSize:12,color:C.muted,marginTop:2}}>최종 집계 후 아티스트 전달</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PageGame(){
+  const [score,setScore]=useState(0);
+  const [running,setRunning]=useState(false);
+  const [gameOver,setGameOver]=useState(false);
+  const [modal,setModal]=useState(false);
+  const timerRef=useRef(null);
+
+  const startGame=()=>{
+    setScore(0);setRunning(true);setGameOver(false);
+    if(timerRef.current) clearInterval(timerRef.current);
+    timerRef.current=setInterval(()=>{
+      setScore(s=>{
+        if(s>=2000){clearInterval(timerRef.current);setRunning(false);return s;}
+        return s+7;
+      });
+    },50);
+  };
+  const triggerGameOver=()=>{
+    if(timerRef.current) clearInterval(timerRef.current);
+    setRunning(false);setGameOver(true);setModal(true);
+  };
+  useEffect(()=>()=>{if(timerRef.current) clearInterval(timerRef.current);},[]);
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:16}}>
+        {/* Game Viewport */}
+        <div style={{background:C.surf,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+          {/* Score HUD */}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+            padding:'14px 20px',background:C.bg,borderBottom:`1px solid ${C.border}`}}>
+            <div style={{display:'flex',gap:24}}>
+              <div>
+                <div style={{fontSize:11,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>SCORE</div>
+                <div style={{fontSize:22,fontWeight:800,color:C.accent,fontVariantNumeric:'tabular-nums'}}>{score.toString().padStart(5,'0')}</div>
+              </div>
+              <div style={{width:1,background:C.border}}/>
+              <div>
+                <div style={{fontSize:11,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em'}}>STAGE</div>
+                <div style={{fontSize:22,fontWeight:800,color:C.sub}}>01</div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              {[1,2,3].map(h=>(
+                <div key={h} style={{fontSize:20,filter:h<=2?'none':'grayscale(1) opacity(0.3)',
+                  animation:`pulse 1.5s ease-in-out ${h*300}ms infinite`}}>❤️</div>
+              ))}
+            </div>
+          </div>
+
+          {/* Game Canvas Area */}
+          <div style={{position:'relative',height:240,background:'linear-gradient(180deg,#1A0A3E 0%,#0F0A1E 60%,#1A0A3E 100%)',
+            overflow:'hidden'}}>
+            {/* Star particles */}
+            {[...Array(18)].map((_,i)=>(
+              <div key={i} style={{position:'absolute',
+                left:`${(i*37+13)%100}%`,top:`${(i*23+7)%55}%`,
+                width:i%3===0?2:1,height:i%3===0?2:1,
+                borderRadius:'50%',background:'#fff',opacity:0.4+i%4*0.15,
+                animation:`pulse ${1.5+i%3*0.5}s ease-in-out ${i*200}ms infinite`}}/>
+            ))}
+
+            {/* Scrolling ground tiles */}
+            <div style={{position:'absolute',bottom:40,left:0,right:0,height:4,
+              background:'linear-gradient(90deg,#7C3AED,#EC4899,#7C3AED)',
+              boxShadow:'0 0 12px rgba(124,58,237,0.6)'}}/>
+
+            {/* Ground shadow */}
+            <div style={{position:'absolute',bottom:0,left:0,right:0,height:40,
+              background:'linear-gradient(0deg,rgba(10,6,24,0.9),transparent)'}}/>
+
+            {/* Pixel ground pattern */}
+            <div style={{position:'absolute',bottom:0,left:0,right:0,height:40,
+              backgroundImage:'repeating-linear-gradient(90deg,transparent 0px,transparent 18px,rgba(124,58,237,0.08) 18px,rgba(124,58,237,0.08) 20px)',
+              backgroundSize:'20px 100%'}}/>
+
+            {/* Character */}
+            <div style={{position:'absolute',bottom:44,left:80,width:32,height:40,
+              animation:running?'runBob 0.4s ease-in-out infinite':'none'}}>
+              <div style={{width:'100%',height:'100%',background:'linear-gradient(180deg,#7C3AED,#EC4899)',
+                borderRadius:'8px 8px 4px 4px',position:'relative',
+                boxShadow:running?'0 0 20px rgba(236,72,153,0.7)':'0 0 10px rgba(124,58,237,0.4)'}}>
+                {/* Eyes */}
+                <div style={{position:'absolute',top:10,left:6,width:6,height:6,background:'#fff',borderRadius:'50%'}}/>
+                <div style={{position:'absolute',top:10,right:6,width:6,height:6,background:'#fff',borderRadius:'50%'}}/>
+                {/* Smile */}
+                <div style={{position:'absolute',bottom:10,left:'50%',transform:'translateX(-50%)',
+                  width:12,height:6,borderBottom:'2px solid #fff',borderRadius:'0 0 6px 6px'}}/>
+              </div>
+              {/* Legs */}
+              {running&&[0,1].map(l=>(
+                <div key={l} style={{position:'absolute',bottom:-8,left:l===0?4:16,width:8,height:10,
+                  background:'#7C3AED',borderRadius:4,
+                  animation:`runBob ${0.3}s ease-in-out ${l*150}ms infinite`}}/>
+              ))}
+            </div>
+
+            {/* Obstacle (animated) */}
+            {running&&(
+              <div style={{position:'absolute',bottom:44,right:'-60px',width:28,height:36,
+                background:'linear-gradient(180deg,#F59E0B,#EF4444)',borderRadius:4,
+                boxShadow:'0 0 12px rgba(245,158,11,0.5)',
+                animation:'obstSlide 3.2s linear infinite'}}>
+                <div style={{fontSize:20,textAlign:'center',paddingTop:4}}>⭐</div>
+              </div>
+            )}
+            {running&&(
+              <div style={{position:'absolute',bottom:44,right:'-60px',width:20,height:48,
+                background:'linear-gradient(180deg,#10B981,#059669)',borderRadius:4,
+                boxShadow:'0 0 12px rgba(16,185,129,0.5)',
+                animation:'obstSlide 2.4s linear 1.2s infinite'}}>
+              </div>
+            )}
+
+            {/* Start / Game State Overlay */}
+            {!running&&!gameOver&&(
+              <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',
+                background:'rgba(8,5,20,0.7)',backdropFilter:'blur(4px)'}}>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontSize:36,marginBottom:12}}>🎮</div>
+                  <div style={{fontSize:18,fontWeight:800,marginBottom:6}}>JUMP RUNNER</div>
+                  <div style={{fontSize:13,color:C.sub,marginBottom:20}}>Space / Tap으로 점프하여 장애물을 피하세요!</div>
+                  <button onClick={startGame} style={{background:C.grad,color:'#fff',border:'none',
+                    borderRadius:10,padding:'12px 32px',fontSize:15,fontWeight:700,cursor:'pointer',
+                    boxShadow:'0 4px 20px rgba(124,58,237,0.5)'}}>
+                    게임 시작
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Game Controls */}
+          <div style={{display:'flex',gap:10,padding:'14px 20px',background:C.bg,borderTop:`1px solid ${C.border}`}}>
+            <button onClick={startGame}
+              style={{flex:1,background:C.grad,color:'#fff',border:'none',borderRadius:8,padding:'10px',
+                fontSize:14,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 12px rgba(124,58,237,0.4)'}}>
+              {running?'재시작':'게임 시작'}
+            </button>
+            {running&&(
+              <button onClick={triggerGameOver}
+                style={{flex:1,background:C.surf,color:C.sub,border:`1px solid ${C.border}`,borderRadius:8,
+                  padding:'10px',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                게임 오버 (테스트)
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Info Panel */}
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div style={{background:C.surf,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+            <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>게임 규칙</h3>
+            {[
+              {icon:'⬆️',text:'Space / 탭으로 점프'},
+              {icon:'⭐',text:'별 수집 시 보너스 점수'},
+              {icon:'🎯',text:'2,000점 이상 달성 시 클리어'},
+              {icon:'💌',text:'클리어 후 팬 메시지 작성 가능'},
+            ].map(r=>(
+              <div key={r.icon} style={{display:'flex',gap:10,alignItems:'center',marginBottom:10,
+                padding:'8px 12px',background:C.bg,borderRadius:8}}>
+                <span>{r.icon}</span>
+                <span style={{fontSize:13,color:C.sub}}>{r.text}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{background:C.surf,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+            <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>기술 구현</h3>
+            <div style={{fontSize:12,color:C.sub,lineHeight:1.7}}>
+              <div style={{marginBottom:8,padding:'8px 10px',background:C.bg,borderRadius:6,borderLeft:`3px solid ${C.primary}`}}>
+                Canvas API requestAnimationFrame 기반 게임 루프 + delta-time 보정
+              </div>
+              <div style={{marginBottom:8,padding:'8px 10px',background:C.bg,borderRadius:6,borderLeft:`3px solid ${C.sec}`}}>
+                AABB 충돌 감지 알고리즘 구현
+              </div>
+              <div style={{padding:'8px 10px',background:C.bg,borderRadius:6,borderLeft:`3px solid ${C.accent}`}}>
+                Touch / Keyboard 이중 입력 핸들러 (Custom Hook)
+              </div>
+            </div>
+          </div>
+          <div style={{background:`linear-gradient(135deg,rgba(124,58,237,0.15),rgba(236,72,153,0.1))`,
+            borderRadius:12,padding:20,border:`1px solid rgba(124,58,237,0.3)`}}>
+            <div style={{fontSize:12,color:C.sub,marginBottom:4}}>최고 점수 (오늘)</div>
+            <div style={{fontSize:28,fontWeight:800,color:C.accent}}><CountUp end={9870} suffix="pt"/></div>
+            <div style={{fontSize:12,color:C.muted,marginTop:4}}>이준호 님</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Game Over Modal */}
+      {modal&&(
+        <Modal title="GAME OVER" onClose={()=>{setModal(false);setGameOver(false);}}>
+          <div style={{textAlign:'center',padding:'8px 0'}}>
+            <div style={{fontSize:64,marginBottom:16}}>💔</div>
+            <div style={{fontSize:24,fontWeight:800,marginBottom:8}}>최종 점수</div>
+            <div style={{fontSize:48,fontWeight:900,color:C.accent,marginBottom:20}}>{score.toLocaleString()}</div>
+            {score>=2000?(
+              <div style={{padding:'12px 24px',background:'rgba(16,185,129,0.15)',border:'1px solid rgba(16,185,129,0.4)',
+                borderRadius:10,color:'#10B981',fontWeight:700,marginBottom:20}}>
+                🎉 게임 클리어! 팬 메시지를 작성할 수 있어요
+              </div>
+            ):(
+              <div style={{padding:'12px 24px',background:'rgba(245,158,11,0.12)',border:'1px solid rgba(245,158,11,0.3)',
+                borderRadius:10,color:C.accent,fontWeight:600,marginBottom:20}}>
+                아쉬워요! 2,000점 이상이 되면 메시지를 남길 수 있어요
+              </div>
+            )}
+            <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+              <button onClick={()=>{setModal(false);setGameOver(false);startGame();}}
+                style={{background:C.grad,color:'#fff',border:'none',borderRadius:8,
+                  padding:'11px 28px',fontSize:14,fontWeight:700,cursor:'pointer'}}>
+                다시 도전
+              </button>
+              <button onClick={()=>{setModal(false);setGameOver(false);}}
+                style={{background:C.surf,color:C.sub,border:`1px solid ${C.border}`,borderRadius:8,
+                  padding:'11px 28px',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+                닫기
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function PageLogin(){
+  const [loggedIn,setLoggedIn]=useState(false);
+  const [toast,setToast]=useState(null);
+  const login=(provider)=>{
+    setLoggedIn(true);
+    setToast(`${provider}으로 로그인되었습니다`);
+  };
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+        {/* Login Card */}
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          {!loggedIn?(
+            <div style={{background:C.surf,borderRadius:16,padding:36,border:`1px solid ${C.border}`,
+              textAlign:'center',animation:'slideUp 350ms ease'}}>
+              <div style={{fontSize:48,marginBottom:16,animation:'float 3s ease-in-out infinite'}}>🔐</div>
+              <h2 style={{fontSize:22,fontWeight:800,marginBottom:8}}>팬 이벤트 참여</h2>
+              <p style={{fontSize:14,color:C.sub,marginBottom:28,lineHeight:1.6}}>
+                소셜 로그인 후 게임을 플레이하고<br/>아티스트에게 메시지를 남겨보세요!
+              </p>
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                <button onClick={()=>login('카카오')}
+                  style={{display:'flex',alignItems:'center',gap:12,background:'#FEE500',color:'#191919',
+                    border:'none',borderRadius:10,padding:'14px 20px',fontSize:15,fontWeight:700,cursor:'pointer',
+                    transition:'all 200ms',justifyContent:'center'}}
+                  onMouseEnter={e=>e.currentTarget.style.opacity='0.9'}
+                  onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                  <span style={{fontSize:20}}>💛</span> 카카오로 로그인
+                </button>
+                <button onClick={()=>login('구글')}
+                  style={{display:'flex',alignItems:'center',gap:12,background:'#fff',color:'#333',
+                    border:'1.5px solid #ddd',borderRadius:10,padding:'14px 20px',fontSize:15,fontWeight:700,
+                    cursor:'pointer',transition:'all 200ms',justifyContent:'center'}}
+                  onMouseEnter={e=>e.currentTarget.style.boxShadow='0 2px 12px rgba(0,0,0,0.12)'}
+                  onMouseLeave={e=>e.currentTarget.style.boxShadow=''}>
+                  <span style={{fontSize:20}}>🌐</span> Google로 로그인
+                </button>
+                <button onClick={()=>login('네이버')}
+                  style={{display:'flex',alignItems:'center',gap:12,background:'#03C75A',color:'#fff',
+                    border:'none',borderRadius:10,padding:'14px 20px',fontSize:15,fontWeight:700,cursor:'pointer',
+                    transition:'all 200ms',justifyContent:'center'}}
+                  onMouseEnter={e=>e.currentTarget.style.opacity='0.9'}
+                  onMouseLeave={e=>e.currentTarget.style.opacity='1'}>
+                  <span style={{fontSize:20}}>🟢</span> 네이버로 로그인
+                </button>
+              </div>
+            </div>
+          ):(
+            <div style={{background:C.surf,borderRadius:16,padding:32,border:`1px solid rgba(16,185,129,0.4)`,
+              animation:'fadeInScale 350ms ease'}}>
+              <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+                <div style={{width:56,height:56,borderRadius:'50%',
+                  background:'linear-gradient(135deg,#FEE500,#FF9800)',
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,fontWeight:800,color:'#333',
+                  boxShadow:'0 0 20px rgba(254,229,0,0.4)'}}>김</div>
+                <div>
+                  <div style={{fontWeight:800,fontSize:18}}>김서연 님</div>
+                  <div style={{fontSize:13,color:'#10B981',marginTop:2}}>카카오 로그인 완료 ✓</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <div style={{flex:1,background:C.bg,borderRadius:10,padding:'14px',textAlign:'center',border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:4}}>나의 최고 점수</div>
+                  <div style={{fontSize:20,fontWeight:800,color:C.accent}}>1,820</div>
+                </div>
+                <div style={{flex:1,background:C.bg,borderRadius:10,padding:'14px',textAlign:'center',border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:11,color:C.muted,marginBottom:4}}>클리어 횟수</div>
+                  <div style={{fontSize:20,fontWeight:800,color:'#10B981'}}>2회</div>
+                </div>
+              </div>
+              <button onClick={()=>{setLoggedIn(false);}}
+                style={{marginTop:16,width:'100%',background:'transparent',color:C.muted,
+                  border:`1px solid ${C.border}`,borderRadius:8,padding:'10px',
+                  fontSize:13,cursor:'pointer'}}>
+                로그아웃
+              </button>
+            </div>
+          )}
+          <div style={{background:'rgba(245,158,11,0.08)',borderRadius:12,padding:16,
+            border:'1px solid rgba(245,158,11,0.2)'}}>
+            <div style={{fontSize:13,color:C.accent,fontWeight:700,marginBottom:6}}>⚠️ 메시지 작성 조건</div>
+            <div style={{fontSize:12,color:C.sub,lineHeight:1.6}}>
+              · 로그인 완료 후 게임 2,000점 이상 클리어 시 메시지 작성 가능<br/>
+              · 1인 1회 메시지 전송 (중복 전송 불가)<br/>
+              · 작성한 메시지는 사이트에 공개되지 않으며 아티스트에게 전달됩니다
+            </div>
+          </div>
+        </div>
+
+        {/* OAuth Flow Diagram */}
+        <div style={{background:C.surf,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:20}}>OAuth 2.0 인증 흐름</h3>
+          {[
+            {step:'01',label:'로그인 버튼 클릭',desc:'카카오/구글/네이버 선택',color:'#7C3AED'},
+            {step:'02',label:'Authorization Code 요청',desc:'OAuth 제공자 인증 페이지 이동',color:'#EC4899'},
+            {step:'03',label:'사용자 동의 및 인증',desc:'소셜 계정으로 권한 부여',color:'#F59E0B'},
+            {step:'04',label:'Code → Token 교환',desc:'백엔드에서 Access Token 발급',color:'#10B981'},
+            {step:'05',label:'JWT 세션 생성',desc:'HttpOnly Cookie에 토큰 저장',color:'#3B82F6'},
+          ].map((f,i)=>(
+            <div key={f.step} style={{display:'flex',gap:14,marginBottom:i<4?12:0,
+              animation:`slideUp 400ms ease ${i*80}ms both`}}>
+              <div style={{width:32,height:32,borderRadius:'50%',background:f.color,
+                display:'flex',alignItems:'center',justifyContent:'center',
+                fontSize:11,fontWeight:800,color:'#fff',flexShrink:0}}>
+                {f.step}
+              </div>
+              <div style={{flex:1,paddingTop:4}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.text}}>{f.label}</div>
+                <div style={{fontSize:11,color:C.muted,marginTop:2}}>{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+function PageMessage(){
+  const [form,setForm]=useState('');
+  const [sent,setSent]=useState(false);
+  const [toast,setToast]=useState(null);
+  const [modal,setModal]=useState(null);
+
+  const submit=()=>{
+    if(!form.trim()) return;
+    setSent(true);setForm('');
+    setToast('메시지가 전송되었습니다! 아티스트에게 전달될 예정이에요 💜');
+  };
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'360px 1fr',gap:20}}>
+        {/* Message Form */}
+        <div>
+          <div style={{background:C.surf,borderRadius:14,padding:24,border:`1px solid ${C.border}`,marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+              <div style={{width:40,height:40,borderRadius:'50%',
+                background:'linear-gradient(135deg,#FEE500,#FF9800)',
+                display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:'#333'}}>김</div>
+              <div>
+                <div style={{fontWeight:700}}>김서연</div>
+                <div style={{fontSize:12,color:'#10B981'}}>게임 클리어 ✓</div>
+              </div>
+            </div>
+            <label style={{fontSize:13,color:C.sub,fontWeight:600}}>오로라(AURORA)에게 보내는 메시지</label>
+            <textarea value={form} onChange={e=>setForm(e.target.value)}
+              placeholder="아티스트에게 전하고 싶은 마음을 자유롭게 적어보세요..."
+              style={{width:'100%',marginTop:10,padding:'14px',background:C.bg,
+                border:`1px solid ${C.border}`,borderRadius:10,color:C.text,
+                fontSize:14,lineHeight:1.6,resize:'none',height:120,fontFamily:'inherit',outline:'none'}}/>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:10}}>
+              <span style={{fontSize:12,color:C.muted}}>{form.length}/200자</span>
+              <button onClick={submit} disabled={!form.trim()}
+                style={{background:form.trim()?C.grad:'rgba(124,58,237,0.3)',color:'#fff',border:'none',
+                  borderRadius:8,padding:'10px 22px',fontSize:14,fontWeight:700,
+                  cursor:form.trim()?'pointer':'not-allowed',transition:'all 200ms'}}>
+                메시지 전송 💌
+              </button>
+            </div>
+          </div>
+          <div style={{background:C.surf,borderRadius:14,padding:20,border:`1px solid ${C.border}`}}>
+            <h3 style={{fontSize:14,fontWeight:700,marginBottom:14}}>전송 현황</h3>
+            <div style={{display:'flex',justifyContent:'space-around',textAlign:'center'}}>
+              {[
+                {val:8320,label:'총 메시지',color:C.primary},
+                {val:71,label:'클리어율%',color:C.sec},
+                {val:9154,label:'참여자',color:C.accent},
+              ].map(s=>(
+                <div key={s.label}>
+                  <div style={{fontSize:22,fontWeight:800,color:s.color}}>
+                    <CountUp end={s.val}/>
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:2}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Message Gallery */}
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <h2 style={{fontSize:17,fontWeight:700}}>팬 메시지 갤러리</h2>
+            <span style={{fontSize:13,color:C.muted}}>총 8,320개</span>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            {MESSAGES.map((m,i)=>(
+              <div key={m.id} onClick={()=>setModal(m)}
+                style={{background:C.surf,borderRadius:12,padding:16,border:`1px solid ${C.border}`,
+                  cursor:'pointer',animation:`slideUp 400ms ease ${i*70}ms both`,transition:'all 200ms'}}
+                onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 6px 24px rgba(0,0,0,0.3)';}}
+                onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='';}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                  <div style={{width:32,height:32,borderRadius:'50%',
+                    background:C.grad,display:'flex',alignItems:'center',justifyContent:'center',
+                    fontSize:13,fontWeight:800,color:'#fff',flexShrink:0}}>
+                    {m.avatar}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,display:'flex',gap:6,alignItems:'center'}}>
+                      {m.name}
+                      <span style={{fontSize:10,background:'rgba(16,185,129,0.15)',color:'#10B981',
+                        padding:'1px 6px',borderRadius:4,fontWeight:600}}>클리어</span>
+                    </div>
+                    <div style={{fontSize:11,color:C.muted}}>{m.date}</div>
+                  </div>
+                  <div style={{fontSize:12,color:C.accent,fontWeight:700}}>{m.score.toLocaleString()}pt</div>
+                </div>
+                <p style={{fontSize:13,color:C.sub,lineHeight:1.5,overflow:'hidden',
+                  display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
+                  {m.msg}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {modal&&(
+        <Modal title="팬 메시지" onClose={()=>setModal(null)}>
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:20,
+            padding:'16px',background:C.bg,borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{width:48,height:48,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:'#fff'}}>
+              {modal.avatar}
+            </div>
+            <div>
+              <div style={{fontWeight:700,fontSize:16}}>{modal.name}</div>
+              <div style={{fontSize:12,color:C.muted,marginTop:2}}>{modal.date} · {modal.score.toLocaleString()}점 클리어</div>
+            </div>
+            <span style={{marginLeft:'auto',background:'rgba(16,185,129,0.15)',color:'#10B981',
+              padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600}}>클리어</span>
+          </div>
+          <p style={{fontSize:15,color:C.sub,lineHeight:1.8,padding:'4px 0'}}>{modal.msg}</p>
+          <div style={{marginTop:20,padding:'12px 16px',background:C.bg,borderRadius:8,
+            border:`1px solid ${C.border}`,fontSize:12,color:C.muted}}>
+            이 메시지는 아티스트에게만 전달되며 공개 노출되지 않습니다.
+          </div>
+        </Modal>
+      )}
+      {toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// ---- MAIN APP ----
+function App(){
+  const [page,setPage]=useState('main');
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{const t=setTimeout(()=>setLoading(false),1200);return()=>clearTimeout(t);},[]);
+
+  const renderPage=()=>{
+    switch(page){
+      case'main': return <PageMain/>;
+      case'game-play': return <PageGame/>;
+      case'social-login': return <PageLogin/>;
+      case'fan-message': return <PageMessage/>;
+      default: return <PageMain/>;
+    }
+  };
+
+  const titles={'main':'메인 랜딩 & 게임 진입','game-play':'횡스크롤 미니게임','social-login':'소셜 로그인','fan-message':'팬 메시지 작성 & 갤러리'};
+
+  return(
+    <div style={{display:'flex',height:'100vh',background:C.bg,fontFamily:'inherit'}}>
+      {/* Sidebar */}
+      <aside style={{width:260,background:C.sidebar,display:'flex',flexDirection:'column',
+        borderRight:`1px solid ${C.border}`,flexShrink:0}}>
+        {/* Logo */}
+        <div style={{padding:'24px 20px 20px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:36,height:36,borderRadius:10,background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🎵</div>
+            <div>
+              <div style={{fontWeight:800,fontSize:14,letterSpacing:'-0.01em'}}>AURORA FAN EVENT</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>오로라 데뷔 기념</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav style={{flex:1,padding:'14px 10px',display:'flex',flexDirection:'column',gap:4}}>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:'0.1em',
+            padding:'0 10px',marginBottom:6,textTransform:'uppercase'}}>메뉴</div>
+          {NAVS.map(n=>{
+            const active=page===n.id;
+            return(
+              <button key={n.id} onClick={()=>setPage(n.id)}
+                style={{display:'flex',alignItems:'center',gap:10,width:'100%',
+                  padding:'10px 12px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:'inherit',
+                  background:active?'rgba(124,58,237,0.18)':'transparent',
+                  color:active?C.primary:C.muted,
+                  borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+                  fontSize:13,fontWeight:active?700:400,transition:'all 150ms'}}>
+                <span style={{fontSize:16,flexShrink:0}}>{n.icon}</span>
+                <span style={{textAlign:'left',lineHeight:1.3}}>{n.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* User */}
+        <div style={{padding:'16px 20px',borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'#fff'}}>김</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.text}}>김서연</div>
+              <div style={{fontSize:11,color:'#10B981'}}>클리어 완료 ✓</div>
+            </div>
+            <span style={{fontSize:18,cursor:'pointer',color:C.muted}}>⚙️</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Area */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* TopBar */}
+        <header style={{height:56,borderBottom:`1px solid ${C.border}`,
+          display:'flex',alignItems:'center',padding:'0 24px',gap:16,
+          background:C.bg,flexShrink:0}}>
+          <div style={{flex:1}}>
+            <h1 style={{fontSize:17,fontWeight:700,letterSpacing:'-0.01em'}}>{titles[page]}</h1>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,
+            background:C.surf,borderRadius:8,padding:'7px 14px',border:`1px solid ${C.border}`}}>
+            <span style={{fontSize:14}}>🔍</span>
+            <input placeholder="검색..." style={{background:'none',border:'none',outline:'none',
+              color:C.sub,fontSize:13,width:160,fontFamily:'inherit'}}/>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            {['🔔','📣'].map((ic,i)=>(
+              <button key={i} style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:8,
+                width:36,height:36,fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {ic}
+              </button>
+            ))}
+            <div style={{width:36,height:36,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'#fff',cursor:'pointer'}}>
+              김
+            </div>
+          </div>
+        </header>
+
+        {/* Content */}
+        <main style={{flex:1,overflowY:'auto',padding:24}}>
+          {loading?(
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+              {[...Array(3)].map((_,i)=>(
+                <div key={i} style={{height:100,borderRadius:12,
+                  background:'linear-gradient(90deg,#1E1340 25%,#261850 50%,#1E1340 75%)',
+                  backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+              ))}
+            </div>
+          ):(
+            <div key={page} style={{animation:'fadeIn 300ms ease'}}>
+              {renderPage()}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

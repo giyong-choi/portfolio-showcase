@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>팬 이벤트 통합 플랫폼 (미니게임 + 리더보드 + 관리 대시보드)</title>
+  <link href="https://cdn.jsdelivr.net/npm/pretendard@latest/dist/web/variable/pretendardvariable.css" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Pretendard Variable',Pretendard,sans-serif;background:#0D1117;color:#E6EDF3;overflow:hidden;height:100vh;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-track{background:#161B22;}
+    ::-webkit-scrollbar-thumb{background:#30363D;border-radius:2px;}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes fadeInScale{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes barGrow{from{width:0}to{width:var(--tw)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+    @keyframes sseFlash{0%{background:rgba(99,102,241,0.15)}100%{background:transparent}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes runBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+    @keyframes obstSlide{0%{right:-60px}100%{right:102%}}
+    @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(99,102,241,0.4)}50%{box-shadow:0 0 20px rgba(99,102,241,0.7)}}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line,AreaChart,Area,PieChart,Pie,Cell}=Recharts;
+
+const C={
+  bg:'#0D1117',surf:'#161B22',surfHov:'#1C2128',
+  primary:'#6366F1',sec:'#8B5CF6',accent:'#10B981',
+  text:'#E6EDF3',sub:'#8B949E',muted:'#484F58',
+  border:'#30363D',sidebar:'#161B22',
+  grad:'linear-gradient(135deg,#6366F1,#8B5CF6)',
+};
+
+const NAV=[
+  {id:'main',icon:'🏠',label:'이벤트 메인 & 게임 허브'},
+  {id:'multi-stage',icon:'🎮',label:'멀티스테이지 미니게임'},
+  {id:'live-leaderboard',icon:'📊',label:'실시간 리더보드'},
+  {id:'admin-dashboard',icon:'⚙️',label:'어드민 관리 대시보드'},
+];
+
+const SECTION_TABS={
+  main:['진행 중 이벤트','완료된 이벤트','예정'],
+  'multi-stage':['스테이지 선택','내 기록','보상 현황'],
+  'live-leaderboard':['전체 랭킹','이벤트별','내 순위'],
+  'admin-dashboard':['메시지 승인','참여 현황','이벤트 설정'],
+};
+
+function CountUp({end,suffix='',duration=1000}){
+  const [v,setV]=useState(0);
+  useEffect(()=>{
+    let cur=0;const step=end/(duration/16);
+    const t=setInterval(()=>{cur+=step;if(cur>=end){setV(end);clearInterval(t);}else setV(Math.floor(cur));},16);
+    return()=>clearInterval(t);
+  },[end]);
+  return <span>{v.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({msg,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[]);
+  return(
+    <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,
+      background:C.grad,color:'#fff',padding:'11px 20px',borderRadius:8,
+      animation:'slideUp 300ms ease',boxShadow:'0 6px 20px rgba(99,102,241,0.35)',fontWeight:600,fontSize:13}}>
+      {msg}
+    </div>
+  );
+}
+
+// ====== SECTION PAGES ======
+
+// --- MAIN ---
+const EVENTS=[
+  {id:1,name:'오로라 데뷔 기념 러닝 이벤트',status:'진행 중',artist:'AURORA',start:'2026.03.03',end:'2026.03.09',participants:12847,type:'러닝게임',stage:3,reward:'팬 사인회 응모권'},
+  {id:2,name:'봄 시즌 인터랙티브 이벤트',status:'진행 중',artist:'전체 아티스트',start:'2026.03.01',end:'2026.03.15',participants:8520,type:'미션게임',stage:5,reward:'공식 MD 증정'},
+  {id:3,name:'팬미팅 사전 이벤트',status:'진행 중',artist:'AURORA',start:'2026.02.28',end:'2026.03.07',participants:4230,type:'퀴즈게임',stage:2,reward:'팬미팅 초대권'},
+  {id:4,name:'발렌타인 특별 이벤트',status:'완료',artist:'전체',start:'2026.02.14',end:'2026.02.21',participants:21400,type:'러닝게임',stage:3,reward:'종료'},
+];
+
+function PageMain({tab,setSelected,selected}){
+  const display=tab===0?EVENTS.filter(e=>e.status==='진행 중'):tab===1?EVENTS.filter(e=>e.status==='완료'):[{id:99,name:'봄 컴백 기념 이벤트',status:'예정',artist:'AURORA',start:'2026.04.01',end:'2026.04.10',participants:0,type:'러닝게임',stage:4,reward:'미정'}];
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      {/* Master */}
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {display.map((e,i)=>{
+          const active=selected?.id===e.id;
+          return(
+            <div key={e.id} onClick={()=>setSelected(e)}
+              style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',
+                background:active?`rgba(99,102,241,0.1)`:'transparent',
+                borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+                transition:'all 150ms',animation:`slideUp 300ms ease ${i*60}ms both`}}
+              onMouseEnter={e2=>{if(!active) e2.currentTarget.style.background=C.surfHov;}}
+              onMouseLeave={e2=>{if(!active) e2.currentTarget.style.background='transparent';}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                <div style={{fontSize:13,fontWeight:700,color:active?C.primary:C.text,lineHeight:1.3}}>{e.name}</div>
+                <span style={{fontSize:10,padding:'2px 7px',borderRadius:10,flexShrink:0,marginLeft:8,
+                  background:e.status==='진행 중'?'rgba(16,185,129,0.15)':e.status==='완료'?'rgba(139,148,158,0.15)':'rgba(99,102,241,0.15)',
+                  color:e.status==='진행 중'?C.accent:e.status==='완료'?C.sub:C.primary,fontWeight:600}}>
+                  {e.status}
+                </span>
+              </div>
+              <div style={{fontSize:11,color:C.sub,display:'flex',gap:12}}>
+                <span>🎤 {e.artist}</span><span>📅 {e.end}까지</span>
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>
+                참여자 {e.participants.toLocaleString()}명 · {e.type}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Detail */}
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'slideInRight 250ms ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+              <div>
+                <h2 style={{fontSize:18,fontWeight:800,marginBottom:4}}>{selected.name}</h2>
+                <div style={{fontSize:13,color:C.sub}}>아티스트: {selected.artist}</div>
+              </div>
+              <span style={{fontSize:11,padding:'4px 10px',borderRadius:10,
+                background:selected.status==='진행 중'?'rgba(16,185,129,0.15)':'rgba(139,148,158,0.15)',
+                color:selected.status==='진행 중'?C.accent:C.sub,fontWeight:700}}>
+                {selected.status}
+              </span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:18}}>
+              {[
+                {label:'참여자',val:selected.participants,suf:'명',color:C.primary},
+                {label:'총 스테이지',val:selected.stage,suf:'단계',color:C.sec},
+                {label:'게임 유형',val:selected.type,raw:true,color:C.accent},
+                {label:'리워드',val:selected.reward,raw:true,color:'#F59E0B'},
+              ].map(s=>(
+                <div key={s.label} style={{background:C.bg,borderRadius:10,padding:'12px 14px',
+                  border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>{s.label}</div>
+                  <div style={{fontSize:17,fontWeight:800,color:s.color}}>
+                    {s.raw?s.val:<CountUp end={s.val} suffix={s.suf}/>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.sub,
+              padding:'10px 14px',background:C.bg,borderRadius:8,border:`1px solid ${C.border}`,marginBottom:12}}>
+              <span>이벤트 기간</span>
+              <span style={{fontWeight:700,color:C.text}}>{selected.start} ~ {selected.end}</span>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button style={{flex:2,padding:'10px',background:C.grad,color:'#fff',border:'none',
+                borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                게임 참여하기
+              </button>
+              <button style={{flex:1,padding:'10px',background:C.surf,color:C.sub,
+                border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:'pointer'}}>
+                공유
+              </button>
+            </div>
+          </div>
+        ):(
+          <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.muted}}>
+            <div style={{fontSize:36,marginBottom:12,animation:'float 3s ease-in-out infinite'}}>🎮</div>
+            <div style={{fontSize:14}}>이벤트를 선택하세요</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- MULTI-STAGE ---
+const STAGES=[
+  {id:1,name:'Stage 1 · 입문',desc:'기본 장애물 회피, 속도 일정',target:1000,color:'#10B981',clear:true,best:1820,plays:5},
+  {id:2,name:'Stage 2 · 도전',desc:'장애물 패턴 증가, 속도 가속',target:2000,color:'#F59E0B',clear:true,best:2340,plays:7},
+  {id:3,name:'Stage 3 · 마스터',desc:'복합 패턴, 스피드런 모드 추가',target:3500,color:'#6366F1',clear:false,best:2980,plays:3},
+];
+
+function PageMultiStage({tab,setSelected,selected}){
+  const [running,setRunning]=useState(false);
+  const [score,setScore]=useState(0);
+  const [toast,setToast]=useState(null);
+  const timerRef=useRef(null);
+
+  const masterList=tab===0?STAGES:tab===1?[
+    {id:'r1',name:'Stage 1 최고기록',desc:'1820점 · 5회 플레이',color:'#10B981',best:1820,date:'오늘'},
+    {id:'r2',name:'Stage 2 최고기록',desc:'2340점 · 7회 플레이',color:'#F59E0B',best:2340,date:'어제'},
+    {id:'r3',name:'Stage 3 최고기록',desc:'2980점 · 3회 플레이',color:'#6366F1',best:2980,date:'2일 전'},
+  ]:[
+    {id:'b1',name:'Stage 1 클리어 보상',desc:'받은 보상',color:'#10B981',reward:'팬메시지 작성권',earned:'2026.03.05'},
+    {id:'b2',name:'Stage 2 클리어 보상',desc:'받은 보상',color:'#F59E0B',reward:'이벤트 포인트 200P',earned:'2026.03.06'},
+    {id:'b3',name:'Stage 3 도전 중',desc:'미완료',color:'#6366F1',reward:'아티스트 사인 엽서',earned:null},
+  ];
+
+  const startGame=(st)=>{
+    setScore(0);setRunning(true);
+    if(timerRef.current) clearInterval(timerRef.current);
+    timerRef.current=setInterval(()=>setScore(s=>{
+      if(s>=st.target){clearInterval(timerRef.current);setRunning(false);setToast(`Stage ${st.id} 클리어! 보상이 지급됩니다`);return s;}
+      return s+(8+st.id*4);
+    }),50);
+  };
+
+  useEffect(()=>()=>{if(timerRef.current) clearInterval(timerRef.current);},[]);
+
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      {/* Master */}
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {masterList.map((s,i)=>{
+          const active=selected?.id===s.id;
+          return(
+            <div key={s.id} onClick={()=>{setSelected(s);setRunning(false);setScore(0);}}
+              style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',
+                background:active?`rgba(99,102,241,0.1)`:'transparent',
+                borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+                transition:'all 150ms',animation:`slideUp 300ms ease ${i*60}ms both`}}
+              onMouseEnter={e2=>{if(!active) e2.currentTarget.style.background=C.surfHov;}}
+              onMouseLeave={e2=>{if(!active) e2.currentTarget.style.background='transparent';}}>
+              <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                <div style={{width:36,height:36,borderRadius:8,background:`${s.color}22`,
+                  border:`1px solid ${s.color}55`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>
+                  {tab===0?['🥉','🥈','🥇'][i]:tab===1?'📈':'🎁'}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:active?C.primary:C.text}}>{s.name}</div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:1}}>{s.desc}</div>
+                </div>
+                {tab===0&&<div style={{fontSize:12,fontWeight:700,color:s.clear?C.accent:C.muted}}>
+                  {s.clear?'클리어 ✓':'미완료'}
+                </div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Detail */}
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected&&tab===0?(
+          <div style={{animation:'slideInRight 250ms ease'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+              <div style={{width:44,height:44,borderRadius:10,background:`${selected.color}22`,
+                border:`1px solid ${selected.color}55`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>
+                {['🥉','🥈','🥇'][selected.id-1]}
+              </div>
+              <div>
+                <h2 style={{fontSize:17,fontWeight:800}}>{selected.name}</h2>
+                <div style={{fontSize:12,color:C.sub,marginTop:1}}>{selected.desc}</div>
+              </div>
+            </div>
+
+            {/* Game Viewport */}
+            <div style={{borderRadius:12,overflow:'hidden',marginBottom:14,border:`1px solid ${C.border}`}}>
+              <div style={{padding:'10px 14px',background:C.bg,display:'flex',justifyContent:'space-between',
+                borderBottom:`1px solid ${C.border}`}}>
+                <span style={{fontSize:11,color:C.muted}}>SCORE</span>
+                <span style={{fontSize:18,fontWeight:900,color:selected.color,fontVariantNumeric:'tabular-nums'}}>
+                  {score.toString().padStart(5,'0')} / {selected.target.toLocaleString()}
+                </span>
+              </div>
+              <div style={{position:'relative',height:140,
+                background:'linear-gradient(180deg,#0D1117 0%,#1A1530 60%,#0D1117 100%)',overflow:'hidden'}}>
+                {/* Stars */}
+                {[...Array(12)].map((_,i)=>(
+                  <div key={i} style={{position:'absolute',
+                    left:`${(i*41+7)%100}%`,top:`${(i*19+5)%65}%`,
+                    width:1.5,height:1.5,borderRadius:'50%',background:'#fff',opacity:0.5,
+                    animation:`pulse ${1.5+i%2*0.7}s ease-in-out ${i*300}ms infinite`}}/>
+                ))}
+                <div style={{position:'absolute',bottom:26,left:0,right:0,height:2,
+                  background:`linear-gradient(90deg,${selected.color},${C.sec})`,
+                  boxShadow:`0 0 8px ${selected.color}80`}}/>
+                {/* Character */}
+                <div style={{position:'absolute',bottom:28,left:50,width:26,height:32,
+                  animation:running?'runBob 0.35s ease-in-out infinite':'none'}}>
+                  <div style={{width:'100%',height:'100%',background:C.grad,borderRadius:'6px 6px 3px 3px',
+                    boxShadow:running?`0 0 14px ${C.primary}80`:'none'}}>
+                    <div style={{position:'absolute',top:7,left:4,width:5,height:5,background:'#fff',borderRadius:'50%'}}/>
+                    <div style={{position:'absolute',top:7,right:4,width:5,height:5,background:'#fff',borderRadius:'50%'}}/>
+                  </div>
+                </div>
+                {/* Obstacles */}
+                {running&&[{d:'0s',c:'#F59E0B'},{d:'1.5s',c:'#EF4444'},{d:'2.8s',c:'#10B981'}].map((o,i)=>(
+                  <div key={i} style={{position:'absolute',bottom:28,right:'-60px',
+                    width:18+i*4,height:22+i*6,background:o.c,borderRadius:3,
+                    animation:`obstSlide ${2.5-selected.id*0.1}s linear ${o.d} infinite`}}/>
+                ))}
+                {!running&&(
+                  <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',
+                    background:'rgba(13,17,23,0.75)',backdropFilter:'blur(3px)'}}>
+                    <div style={{textAlign:'center'}}>
+                      <div style={{fontSize:13,color:C.sub,marginBottom:8}}>목표: {selected.target.toLocaleString()}점</div>
+                      {selected.clear&&<div style={{fontSize:12,color:C.accent,marginBottom:10}}>최고: {selected.best.toLocaleString()}점 ✓</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{display:'flex',gap:8,padding:'10px 12px',background:C.surfHov,borderTop:`1px solid ${C.border}`}}>
+                <button onClick={()=>startGame(selected)}
+                  style={{flex:1,background:C.grad,color:'#fff',border:'none',borderRadius:7,padding:'9px',
+                    fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                  {running?'재시작':'게임 시작'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:8}}>
+              {[
+                {label:'최고기록',val:`${selected.best.toLocaleString()}점`,color:selected.color},
+                {label:'플레이',val:`${selected.plays}회`,color:C.sub},
+                {label:'상태',val:selected.clear?'클리어':'도전 중',color:selected.clear?C.accent:C.muted},
+              ].map(s=>(
+                <div key={s.label} style={{flex:1,padding:'10px',background:C.bg,borderRadius:8,
+                  border:`1px solid ${C.border}`,textAlign:'center'}}>
+                  <div style={{fontSize:10,color:C.muted,marginBottom:2}}>{s.label}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:s.color}}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ):selected?(
+          <div style={{animation:'slideInRight 250ms ease',padding:'4px 0'}}>
+            <h2 style={{fontSize:17,fontWeight:800,marginBottom:14}}>{selected.name}</h2>
+            {tab===1?(
+              <div style={{background:C.bg,borderRadius:10,padding:16,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:28,fontWeight:900,color:selected.color}}>{selected.best.toLocaleString()}점</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:2}}>달성일: {selected.date}</div>
+              </div>
+            ):(
+              <div style={{background:C.bg,borderRadius:10,padding:16,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:13,color:C.muted,marginBottom:4}}>리워드</div>
+                <div style={{fontSize:16,fontWeight:700,color:selected.color}}>{selected.reward}</div>
+                {selected.earned&&<div style={{fontSize:11,color:C.muted,marginTop:4}}>획득일: {selected.earned}</div>}
+              </div>
+            )}
+          </div>
+        ):(
+          <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.muted}}>
+            <div style={{fontSize:32,marginBottom:10}}>🎮</div>
+            <div style={{fontSize:13}}>스테이지를 선택하세요</div>
+          </div>
+        )}
+      </div>
+      {toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// --- LEADERBOARD ---
+const RANK_DATA=[
+  {id:1,name:'이준호',score:9870,event:'오로라 데뷔 이벤트',clears:8,updated:true},
+  {id:2,name:'김서연',score:8420,event:'오로라 데뷔 이벤트',clears:6,updated:false},
+  {id:3,name:'박하나',score:7850,event:'봄 시즌 이벤트',clears:5,updated:true},
+  {id:4,name:'최우진',score:7230,event:'팬미팅 이벤트',clears:4,updated:false},
+  {id:5,name:'정민수',score:6910,event:'봄 시즌 이벤트',clears:4,updated:false},
+  {id:6,name:'강유진',score:6540,event:'오로라 데뷔 이벤트',clears:3,updated:true},
+  {id:7,name:'윤서준',score:5980,event:'팬미팅 이벤트',clears:3,updated:false},
+  {id:8,name:'장하은',score:5670,event:'봄 시즌 이벤트',clears:2,updated:false},
+];
+
+function PageLeaderboard({tab,setSelected,selected}){
+  const [liveOn,setLiveOn]=useState(true);
+  const [rankData,setRankData]=useState(RANK_DATA);
+
+  useEffect(()=>{
+    if(!liveOn) return;
+    const t=setInterval(()=>{
+      setRankData(d=>d.map(r=>({...r,updated:Math.random()>0.7})));
+    },3000);
+    return()=>clearInterval(t);
+  },[liveOn]);
+
+  const scoreHistory=[
+    {day:'3/1',score:4200},{day:'3/2',score:6100},{day:'3/3',score:7200},
+    {day:'3/4',score:6900},{day:'3/5',score:8400},{day:'3/6',score:9870},
+  ];
+
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      {/* Master */}
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',
+          borderBottom:`1px solid ${C.border}`,background:C.bg}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:'#10B981',
+              animation:liveOn?'pulse 1.5s infinite':'none'}}/>
+            <span style={{fontSize:12,fontWeight:700,color:liveOn?'#10B981':C.muted}}>
+              {liveOn?'실시간':'정적'}
+            </span>
+          </div>
+          <button onClick={()=>setLiveOn(l=>!l)}
+            style={{fontSize:11,padding:'3px 10px',borderRadius:6,
+              border:`1px solid ${C.border}`,background:liveOn?'rgba(16,185,129,0.1)':C.surf,
+              color:liveOn?'#10B981':C.sub,cursor:'pointer',fontFamily:'inherit'}}>
+            {liveOn?'SSE ON':'SSE OFF'}
+          </button>
+        </div>
+        {rankData.map((r,i)=>{
+          const active=selected?.id===r.id;
+          return(
+            <div key={r.id} onClick={()=>setSelected(r)}
+              style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',
+                background:active?'rgba(99,102,241,0.1)':r.updated&&liveOn?'rgba(16,185,129,0.05)':'transparent',
+                borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+                transition:'all 150ms',animation:r.updated&&liveOn?'sseFlash 1s ease':'none'}}
+              onMouseEnter={e2=>{if(!active) e2.currentTarget.style.background=C.surfHov;}}
+              onMouseLeave={e2=>{if(!active) e2.currentTarget.style.background=active?'rgba(99,102,241,0.1)':'transparent';}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:28,height:28,borderRadius:6,
+                  background:i<3?['rgba(255,215,0,0.15)','rgba(192,192,192,0.15)','rgba(205,127,50,0.15)'][i]:'rgba(99,102,241,0.1)',
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:13,fontWeight:800,
+                  color:i<3?['#FFD700','#C0C0C0','#CD7F32'][i]:C.muted}}>
+                  {i+1}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:active?C.primary:C.text}}>
+                    {r.name}
+                    {r.updated&&liveOn&&<span style={{fontSize:10,color:'#10B981',marginLeft:6}}>↑ 갱신</span>}
+                  </div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:1}}>{r.event}</div>
+                </div>
+                <div style={{fontWeight:800,color:i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':C.sub,fontSize:14}}>
+                  {r.score.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Detail */}
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'slideInRight 250ms ease'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+              <div style={{width:48,height:48,borderRadius:'50%',background:C.grad,
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:800,color:'#fff'}}>
+                {selected.name[0]}
+              </div>
+              <div>
+                <h2 style={{fontSize:17,fontWeight:800}}>{selected.name}</h2>
+                <div style={{fontSize:12,color:C.sub}}>#{selected.id}위 · {selected.event}</div>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+              {[
+                {label:'최고 점수',val:selected.score.toLocaleString(),color:C.primary},
+                {label:'클리어 횟수',val:`${selected.clears}회`,color:C.accent},
+              ].map(s=>(
+                <div key={s.label} style={{background:C.bg,borderRadius:8,padding:'12px',border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{s.label}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:s.color}}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+            <h3 style={{fontSize:13,fontWeight:700,marginBottom:10,color:C.sub,textTransform:'uppercase',letterSpacing:'0.06em'}}>점수 추이</h3>
+            <div style={{background:C.bg,borderRadius:10,padding:'12px',border:`1px solid ${C.border}`}}>
+              <ResponsiveContainer width="100%" height={120}>
+                <AreaChart data={scoreHistory}>
+                  <defs>
+                    <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
+                  <XAxis dataKey="day" tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false} width={40}/>
+                  <Tooltip contentStyle={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:12}}/>
+                  <Area type="monotone" dataKey="score" stroke="#6366F1" strokeWidth={2} fill="url(#sg)"/>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ):(
+          <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.muted}}>
+            <div style={{fontSize:32,marginBottom:10}}>📊</div>
+            <div style={{fontSize:13}}>참가자를 선택하세요</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- ADMIN ---
+const MSG_DATA=[
+  {id:1,name:'박하나',msg:'루나 언니 데뷔 정말 축하해요! 꿈을 이뤘구나 생각하니 저도 눈물이 났어요...',score:980,status:'대기',date:'2026.03.05'},
+  {id:2,name:'최예린',msg:'앞으로도 빛나는 무대 많이 보여줘! 멤버들 모두 사랑해요!!',score:1560,status:'승인',date:'2026.03.05'},
+  {id:3,name:'정민수',msg:'게임이 어려웠지만 클리어하고 나니 뿌듯해요. 메시지 쓸 수 있어서 감사해요!',score:1340,status:'대기',date:'2026.03.04'},
+  {id:4,name:'강유진',msg:'오늘 첫 무대 잘 봤어요. 연습한 만큼 빛나는 모습 정말 감동이었습니다.',score:1780,status:'승인',date:'2026.03.04'},
+  {id:5,name:'이준호',msg:'계속 응원할게요! 컴백 때도 열심히 달려볼게요 ㅋㅋ',score:2100,status:'반려',date:'2026.03.03'},
+  {id:6,name:'윤서준',msg:'첫 방송에서 엄청 긴장했을 텐데 정말 잘 해냈어요. 오래오래 함께해요!',score:5980,status:'대기',date:'2026.03.03'},
+];
+
+const CHART_DATA=[
+  {day:'3/1',참여자:1240,메시지:820,클리어:880},
+  {day:'3/2',참여자:1850,메시지:1200,클리어:1320},
+  {day:'3/3',참여자:2100,메시지:1450,클리어:1500},
+  {day:'3/4',참여자:1920,메시지:1380,클리어:1370},
+  {day:'3/5',참여자:2380,메시지:1720,클리어:1700},
+  {day:'3/6',참여자:1957,메시지:750,클리어:800},
+];
+
+function PageAdmin({tab,setSelected,selected}){
+  const [msgs,setMsgs]=useState(MSG_DATA);
+  const [toast,setToast]=useState(null);
+
+  const approve=(id,action)=>{
+    setMsgs(m=>m.map(x=>x.id===id?{...x,status:action==='approve'?'승인':'반려'}:x));
+    setToast(action==='approve'?'메시지가 승인되었습니다':'메시지가 반려되었습니다');
+    if(selected?.id===id) setSelected(prev=>({...prev,status:action==='approve'?'승인':'반려'}));
+  };
+
+  const list=tab===0?msgs:tab===1?null:null;
+
+  const statusColor={대기:'#F59E0B',승인:'#10B981',반려:'#EF4444'};
+
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      {/* Master */}
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {tab===0&&msgs.map((m,i)=>{
+          const active=selected?.id===m.id;
+          return(
+            <div key={m.id} onClick={()=>setSelected(m)}
+              style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',
+                background:active?'rgba(99,102,241,0.1)':'transparent',
+                borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+                transition:'all 150ms'}}
+              onMouseEnter={e2=>{if(!active) e2.currentTarget.style.background=C.surfHov;}}
+              onMouseLeave={e2=>{if(!active) e2.currentTarget.style.background='transparent';}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:5}}>
+                <div style={{fontWeight:700,fontSize:13,color:active?C.primary:C.text}}>{m.name}</div>
+                <span style={{fontSize:10,padding:'2px 7px',borderRadius:10,fontWeight:700,
+                  background:`${statusColor[m.status]}22`,color:statusColor[m.status]}}>
+                  {m.status}
+                </span>
+              </div>
+              <div style={{fontSize:12,color:C.muted,overflow:'hidden',
+                whiteSpace:'nowrap',textOverflow:'ellipsis'}}>{m.msg}</div>
+              <div style={{fontSize:10,color:C.muted,marginTop:4}}>{m.date} · {m.score.toLocaleString()}점</div>
+            </div>
+          );
+        })}
+        {tab===1&&(
+          <div style={{padding:16}}>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[{label:'총 참여자',val:12847,color:C.primary},{label:'메시지 전송',val:8320,color:C.sec},
+                {label:'클리어 완료',val:9154,color:C.accent},{label:'승인 완료',val:6820,color:'#F59E0B'}].map(s=>(
+                <div key={s.label} style={{padding:'12px 14px',background:C.bg,borderRadius:8,
+                  border:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:12,color:C.sub}}>{s.label}</span>
+                  <span style={{fontSize:16,fontWeight:800,color:s.color}}><CountUp end={s.val}/></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {tab===2&&(
+          <div style={{padding:16}}>
+            {['이벤트 기간 설정','클리어 기준 점수','메시지 공개 범위','알림 설정'].map((s,i)=>(
+              <div key={s} style={{padding:'13px 14px',background:C.bg,borderRadius:8,
+                border:`1px solid ${C.border}`,marginBottom:8,cursor:'pointer',
+                display:'flex',justifyContent:'space-between',alignItems:'center',
+                transition:'all 150ms'}}
+                onClick={()=>setSelected({id:`cfg${i}`,name:s})}
+                onMouseEnter={e=>e.currentTarget.style.background=C.surfHov}
+                onMouseLeave={e=>e.currentTarget.style.background=C.bg}>
+                <span style={{fontSize:13,color:C.text}}>{s}</span>
+                <span style={{color:C.muted}}>→</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Detail */}
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {tab===0&&selected?(
+          <div style={{animation:'slideInRight 250ms ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+              <div>
+                <h2 style={{fontSize:17,fontWeight:800}}>{selected.name}</h2>
+                <div style={{fontSize:12,color:C.sub,marginTop:2}}>{selected.date} · {selected.score.toLocaleString()}점</div>
+              </div>
+              <span style={{fontSize:12,padding:'4px 10px',borderRadius:10,fontWeight:700,
+                background:`${statusColor[selected.status]}22`,color:statusColor[selected.status]}}>
+                {selected.status}
+              </span>
+            </div>
+            <div style={{background:C.bg,borderRadius:10,padding:16,border:`1px solid ${C.border}`,marginBottom:16,minHeight:80}}>
+              <div style={{fontSize:13,color:C.sub,lineHeight:1.7}}>{selected.msg}</div>
+            </div>
+            <textarea placeholder="관리자 메모 (내부용)" rows={3}
+              style={{width:'100%',padding:'12px',background:C.bg,border:`1px solid ${C.border}`,
+                borderRadius:8,color:C.text,fontSize:13,fontFamily:'inherit',resize:'none',outline:'none',marginBottom:12}}/>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>approve(selected.id,'approve')} disabled={selected.status==='승인'}
+                style={{flex:1,padding:'10px',background:selected.status==='승인'?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.2)',
+                  color:'#10B981',border:'1px solid rgba(16,185,129,0.3)',borderRadius:8,
+                  fontSize:13,fontWeight:700,cursor:selected.status==='승인'?'not-allowed':'pointer',fontFamily:'inherit'}}>
+                승인
+              </button>
+              <button onClick={()=>approve(selected.id,'reject')} disabled={selected.status==='반려'}
+                style={{flex:1,padding:'10px',background:selected.status==='반려'?'rgba(239,68,68,0.15)':'rgba(239,68,68,0.1)',
+                  color:'#EF4444',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,
+                  fontSize:13,fontWeight:700,cursor:selected.status==='반려'?'not-allowed':'pointer',fontFamily:'inherit'}}>
+                반려
+              </button>
+            </div>
+          </div>
+        ):tab===1?(
+          <div style={{animation:'slideInRight 250ms ease'}}>
+            <h2 style={{fontSize:16,fontWeight:700,marginBottom:14}}>일별 참여 현황</h2>
+            <div style={{background:C.bg,borderRadius:10,padding:12,border:`1px solid ${C.border}`,marginBottom:16}}>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={CHART_DATA} barGap={2}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} vertical={false}/>
+                  <XAxis dataKey="day" tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fill:C.muted,fontSize:11}} axisLine={false} tickLine={false} width={38}/>
+                  <Tooltip contentStyle={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:11}}/>
+                  <Bar dataKey="참여자" fill="#6366F1" radius={[3,3,0,0]}/>
+                  <Bar dataKey="메시지" fill="#10B981" radius={[3,3,0,0]}/>
+                  <Bar dataKey="클리어" fill="#8B5CF6" radius={[3,3,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {[
+                {label:'메시지 승인률',val:'82%',color:C.accent},
+                {label:'평균 클리어 점수',val:'2,340',color:C.primary},
+                {label:'이탈률(미클리어)',val:'28.8%',color:'#F59E0B'},
+                {label:'SNS 공유율',val:'35.2%',color:C.sec},
+              ].map(s=>(
+                <div key={s.label} style={{background:C.bg,borderRadius:8,padding:'12px',border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:10,color:C.muted,marginBottom:3}}>{s.label}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:s.color}}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ):(
+          <div style={{height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.muted}}>
+            <div style={{fontSize:32,marginBottom:10}}>⚙️</div>
+            <div style={{fontSize:13}}>{tab===0?'메시지를 선택하세요':tab===2?'설정 항목을 선택하세요':'현황 데이터'}</div>
+          </div>
+        )}
+      </div>
+      {toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+// ====== APP ======
+function SideNavItem({icon,label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',
+      padding:'8px 12px',borderRadius:7,border:'none',cursor:'pointer',fontFamily:'inherit',
+      background:active?`${C.primary}18`:'transparent',
+      color:active?C.primary:C.sub,
+      borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+      fontSize:13,fontWeight:active?700:400,transition:'all 150ms',textAlign:'left'}}>
+      <span style={{fontSize:16,flexShrink:0}}>{icon}</span>
+      <span style={{lineHeight:1.3}}>{label}</span>
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'7px 14px 6px',border:'none',cursor:'pointer',
+      background:'transparent',fontFamily:'inherit',fontSize:12,
+      color:active?C.primary:C.sub,fontWeight:active?700:400,
+      borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',
+      marginBottom:-1,transition:'color 150ms'}}>
+      {label}
+    </button>
+  );
+}
+
+function App(){
+  const [section,setSection]=useState('main');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{const t=setTimeout(()=>setLoading(false),1200);return()=>clearTimeout(t);},[]);
+
+  const changeSection=(s)=>{setSection(s);setTab(0);setSelected(null);};
+
+  const renderSection=()=>{
+    const props={tab,setSelected,selected};
+    switch(section){
+      case'main': return <PageMain {...props}/>;
+      case'multi-stage': return <PageMultiStage {...props}/>;
+      case'live-leaderboard': return <PageLeaderboard {...props}/>;
+      case'admin-dashboard': return <PageAdmin {...props}/>;
+      default: return <PageMain {...props}/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',height:'100vh',background:C.bg}}>
+      {/* Sidebar — dark workspace style */}
+      <nav style={{width:240,background:C.sidebar,borderRight:`1px solid ${C.border}`,
+        display:'flex',flexDirection:'column',paddingTop:14,flexShrink:0}}>
+        <div style={{padding:'0 14px 14px',marginBottom:4,
+          borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:8,background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,
+              animation:'glow 2.5s ease-in-out infinite'}}>🌟</div>
+            <div>
+              <div style={{fontWeight:800,fontSize:13}}>팬스테이지</div>
+              <div style={{fontSize:10,color:C.muted,marginTop:1}}>Fan Event Platform</div>
+            </div>
+          </div>
+        </div>
+        <div style={{flex:1,padding:'10px 8px',display:'flex',flexDirection:'column',gap:2}}>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,letterSpacing:'0.1em',
+            padding:'0 10px',marginBottom:4,textTransform:'uppercase'}}>Navigation</div>
+          {NAV.map(n=>(
+            <SideNavItem key={n.id} icon={n.icon} label={n.label} active={section===n.id} onClick={()=>changeSection(n.id)}/>
+          ))}
+        </div>
+        {/* User info */}
+        <div style={{padding:'12px 14px',borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:30,height:30,borderRadius:'50%',background:C.grad,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'#fff'}}>관</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700}}>관리자</div>
+              <div style={{fontSize:10,color:C.muted}}>Admin · 팬스테이지</div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,
+          display:'flex',alignItems:'center',padding:'0 16px',gap:8,
+          background:C.surf,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.muted}}>
+            {NAV.find(n=>n.id===section)?.label}
+          </span>
+          <span style={{fontSize:12,color:C.muted}}>
+            {selected?' › '+selected.name:''}
+          </span>
+          <div style={{flex:1}}/>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,
+            borderRadius:6,padding:'4px 10px',border:`1px solid ${C.border}`}}>
+            <span style={{fontSize:12}}>🔍</span>
+            <input placeholder="검색" style={{background:'none',border:'none',outline:'none',
+              color:C.sub,fontSize:12,width:120,fontFamily:'inherit'}}/>
+          </div>
+          <div style={{width:28,height:28,borderRadius:'50%',background:C.grad,
+            display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'#fff',cursor:'pointer'}}>관</div>
+        </header>
+
+        {/* Inline tab strip */}
+        <div style={{height:37,borderBottom:`1px solid ${C.border}`,
+          display:'flex',alignItems:'flex-end',padding:'0 14px',gap:0,
+          background:C.surf,flexShrink:0}}>
+          {(SECTION_TABS[section]||[]).map((t,i)=>(
+            <TabUnderline key={t} label={t} active={tab===i} onClick={()=>{setTab(i);setSelected(null);}}/>
+          ))}
+          <div style={{flex:1}}/>
+          {section==='admin-dashboard'&&tab===0&&(
+            <div style={{display:'flex',gap:6,marginBottom:4}}>
+              <div style={{fontSize:11,padding:'3px 10px',borderRadius:6,
+                background:'rgba(245,158,11,0.15)',color:'#F59E0B',fontWeight:700}}>
+                대기 {MSG_DATA.filter(m=>m.status==='대기').length}건
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Master-Detail Workspace */}
+        {loading?(
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:8,padding:16}}>
+            {[...Array(5)].map((_,i)=>(
+              <div key={i} style={{height:60,borderRadius:8,
+                background:'linear-gradient(90deg,#161B22 25%,#1C2128 50%,#161B22 75%)',
+                backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+            ))}
+          </div>
+        ):(
+          <div key={`${section}-${tab}`} style={{flex:1,display:'flex',overflow:'hidden',animation:'fadeIn 250ms ease'}}>
+            {renderSection()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
