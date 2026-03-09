@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>파크뷰 프리미엄 — 분양 홍보 & 고객 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F8F9FB;color:#1A202C;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo} = React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,AreaChart,Area} = Recharts;
+
+/* ─── 컬러 시스템 ─── */
+const C = {
+  primary:'#1B3A5C', secondary:'#0F2440', accent:'#C9A14A',
+  bg:'#F8F9FB', surface:'#FFFFFF', border:'#E2E8F0',
+  text:'#1A202C', textSec:'#64748B', textLight:'#94A3B8',
+  success:'#059669', warning:'#D97706', danger:'#DC2626', info:'#0284C7',
+};
+
+/* ─── 아이콘 유틸 ─── */
+const IC = {
+  dash:'📊', inquiry:'📋', promo:'📰', analytics:'📈', settings:'⚙️',
+  bell:'🔔', search:'🔍', user:'👤', plus:'＋', edit:'✏️', eye:'👁',
+  check:'✓', x:'✕', filter:'🔽', export:'📥', phone:'📱', map:'📍',
+  chart:'📉', home:'🏠', calendar:'📅', tag:'🏷', arrow:'→',
+};
+
+/* ─── 더미 데이터 ─── */
+const INQUIRIES = [
+  {id:1,name:'김민수',phone:'010-1234-5678',email:'minsu@naver.com',type:'59㎡A',region:'서울 강남구',source:'온라인 광고',status:'신규',date:'2025.06.28',memo:'주말 방문 상담 희망',interest:'투자 목적'},
+  {id:2,name:'이지은',phone:'010-2345-6789',email:'jieun@gmail.com',type:'84㎡B',region:'서울 서초구',source:'네이버 검색',status:'확인',date:'2025.06.27',memo:'평면도 상세 자료 요청',interest:'실거주'},
+  {id:3,name:'박서진',phone:'010-3456-7890',email:'seojin@hanmail.net',type:'59㎡B',region:'경기 성남시',source:'현장 방문',status:'상담',date:'2025.06.26',memo:'대출 가능 여부 문의',interest:'실거주'},
+  {id:4,name:'정하윤',phone:'010-4567-8901',email:'hayun@daum.net',type:'114㎡',region:'서울 송파구',source:'지인 소개',status:'완료',date:'2025.06.25',memo:'계약 완료',interest:'실거주'},
+  {id:5,name:'최우진',phone:'010-5678-9012',email:'woojin@naver.com',type:'84㎡A',region:'경기 과천시',source:'온라인 광고',status:'신규',date:'2025.06.24',memo:'',interest:'투자 목적'},
+  {id:6,name:'강유진',phone:'010-6789-0123',email:'yujin@gmail.com',type:'59㎡A',region:'서울 마포구',source:'포털 배너',status:'확인',date:'2025.06.23',memo:'주중 저녁 상담 희망',interest:'실거주'},
+  {id:7,name:'김서연',phone:'010-7890-1234',email:'seoyeon@naver.com',type:'114㎡',region:'서울 강동구',source:'네이버 검색',status:'상담',date:'2025.06.22',memo:'옵션 견적 요청',interest:'실거주'},
+  {id:8,name:'이준호',phone:'010-8901-2345',email:'junho@gmail.com',type:'84㎡B',region:'경기 하남시',source:'현장 방문',status:'신규',date:'2025.06.21',memo:'주말 모델하우스 재방문 예정',interest:'투자 목적'},
+  {id:9,name:'박하나',phone:'010-9012-3456',email:'hana@daum.net',type:'59㎡B',region:'서울 동작구',source:'온라인 광고',status:'확인',date:'2025.06.20',memo:'59B 잔여 세대 확인',interest:'실거주'},
+  {id:10,name:'정수민',phone:'010-0123-4567',email:'sumin@naver.com',type:'84㎡A',region:'서울 영등포구',source:'지인 소개',status:'완료',date:'2025.06.19',memo:'특별 할인 적용 계약',interest:'투자 목적'},
+];
+
+const DAILY_DATA = [
+  {date:'6/22',count:3},{date:'6/23',count:5},{date:'6/24',count:4},{date:'6/25',count:7},
+  {date:'6/26',count:6},{date:'6/27',count:8},{date:'6/28',count:5},
+];
+
+const REGION_DATA = [
+  {name:'서울 강남',value:28},{name:'서울 서초',value:18},{name:'경기 성남',value:15},
+  {name:'서울 송파',value:12},{name:'서울 마포',value:10},{name:'기타',value:17},
+];
+
+const SOURCE_DATA = [
+  {name:'온라인 광고',value:35},{name:'네이버 검색',value:25},
+  {name:'현장 방문',value:20},{name:'지인 소개',value:15},{name:'포털 배너',value:5},
+];
+
+const TYPE_DATA = [
+  {type:'59㎡A',count:32,rate:28},{type:'59㎡B',count:24,rate:21},
+  {type:'84㎡A',count:35,rate:30},{type:'84㎡B',count:28,rate:24},
+  {type:'114㎡',count:18,rate:16},
+];
+
+const PIE_COLORS = ['#1B3A5C','#C9A14A','#0284C7','#059669','#D97706','#DC2626'];
+
+const PROMO_SECTIONS = [
+  {id:1,section:'단지 개요',status:'게시중',lastEdit:'2025.06.27',editor:'관리자',fields:12,images:3},
+  {id:2,section:'입지 분석',status:'게시중',lastEdit:'2025.06.26',editor:'관리자',fields:8,images:5},
+  {id:3,section:'평면도',status:'수정중',lastEdit:'2025.06.28',editor:'관리자',fields:8,images:8},
+  {id:4,section:'갤러리',status:'게시중',lastEdit:'2025.06.25',editor:'관리자',fields:2,images:24},
+  {id:5,section:'배너 슬라이드',status:'게시중',lastEdit:'2025.06.24',editor:'관리자',fields:4,images:6},
+];
+
+const GALLERY_IMAGES = [
+  {id:1,name:'단지 전경 1',size:'2.4MB',dim:'2400×1600',order:1},
+  {id:2,name:'단지 전경 2',size:'2.1MB',dim:'2400×1600',order:2},
+  {id:3,name:'주간 조감도',size:'3.2MB',dim:'3000×2000',order:3},
+  {id:4,name:'야간 투시도',size:'2.8MB',dim:'3000×2000',order:4},
+  {id:5,name:'커뮤니티 시설',size:'1.9MB',dim:'2400×1600',order:5},
+  {id:6,name:'피트니스 센터',size:'1.7MB',dim:'2400×1600',order:6},
+];
+
+const MONTHLY_TREND = [
+  {month:'1월',online:22,search:15,visit:8,referral:5},
+  {month:'2월',online:28,search:18,visit:10,referral:7},
+  {month:'3월',online:35,search:22,visit:14,referral:9},
+  {month:'4월',online:42,search:28,visit:18,referral:12},
+  {month:'5월',online:38,search:25,visit:16,referral:14},
+  {month:'6월',online:45,search:30,visit:20,referral:15},
+];
+
+/* ─── 상태 뱃지 색상 ─── */
+const STATUS_COLORS = {
+  '신규':{bg:'#DBEAFE',color:'#1D4ED8'},
+  '확인':{bg:'#FEF3C7',color:'#B45309'},
+  '상담':{bg:'#D1FAE5',color:'#047857'},
+  '완료':{bg:'#F3F4F6',color:'#374151'},
+};
+
+const PUB_STATUS = {
+  '게시중':{bg:'#D1FAE5',color:'#047857'},
+  '수정중':{bg:'#FEF3C7',color:'#B45309'},
+  '비공개':{bg:'#F3F4F6',color:'#6B7280'},
+};
+
+/* ─── 유틸 컴포넌트 ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,.2)',fontSize:14}}>{message}</div>;
+}
+
+function Modal({title,onClose,children,width=580}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.15)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textSec}}>{IC.x}</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Badge({text,colors}){
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:colors.bg,color:colors.color}}>{text}</span>;
+}
+
+function FormField({label,children}){
+  return <div style={{marginBottom:16}}><label style={{display:'block',fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>{label}</label>{children}</div>;
+}
+
+const inputStyle = {width:'100%',padding:'10px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none'};
+const selectStyle = {...inputStyle,background:'#fff'};
+
+/* ─── 메인 앱 ─── */
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState('dashboard');
+  const [modal,setModal]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  if(loading) return <SkeletonLoader/>;
+
+  const MENUS = [
+    {id:'dashboard',icon:IC.dash,label:'대시보드'},
+    {id:'inquiry',icon:IC.inquiry,label:'문의 관리'},
+    {id:'promo',icon:IC.promo,label:'홍보페이지 관리'},
+    {id:'analytics',icon:IC.analytics,label:'고객 DB 분석'},
+    {id:'settings',icon:IC.settings,label:'시스템 설정'},
+  ];
+
+  const TITLES = {dashboard:'대시보드',inquiry:'문의 관리',promo:'홍보페이지 관리',analytics:'고객 DB 분석',settings:'시스템 설정'};
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      {/* 사이드바 */}
+      <aside style={{width:260,background:C.secondary,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+        <div style={{padding:'24px 20px 20px',borderBottom:'1px solid rgba(255,255,255,.08)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.accent},#E8C36A)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:C.secondary}}>P</div>
+            <div>
+              <div style={{color:'#fff',fontSize:15,fontWeight:700}}>파크뷰 프리미엄</div>
+              <div style={{color:'rgba(255,255,255,.5)',fontSize:11}}>분양 관리 시스템</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:'12px 10px',display:'flex',flexDirection:'column',gap:2}}>
+          {MENUS.map(m=>(
+            <button key={m.id} onClick={()=>setPage(m.id)} style={{
+              display:'flex',alignItems:'center',gap:12,padding:'11px 14px',borderRadius:8,border:'none',cursor:'pointer',
+              background:page===m.id?'rgba(201,161,74,.15)':'transparent',
+              color:page===m.id?C.accent:'rgba(255,255,255,.6)',
+              fontSize:14,fontWeight:page===m.id?600:400,fontFamily:'inherit',
+              transition:'all 150ms',width:'100%',textAlign:'left',
+            }}
+            onMouseEnter={e=>{if(page!==m.id)e.currentTarget.style.background='rgba(255,255,255,.05)'}}
+            onMouseLeave={e=>{if(page!==m.id)e.currentTarget.style.background='transparent'}}
+            >
+              <span style={{fontSize:18,width:24,textAlign:'center'}}>{m.icon}</span>{m.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,.08)',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:C.accent,display:'flex',alignItems:'center',justifyContent:'center',color:C.secondary,fontWeight:700,fontSize:13}}>관</div>
+          <div>
+            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>관리자</div>
+            <div style={{color:'rgba(255,255,255,.4)',fontSize:11}}>admin@parkview.kr</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* 메인 */}
+      <div style={{flex:1,marginLeft:260,display:'flex',flexDirection:'column',minHeight:'100vh'}}>
+        {/* 탑바 */}
+        <header style={{height:56,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 28px',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
+          <h1 style={{fontSize:18,fontWeight:700,color:C.text}}>{TITLES[page]}</h1>
+          <div style={{flex:1}}/>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+              <input placeholder="문의 고객 검색..." style={{width:220,padding:'8px 12px 8px 36px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit',outline:'none',background:'#F8FAFC'}}/>
+              <span style={{position:'absolute',left:12,fontSize:14,color:C.textLight}}>{IC.search}</span>
+            </div>
+            <div style={{position:'relative',cursor:'pointer'}}>
+              <span style={{fontSize:20}}>{IC.bell}</span>
+              <div style={{position:'absolute',top:-2,right:-4,width:8,height:8,borderRadius:'50%',background:C.danger}}/>
+            </div>
+          </div>
+        </header>
+
+        {/* 콘텐츠 */}
+        <main style={{flex:1,padding:28,overflow:'auto'}}>
+          <div key={page} style={{animation:'fadeIn 300ms ease'}}>
+            {page==='dashboard'&&<DashboardPage setPage={setPage}/>}
+            {page==='inquiry'&&<InquiryPage setModal={setModal} setToast={setToast}/>}
+            {page==='promo'&&<PromoPage setModal={setModal} setToast={setToast}/>}
+            {page==='analytics'&&<AnalyticsPage/>}
+            {page==='settings'&&<SettingsPage setToast={setToast}/>}
+          </div>
+        </main>
+      </div>
+
+      {/* 모달 */}
+      {modal&&modal.type==='inquiryDetail'&&<InquiryDetailModal item={modal.item} onClose={()=>setModal(null)} setToast={setToast}/>}
+      {modal&&modal.type==='inquiryCreate'&&<InquiryCreateModal onClose={()=>setModal(null)} setToast={setToast}/>}
+      {modal&&modal.type==='promoEdit'&&<PromoEditModal item={modal.item} onClose={()=>setModal(null)} setToast={setToast}/>}
+      {modal&&modal.type==='galleryManage'&&<GalleryManageModal onClose={()=>setModal(null)} setToast={setToast}/>}
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+/* ─── 스켈레톤 ─── */
+function SkeletonLoader(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:260,background:C.secondary}}/>
+      <div style={{flex:1,padding:28}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:28}}>
+          {[...Array(4)].map((_,i)=><div key={i} style={{height:110,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20}}>
+          <div style={{height:320,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+          <div style={{height:320,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 대시보드 ─── */
+function DashboardPage({setPage}){
+  const kpis = [
+    {label:'총 문의',value:137,suffix:'건',change:'+12.4%',up:true,icon:'📋',color:C.primary},
+    {label:'신규 문의',value:24,suffix:'건',change:'+8건',up:true,icon:'🆕',color:C.info},
+    {label:'상담 진행',value:18,suffix:'건',change:'-3건',up:false,icon:'💬',color:C.warning},
+    {label:'계약 완료',value:42,suffix:'건',change:'+5건',up:true,icon:'✅',color:C.success},
+  ];
+
+  return(
+    <div>
+      {/* KPI 카드 */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:28}}>
+        {kpis.map((k,i)=>(
+          <div key={i} style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:`slideUp 400ms ease ${i*80}ms both`,cursor:'default'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+              <div>
+                <div style={{fontSize:12,color:C.textSec,fontWeight:500,marginBottom:4}}>{k.label}</div>
+                <div style={{fontSize:28,fontWeight:700,color:C.text}}><CountUp end={k.value} suffix={k.suffix}/></div>
+              </div>
+              <div style={{width:42,height:42,borderRadius:10,background:`${k.color}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{k.icon}</div>
+            </div>
+            <div style={{fontSize:12,color:k.up?C.success:C.danger,fontWeight:600}}>
+              {k.up?'▲':'▼'} {k.change} <span style={{color:C.textLight,fontWeight:400}}>전주 대비</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 차트 영역 */}
+      <div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:20,marginBottom:28}}>
+        {/* 문의 추이 차트 */}
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 320ms both'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <h3 style={{fontSize:16,fontWeight:700}}>일별 문의 추이</h3>
+            <select style={{padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,fontFamily:'inherit',color:C.textSec}}>
+              <option>최근 7일</option><option>최근 30일</option>
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={DAILY_DATA}>
+              <defs>
+                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.primary} stopOpacity={.15}/>
+                  <stop offset="100%" stopColor={C.primary} stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+              <XAxis dataKey="date" tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:13}}/>
+              <Area type="monotone" dataKey="count" name="문의 건수" stroke={C.primary} fill="url(#areaGrad)" strokeWidth={2.5} dot={{fill:C.primary,r:4}}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 유입 경로 파이 */}
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 400ms both'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>유입 경로별 분포</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie data={SOURCE_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={2}>
+                {SOURCE_DATA.map((_,i)=><Cell key={i} fill={PIE_COLORS[i]}/>)}
+              </Pie>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:13}}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8}}>
+            {SOURCE_DATA.map((s,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.textSec}}>
+                <div style={{width:8,height:8,borderRadius:2,background:PIE_COLORS[i]}}/>
+                {s.name} ({s.value}%)
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 최근 문의 */}
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 480ms both'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>최근 문의 5건</h3>
+          <button onClick={()=>setPage('inquiry')} style={{fontSize:13,color:C.accent,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600}}>전체 보기 {IC.arrow}</button>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:`1px solid ${C.border}`}}>
+              {['고객명','연락처','관심 평형','유입 경로','상태','접수일'].map(h=>(
+                <th key={h} style={{padding:'10px 12px',fontSize:12,fontWeight:600,color:C.textSec,textAlign:'left'}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {INQUIRIES.slice(0,5).map((q,i)=>(
+              <tr key={q.id} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                onClick={()=>setPage('inquiry')}
+              >
+                <td style={{padding:'12px',fontSize:14,fontWeight:500}}>{q.name}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSec}}>{q.phone}</td>
+                <td style={{padding:'12px',fontSize:13}}>{q.type}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSec}}>{q.source}</td>
+                <td style={{padding:'12px'}}><Badge text={q.status} colors={STATUS_COLORS[q.status]}/></td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSec}}>{q.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 문의 관리 ─── */
+function InquiryPage({setModal,setToast}){
+  const [filter,setFilter]=useState({status:'전체',type:'전체',search:''});
+  const [currentPage,setCurrentPage]=useState(1);
+  const perPage=8;
+
+  const filtered=useMemo(()=>{
+    return INQUIRIES.filter(q=>{
+      if(filter.status!=='전체'&&q.status!==filter.status)return false;
+      if(filter.type!=='전체'&&q.type!==filter.type)return false;
+      if(filter.search&&!q.name.includes(filter.search)&&!q.phone.includes(filter.search))return false;
+      return true;
+    });
+  },[filter]);
+
+  return(
+    <div>
+      {/* 필터 */}
+      <div style={{display:'flex',gap:12,marginBottom:20,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{position:'relative'}}>
+          <input value={filter.search} onChange={e=>setFilter({...filter,search:e.target.value})} placeholder="이름 또는 연락처 검색" style={{width:240,padding:'9px 12px 9px 36px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit',outline:'none'}}/>
+          <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:14,color:C.textLight}}>{IC.search}</span>
+        </div>
+        <select value={filter.status} onChange={e=>setFilter({...filter,status:e.target.value})} style={{padding:'9px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit'}}>
+          <option>전체</option><option>신규</option><option>확인</option><option>상담</option><option>완료</option>
+        </select>
+        <select value={filter.type} onChange={e=>setFilter({...filter,type:e.target.value})} style={{padding:'9px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit'}}>
+          <option>전체</option><option>59㎡A</option><option>59㎡B</option><option>84㎡A</option><option>84㎡B</option><option>114㎡</option>
+        </select>
+        <div style={{flex:1}}/>
+        <button onClick={()=>setToast('CSV 파일이 다운로드되었습니다.')} style={{padding:'9px 16px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'inherit',cursor:'pointer',background:'#fff',color:C.textSec,display:'flex',alignItems:'center',gap:6}}>
+          {IC.export} CSV 내보내기
+        </button>
+        <button onClick={()=>setModal({type:'inquiryCreate'})} style={{padding:'9px 16px',borderRadius:8,border:'none',fontSize:13,fontFamily:'inherit',cursor:'pointer',background:C.primary,color:'#fff',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+          {IC.plus} 문의 등록
+        </button>
+      </div>
+
+      {/* 테이블 */}
+      <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,.08)',overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {['고객명','연락처','관심 평형','지역','유입 경로','상태','접수일',''].map(h=>(
+                <th key={h} style={{padding:'12px 14px',fontSize:12,fontWeight:600,color:C.textSec,textAlign:'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((q,i)=>(
+              <tr key={q.id} onClick={()=>setModal({type:'inquiryDetail',item:q})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <td style={{padding:'14px',fontSize:14,fontWeight:600}}>{q.name}</td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{q.phone}</td>
+                <td style={{padding:'14px',fontSize:13}}>{q.type}</td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{q.region}</td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{q.source}</td>
+                <td style={{padding:'14px'}}><Badge text={q.status} colors={STATUS_COLORS[q.status]}/></td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{q.date}</td>
+                <td style={{padding:'14px'}}>
+                  <button onClick={e=>{e.stopPropagation();setModal({type:'inquiryDetail',item:q})}} style={{background:'none',border:'none',cursor:'pointer',color:C.textLight,fontSize:16}}>{IC.eye}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {/* 페이지네이션 */}
+        <div style={{padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,color:C.textSec}}>총 {filtered.length}건</div>
+          <div style={{display:'flex',gap:4}}>
+            {[1,2].map(p=>(
+              <button key={p} onClick={()=>setCurrentPage(p)} style={{width:32,height:32,borderRadius:6,border:currentPage===p?'none':`1px solid ${C.border}`,background:currentPage===p?C.primary:'#fff',color:currentPage===p?'#fff':C.textSec,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:currentPage===p?600:400}}>{p}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 문의 상세 모달 ─── */
+function InquiryDetailModal({item,onClose,setToast}){
+  const [status,setStatus]=useState(item.status);
+  const [memo,setMemo]=useState(item.memo);
+  const statusFlow=['신규','확인','상담','완료'];
+  const curIdx=statusFlow.indexOf(status);
+
+  return(
+    <Modal title="문의 상세 정보" onClose={onClose} width={620}>
+      {/* 상태 플로우 */}
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:24,padding:'16px 20px',background:'#F8FAFC',borderRadius:10}}>
+        {statusFlow.map((s,i)=>(
+          <React.Fragment key={s}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{width:28,height:28,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,
+                background:i<=curIdx?C.primary:'#E2E8F0',color:i<=curIdx?'#fff':'#94A3B8'}}>{i+1}</div>
+              <span style={{fontSize:13,fontWeight:i===curIdx?700:400,color:i<=curIdx?C.text:C.textLight}}>{s}</span>
+            </div>
+            {i<3&&<div style={{flex:1,height:2,background:i<curIdx?C.primary:'#E2E8F0',borderRadius:1}}/>}
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>고객명</div>
+          <div style={{fontSize:15,fontWeight:600}}>{item.name}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>연락처</div>
+          <div style={{fontSize:15,fontWeight:600}}>{item.phone}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>이메일</div>
+          <div style={{fontSize:14}}>{item.email}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>관심 평형</div>
+          <div style={{fontSize:15,fontWeight:600}}>{item.type}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>거주 지역</div>
+          <div style={{fontSize:14}}>{item.region}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>유입 경로</div>
+          <div style={{fontSize:14}}>{item.source}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>문의 목적</div>
+          <div style={{fontSize:14}}>{item.interest}</div>
+        </div>
+        <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>접수일</div>
+          <div style={{fontSize:14}}>{item.date}</div>
+        </div>
+      </div>
+
+      <FormField label="처리 상태 변경">
+        <select value={status} onChange={e=>setStatus(e.target.value)} style={selectStyle}>
+          {statusFlow.map(s=><option key={s}>{s}</option>)}
+        </select>
+      </FormField>
+
+      <FormField label="관리자 메모">
+        <textarea value={memo} onChange={e=>setMemo(e.target.value)} rows={3} style={{...inputStyle,resize:'vertical'}} placeholder="메모를 입력하세요..."/>
+      </FormField>
+
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:8}}>
+        <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+        <button onClick={()=>{setToast('문의 상태가 업데이트되었습니다.');onClose()}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>저장</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── 문의 등록 모달 ─── */
+function InquiryCreateModal({onClose,setToast}){
+  return(
+    <Modal title="문의 등록" onClose={onClose}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <FormField label="고객명"><input style={inputStyle} placeholder="이름 입력"/></FormField>
+        <FormField label="연락처"><input style={inputStyle} placeholder="010-0000-0000"/></FormField>
+        <FormField label="이메일"><input style={inputStyle} placeholder="email@example.com"/></FormField>
+        <FormField label="관심 평형">
+          <select style={selectStyle}><option>59㎡A</option><option>59㎡B</option><option>84㎡A</option><option>84㎡B</option><option>114㎡</option></select>
+        </FormField>
+        <FormField label="거주 지역"><input style={inputStyle} placeholder="서울 강남구"/></FormField>
+        <FormField label="유입 경로">
+          <select style={selectStyle}><option>온라인 광고</option><option>네이버 검색</option><option>현장 방문</option><option>지인 소개</option><option>포털 배너</option></select>
+        </FormField>
+      </div>
+      <FormField label="문의 목적">
+        <select style={selectStyle}><option>실거주</option><option>투자 목적</option><option>기타</option></select>
+      </FormField>
+      <FormField label="메모">
+        <textarea rows={3} style={{...inputStyle,resize:'vertical'}} placeholder="특이사항을 입력하세요..."/>
+      </FormField>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:8}}>
+        <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+        <button onClick={()=>{setToast('문의가 등록되었습니다.');onClose()}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>등록</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── 홍보페이지 관리 ─── */
+function PromoPage({setModal,setToast}){
+  const [activeTab,setActiveTab]=useState('sections');
+
+  return(
+    <div>
+      {/* 탭 */}
+      <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:`1px solid ${C.border}`,paddingBottom:0}}>
+        {[{id:'sections',label:'섹션 관리'},{id:'gallery',label:'갤러리 이미지'},{id:'banner',label:'배너 슬라이드'}].map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)} style={{
+            padding:'10px 18px',border:'none',borderBottom:activeTab===t.id?`2px solid ${C.primary}`:'2px solid transparent',
+            background:'transparent',cursor:'pointer',fontSize:14,fontFamily:'inherit',
+            color:activeTab===t.id?C.primary:C.textSec,fontWeight:activeTab===t.id?600:400,
+            marginBottom:-1,transition:'all 150ms'
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {activeTab==='sections'&&(
+        <div key="sections" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{display:'grid',gap:16}}>
+            {PROMO_SECTIONS.filter(s=>s.section!=='배너 슬라이드').map((sec,i)=>(
+              <div key={sec.id} onClick={()=>setModal({type:'promoEdit',item:sec})} style={{
+                background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,.08)',
+                display:'flex',alignItems:'center',gap:20,cursor:'pointer',transition:'all 200ms',
+                animation:`slideUp 300ms ease ${i*60}ms both`,
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,.12)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'}}
+              >
+                <div style={{width:56,height:56,borderRadius:12,background:`${C.primary}08`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>
+                  {sec.section==='단지 개요'?'🏢':sec.section==='입지 분석'?'📍':sec.section==='평면도'?'📐':'🖼'}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+                    <span style={{fontSize:16,fontWeight:700}}>{sec.section}</span>
+                    <Badge text={sec.status} colors={PUB_STATUS[sec.status]}/>
+                  </div>
+                  <div style={{fontSize:13,color:C.textSec}}>필드 {sec.fields}개 · 이미지 {sec.images}장 · 마지막 수정: {sec.lastEdit}</div>
+                </div>
+                <button onClick={e=>{e.stopPropagation();setModal({type:'promoEdit',item:sec})}} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',color:C.textSec}}>
+                  {IC.edit} 편집
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab==='gallery'&&(
+        <div key="gallery" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <div style={{fontSize:13,color:C.textSec}}>총 {GALLERY_IMAGES.length}장</div>
+            <button onClick={()=>setModal({type:'galleryManage'})} style={{padding:'9px 16px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>{IC.plus} 이미지 추가</button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+            {GALLERY_IMAGES.map((img,i)=>(
+              <div key={img.id} onClick={()=>setModal({type:'galleryManage'})} style={{
+                background:C.surface,borderRadius:12,overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,.08)',
+                cursor:'pointer',transition:'all 200ms',animation:`slideUp 300ms ease ${i*60}ms both`
+              }}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,.12)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'}}
+              >
+                <div style={{height:140,background:`linear-gradient(135deg,${C.primary}20,${C.accent}30)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:36,opacity:.4}}>🖼</span>
+                </div>
+                <div style={{padding:'12px 14px'}}>
+                  <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>{img.name}</div>
+                  <div style={{fontSize:12,color:C.textSec}}>{img.dim} · {img.size}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab==='banner'&&(
+        <div key="banner" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:700}}>배너 슬라이드 관리</h3>
+              <button onClick={()=>setToast('배너가 추가되었습니다.')} style={{padding:'8px 16px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>{IC.plus} 배너 추가</button>
+            </div>
+            {[{title:'메인 비주얼 — 파크뷰 프리미엄',status:'활성',order:1},{title:'분양 일정 안내',status:'활성',order:2},{title:'프리미엄 커뮤니티 시설',status:'활성',order:3}].map((b,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:16,padding:16,borderBottom:i<2?`1px solid ${C.border}`:'none'}}>
+                <div style={{width:120,height:64,borderRadius:8,background:`linear-gradient(135deg,${C.primary}25,${C.accent}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:C.textSec,flexShrink:0}}>슬라이드 {b.order}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600}}>{b.title}</div>
+                  <div style={{fontSize:12,color:C.textSec,marginTop:2}}>순서 {b.order}</div>
+                </div>
+                <Badge text={b.status} colors={PUB_STATUS['게시중']}/>
+                <button onClick={()=>setToast('배너 설정이 변경되었습니다.')} style={{padding:'6px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>{IC.edit}</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── 홍보 섹션 편집 모달 ─── */
+function PromoEditModal({item,onClose,setToast}){
+  const fields = item.section==='단지 개요'
+    ? [{label:'프로젝트명',val:'파크뷰 프리미엄 레지던스'},{label:'시행사',val:'(주)파크뷰 디벨롭'},{label:'시공사',val:'한양건설'},{label:'규모',val:'지하 3층 ~ 지상 35층, 5개동'},{label:'총 세대수',val:'1,247세대'},{label:'입주 예정',val:'2027년 3월'}]
+    : item.section==='입지 분석'
+    ? [{label:'지하철역',val:'강남역 도보 8분'},{label:'학군',val:'강남초·중·고 반경 500m'},{label:'생활 인프라',val:'롯데마트, 현대백화점 차량 5분'},{label:'공원',val:'양재 시민의 숲 도보 10분'}]
+    : item.section==='평면도'
+    ? [{label:'59㎡A 전용면적',val:'59.94㎡'},{label:'59㎡B 전용면적',val:'59.87㎡'},{label:'84㎡A 전용면적',val:'84.92㎡'},{label:'84㎡B 전용면적',val:'84.76㎡'},{label:'114㎡ 전용면적',val:'114.82㎡'}]
+    : [{label:'갤러리 제목',val:'파크뷰 프리미엄 갤러리'},{label:'설명',val:'단지 조감도, 투시도, 커뮤니티 시설 이미지'}];
+
+  return(
+    <Modal title={`${item.section} 편집`} onClose={onClose} width={560}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20,padding:'12px 16px',background:'#F8FAFC',borderRadius:8}}>
+        <Badge text={item.status} colors={PUB_STATUS[item.status]}/>
+        <span style={{fontSize:12,color:C.textSec}}>마지막 수정: {item.lastEdit}</span>
+      </div>
+      {fields.map((f,i)=>(
+        <FormField key={i} label={f.label}>
+          <input defaultValue={f.val} style={inputStyle}/>
+        </FormField>
+      ))}
+      <FormField label="게시 상태">
+        <select defaultValue={item.status} style={selectStyle}>
+          <option>게시중</option><option>수정중</option><option>비공개</option>
+        </select>
+      </FormField>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:8}}>
+        <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+        <button onClick={()=>{setToast(`${item.section} 콘텐츠가 저장되었습니다.`);onClose()}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>저장</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── 갤러리 관리 모달 ─── */
+function GalleryManageModal({onClose,setToast}){
+  return(
+    <Modal title="갤러리 이미지 관리" onClose={onClose} width={620}>
+      <div style={{marginBottom:20,padding:20,border:`2px dashed ${C.border}`,borderRadius:12,textAlign:'center',cursor:'pointer',background:'#FAFBFC'}}
+        onClick={()=>setToast('이미지가 업로드되었습니다.')}>
+        <div style={{fontSize:32,marginBottom:8}}>📤</div>
+        <div style={{fontSize:14,fontWeight:600,color:C.text}}>클릭하여 이미지 업로드</div>
+        <div style={{fontSize:12,color:C.textSec,marginTop:4}}>JPG, PNG / 최대 10MB / 권장 2400×1600</div>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>현재 이미지 ({GALLERY_IMAGES.length}장)</div>
+      {GALLERY_IMAGES.map((img,i)=>(
+        <div key={img.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<GALLERY_IMAGES.length-1?`1px solid ${C.border}`:'none'}}>
+          <div style={{width:10,cursor:'grab',color:C.textLight,fontSize:14}}>⋮⋮</div>
+          <div style={{width:48,height:36,borderRadius:6,background:`linear-gradient(135deg,${C.primary}15,${C.accent}25)`,flexShrink:0}}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:500}}>{img.name}</div>
+            <div style={{fontSize:11,color:C.textSec}}>{img.dim} · {img.size}</div>
+          </div>
+          <span style={{fontSize:12,color:C.textLight}}>순서 {img.order}</span>
+        </div>
+      ))}
+      <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:16}}>
+        <button onClick={onClose} style={{padding:'10px 20px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>닫기</button>
+        <button onClick={()=>{setToast('갤러리 순서가 저장되었습니다.');onClose()}} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>저장</button>
+      </div>
+    </Modal>
+  );
+}
+
+/* ─── 고객 DB 분석 ─── */
+function AnalyticsPage(){
+  const [period,setPeriod]=useState('monthly');
+
+  return(
+    <div>
+      {/* 기간 필터 */}
+      <div style={{display:'flex',gap:8,marginBottom:24}}>
+        {[{id:'weekly',label:'주간'},{id:'monthly',label:'월간'},{id:'quarterly',label:'분기'}].map(p=>(
+          <button key={p.id} onClick={()=>setPeriod(p.id)} style={{
+            padding:'8px 18px',borderRadius:8,border:period===p.id?'none':`1px solid ${C.border}`,
+            background:period===p.id?C.primary:'#fff',color:period===p.id?'#fff':C.textSec,
+            cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:period===p.id?600:400,transition:'all 150ms'
+          }}>{p.label}</button>
+        ))}
+      </div>
+
+      {/* 차트 그리드 */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:24}}>
+        {/* 지역별 */}
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease both'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>지역별 문의 분포</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={REGION_DATA} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false}/>
+              <XAxis type="number" tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <YAxis dataKey="name" type="category" width={80} tick={{fontSize:12,fill:C.textSec}} axisLine={false} tickLine={false}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:13}}/>
+              <Bar dataKey="value" name="문의 건수" fill={C.primary} radius={[0,6,6,0]} barSize={20}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 평형별 */}
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 80ms both'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>관심 평형별 선호도</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={TYPE_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={85} dataKey="count" nameKey="type" paddingAngle={2}>
+                {TYPE_DATA.map((_,i)=><Cell key={i} fill={PIE_COLORS[i]}/>)}
+              </Pie>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:13}}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8,marginTop:8,justifyContent:'center'}}>
+            {TYPE_DATA.map((t,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.textSec}}>
+                <div style={{width:8,height:8,borderRadius:2,background:PIE_COLORS[i]}}/>{t.type} ({t.rate}%)
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 유입 경로별 추이 */}
+        <div style={{gridColumn:'1 / -1',background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 160ms both'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>유입 경로별 월간 추이</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={MONTHLY_TREND}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+              <XAxis dataKey="month" tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:13}}/>
+              <Legend wrapperStyle={{fontSize:12}}/>
+              <Bar dataKey="online" name="온라인 광고" fill={C.primary} radius={[4,4,0,0]} barSize={16}/>
+              <Bar dataKey="search" name="네이버 검색" fill={C.accent} radius={[4,4,0,0]} barSize={16}/>
+              <Bar dataKey="visit" name="현장 방문" fill={C.info} radius={[4,4,0,0]} barSize={16}/>
+              <Bar dataKey="referral" name="지인 소개" fill={C.success} radius={[4,4,0,0]} barSize={16}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* 고객 세그먼트 테이블 */}
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 240ms both'}}>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>고객 세그먼트 분류</h3>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#F8FAFC'}}>
+              {['세그먼트','고객 수','비율','주요 관심 평형','평균 문의 횟수'].map(h=>(
+                <th key={h} style={{padding:'12px 14px',fontSize:12,fontWeight:600,color:C.textSec,textAlign:'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              {seg:'실거주 관심',count:68,pct:'49.6%',type:'84㎡A/B',avg:'2.4회'},
+              {seg:'투자 목적',count:42,pct:'30.7%',type:'59㎡A/B',avg:'1.8회'},
+              {seg:'프리미엄 선호',count:18,pct:'13.1%',type:'114㎡',avg:'3.2회'},
+              {seg:'미분류',count:9,pct:'6.6%',type:'-',avg:'1.0회'},
+            ].map((r,i)=>(
+              <tr key={i} style={{borderBottom:`1px solid ${C.border}`,transition:'background 150ms'}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <td style={{padding:'14px',fontSize:14,fontWeight:600}}><span style={{display:'inline-block',width:8,height:8,borderRadius:2,background:PIE_COLORS[i],marginRight:8}}/>{r.seg}</td>
+                <td style={{padding:'14px',fontSize:14}}>{r.count}명</td>
+                <td style={{padding:'14px',fontSize:14,color:C.textSec}}>{r.pct}</td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{r.type}</td>
+                <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{r.avg}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 시스템 설정 ─── */
+function SettingsPage({setToast}){
+  const [tab,setTab]=useState('account');
+
+  return(
+    <div>
+      <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:`1px solid ${C.border}`}}>
+        {[{id:'account',label:'계정 관리'},{id:'form',label:'문의 폼 설정'},{id:'noti',label:'알림 설정'}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            padding:'10px 18px',border:'none',borderBottom:tab===t.id?`2px solid ${C.primary}`:'2px solid transparent',
+            background:'transparent',cursor:'pointer',fontSize:14,fontFamily:'inherit',
+            color:tab===t.id?C.primary:C.textSec,fontWeight:tab===t.id?600:400,marginBottom:-1
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {tab==='account'&&(
+        <div key="account" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',maxWidth:560}}>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>관리자 계정 정보</h3>
+            <FormField label="이름"><input defaultValue="관리자" style={inputStyle}/></FormField>
+            <FormField label="이메일"><input defaultValue="admin@parkview.kr" style={inputStyle}/></FormField>
+            <FormField label="연락처"><input defaultValue="02-1234-5678" style={inputStyle}/></FormField>
+            <FormField label="비밀번호 변경"><input type="password" placeholder="새 비밀번호 입력" style={inputStyle}/></FormField>
+            <button onClick={()=>setToast('계정 정보가 저장되었습니다.')} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600,marginTop:8}}>저장</button>
+          </div>
+        </div>
+      )}
+
+      {tab==='form'&&(
+        <div key="form" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',maxWidth:560}}>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>문의 접수 폼 필드 설정</h3>
+            {['고객명','연락처','이메일','관심 평형','거주 지역','유입 경로','문의 목적','개인정보 동의'].map((f,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 0',borderBottom:i<7?`1px solid ${C.border}`:'none'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <span style={{fontSize:13,color:C.textLight,cursor:'grab'}}>⋮⋮</span>
+                  <span style={{fontSize:14}}>{f}</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <span style={{fontSize:12,color:i<3?C.danger:C.textLight}}>{i<3?'필수':'선택'}</span>
+                  <div style={{width:36,height:20,borderRadius:10,background:C.success,position:'relative',cursor:'pointer'}}>
+                    <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,right:2,boxShadow:'0 1px 2px rgba(0,0,0,.2)'}}/>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button onClick={()=>setToast('폼 설정이 저장되었습니다.')} style={{padding:'10px 20px',borderRadius:8,border:'none',background:C.primary,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600,marginTop:16}}>저장</button>
+          </div>
+        </div>
+      )}
+
+      {tab==='noti'&&(
+        <div key="noti" style={{animation:'fadeIn 250ms ease'}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',maxWidth:560}}>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>알림 설정</h3>
+            {[{label:'신규 문의 접수 알림',desc:'새로운 문의가 접수될 때 알림',on:true},{label:'상태 변경 알림',desc:'문의 상태가 변경될 때 알림',on:true},{label:'일일 문의 요약',desc:'매일 오전 9시 전일 문의 요약 발송',on:false},{label:'주간 리포트',desc:'매주 월요일 주간 문의 통계 리포트',on:true}].map((n,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 0',borderBottom:i<3?`1px solid ${C.border}`:'none'}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600}}>{n.label}</div>
+                  <div style={{fontSize:12,color:C.textSec,marginTop:2}}>{n.desc}</div>
+                </div>
+                <div onClick={()=>setToast('알림 설정이 변경되었습니다.')} style={{width:40,height:22,borderRadius:11,background:n.on?C.success:'#D1D5DB',position:'relative',cursor:'pointer',transition:'background 200ms'}}>
+                  <div style={{width:18,height:18,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:n.on?20:2,boxShadow:'0 1px 2px rgba(0,0,0,.2)',transition:'left 200ms'}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── 렌더 ─── */
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

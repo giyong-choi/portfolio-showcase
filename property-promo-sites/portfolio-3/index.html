@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>프롭마스터 — 분양 통합 마케팅 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F8FAFC;color:#0F172A;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,RadarChart,Radar,PolarGrid,PolarAngleAxis,PolarRadiusAxis,ComposedChart,Area} = Recharts;
+
+/* ─── 컬러 ─── */
+const C = {
+  primary:'#475569',secondary:'#1E293B',accent:'#06B6D4',
+  bg:'#F8FAFC',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#0F172A',textSec:'#64748B',textLight:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',info:'#0284C7',
+};
+
+/* ─── 네비 ─── */
+const NAV = [
+  {id:'workspace',icon:'📊',label:'통합 워크스페이스'},
+  {id:'site',icon:'🏗',label:'현장 관리'},
+  {id:'customer',icon:'👥',label:'고객 분석'},
+  {id:'marketing',icon:'📈',label:'마케팅 통계'},
+  {id:'settings',icon:'⚙️',label:'시스템 설정'},
+];
+
+/* ─── 더미 데이터 ─── */
+const SITES = [
+  {id:1,name:'파크뷰 레지던스',location:'서울 강남구',units:1247,status:'분양중',inquiries:137,newToday:5,conversion:31,start:'2025.03',end:'2025.12'},
+  {id:2,name:'리버사이드 자이',location:'서울 마포구',units:842,status:'분양중',inquiries:98,newToday:3,conversion:22,start:'2025.05',end:'2026.02'},
+  {id:3,name:'센트럴파크 힐스',location:'경기 성남시',units:1560,status:'준비',inquiries:45,newToday:8,conversion:12,start:'2025.07',end:'2026.05'},
+  {id:4,name:'그린밸리 더샵',location:'경기 과천시',units:620,status:'완료',inquiries:210,newToday:0,conversion:68,start:'2024.09',end:'2025.04'},
+];
+
+const INQUIRIES_BY_SITE = {
+  1:[
+    {id:1,name:'김민수',phone:'010-1234-5678',type:'84㎡A',source:'온라인 광고',status:'신규',date:'2025.06.28',segment:'실거주'},
+    {id:2,name:'이지은',phone:'010-2345-6789',type:'59㎡B',source:'네이버 검색',status:'확인',date:'2025.06.27',segment:'투자'},
+    {id:3,name:'박서진',phone:'010-3456-7890',type:'114㎡',source:'현장 방문',status:'상담',date:'2025.06.26',segment:'프리미엄'},
+    {id:4,name:'정하윤',phone:'010-4567-8901',type:'84㎡B',source:'지인 소개',status:'완료',date:'2025.06.25',segment:'실거주'},
+    {id:5,name:'최우진',phone:'010-5678-9012',type:'59㎡A',source:'포털 배너',status:'신규',date:'2025.06.24',segment:'투자'},
+  ],
+  2:[
+    {id:6,name:'강유진',phone:'010-6789-0123',type:'84㎡A',source:'온라인 광고',status:'확인',date:'2025.06.28',segment:'실거주'},
+    {id:7,name:'김서연',phone:'010-7890-1234',type:'59㎡A',source:'네이버 검색',status:'신규',date:'2025.06.27',segment:'실거주'},
+    {id:8,name:'이준호',phone:'010-8901-2345',type:'114㎡',source:'전화 문의',status:'상담',date:'2025.06.26',segment:'프리미엄'},
+  ],
+  3:[
+    {id:9,name:'박하나',phone:'010-9012-3456',type:'84㎡B',source:'온라인 광고',status:'신규',date:'2025.06.28',segment:'투자'},
+    {id:10,name:'정수민',phone:'010-0123-4567',type:'59㎡B',source:'현장 방문',status:'신규',date:'2025.06.27',segment:'실거주'},
+  ],
+  4:[],
+};
+
+const DAILY_TREND = [{d:'6/22',v:8},{d:'6/23',v:12},{d:'6/24',v:10},{d:'6/25',v:15},{d:'6/26',v:13},{d:'6/27',v:18},{d:'6/28',v:14}];
+
+const CUSTOMERS = [
+  {id:1,name:'김민수',phone:'010-1234-5678',sites:['파크뷰 레지던스'],segment:'실거주',inquiryCount:3,lastDate:'2025.06.28',source:'온라인 광고'},
+  {id:2,name:'이지은',phone:'010-2345-6789',sites:['파크뷰 레지던스','리버사이드 자이'],segment:'투자',inquiryCount:5,lastDate:'2025.06.27',source:'네이버 검색'},
+  {id:3,name:'박서진',phone:'010-3456-7890',sites:['파크뷰 레지던스'],segment:'프리미엄',inquiryCount:4,lastDate:'2025.06.26',source:'현장 방문'},
+  {id:4,name:'정하윤',phone:'010-4567-8901',sites:['파크뷰 레지던스','센트럴파크 힐스'],segment:'실거주',inquiryCount:2,lastDate:'2025.06.25',source:'지인 소개'},
+  {id:5,name:'최우진',phone:'010-5678-9012',sites:['파크뷰 레지던스'],segment:'투자',inquiryCount:1,lastDate:'2025.06.24',source:'포털 배너'},
+  {id:6,name:'강유진',phone:'010-6789-0123',sites:['리버사이드 자이'],segment:'실거주',inquiryCount:2,lastDate:'2025.06.28',source:'온라인 광고'},
+  {id:7,name:'김서연',phone:'010-7890-1234',sites:['리버사이드 자이','센트럴파크 힐스'],segment:'실거주',inquiryCount:3,lastDate:'2025.06.27',source:'네이버 검색'},
+  {id:8,name:'이준호',phone:'010-8901-2345',sites:['리버사이드 자이'],segment:'프리미엄',inquiryCount:2,lastDate:'2025.06.26',source:'전화 문의'},
+];
+
+const SOURCE_TREND = [
+  {month:'1월',online:18,search:12,visit:6,referral:4,portal:2},
+  {month:'2월',online:24,search:15,visit:8,referral:5,portal:3},
+  {month:'3월',online:32,search:20,visit:11,referral:7,portal:4},
+  {month:'4월',online:38,search:24,visit:14,referral:9,portal:5},
+  {month:'5월',online:35,search:22,visit:12,referral:10,portal:6},
+  {month:'6월',online:42,search:28,visit:16,referral:12,portal:7},
+];
+
+const CHANNEL_PERF = [
+  {channel:'온라인 광고',inquiries:145,cost:'4,200,000',cpi:'28,966',conversion:18},
+  {channel:'네이버 검색',inquiries:98,cost:'2,800,000',cpi:'28,571',conversion:14},
+  {channel:'현장 방문',inquiries:62,cost:'1,500,000',cpi:'24,194',conversion:22},
+  {channel:'지인 소개',inquiries:48,cost:'800,000',cpi:'16,667',conversion:28},
+  {channel:'포털 배너',inquiries:32,cost:'1,200,000',cpi:'37,500',conversion:8},
+];
+
+const RADAR_DATA = [
+  {subject:'온라인 광고',파크뷰:85,리버사이드:72,센트럴파크:60},
+  {subject:'네이버 검색',파크뷰:70,리버사이드:65,센트럴파크:55},
+  {subject:'현장 방문',파크뷰:60,리버사이드:45,센트럴파크:80},
+  {subject:'지인 소개',파크뷰:45,리버사이드:55,센트럴파크:40},
+  {subject:'포털 배너',파크뷰:30,리버사이드:38,센트럴파크:25},
+];
+
+const PIE_COLORS = ['#475569','#06B6D4','#059669','#D97706','#DC2626','#7C3AED'];
+
+const STATUS_C = {
+  '신규':{bg:'#DBEAFE',color:'#1D4ED8'},'확인':{bg:'#FEF3C7',color:'#B45309'},
+  '상담':{bg:'#D1FAE5',color:'#047857'},'완료':{bg:'#F3F4F6',color:'#374151'},
+};
+const SITE_STATUS = {
+  '분양중':{bg:'#D1FAE5',color:'#047857'},'준비':{bg:'#DBEAFE',color:'#1D4ED8'},
+  '완료':{bg:'#F3F4F6',color:'#374151'},
+};
+const SEG_C = {
+  '실거주':{bg:'#DBEAFE',color:'#1D4ED8'},'투자':{bg:'#FEF3C7',color:'#B45309'},
+  '프리미엄':{bg:'#F3E8FF',color:'#7C3AED'},
+};
+
+/* ─── 유틸 ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const [v,setV]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setV(end);clearInterval(t)}else setV(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{v.toLocaleString()}{suffix}</span>;
+}
+function Badge({text,colors}){return <span style={{display:'inline-block',padding:'2px 8px',borderRadius:6,fontSize:11,fontWeight:600,background:colors?.bg||'#F3F4F6',color:colors?.color||'#374151'}}>{text}</span>}
+function Toast({message,onClose}){useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 20px rgba(0,0,0,.2)',fontSize:14}}>{message}</div>}
+function FormField({label,children}){return <div style={{marginBottom:14}}><label style={{display:'block',fontSize:12,fontWeight:700,color:C.textSec,marginBottom:5,textTransform:'uppercase',letterSpacing:'.06em'}}>{label}</label>{children}</div>}
+const inp = {width:'100%',padding:'9px 12px',border:`1px solid ${C.border}`,borderRadius:10,fontSize:13,fontFamily:'inherit',outline:'none'};
+
+/* ─── 앱 ─── */
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [section,setSection]=useState('workspace');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  if(loading) return <Skeleton/>;
+
+  const TABS_MAP = {
+    workspace:[{id:'overview',label:'전체 현황'},{id:'recent',label:'최근 문의'}],
+    site:[{id:'list',label:'현장 목록'},{id:'promo',label:'홍보 섹션'},{id:'status',label:'상태 관리'}],
+    customer:[{id:'db',label:'통합 고객 DB'},{id:'source',label:'유입 경로'},{id:'segment',label:'세그먼트'}],
+    marketing:[{id:'channel',label:'채널 성과'},{id:'cost',label:'비용 효율'},{id:'compare',label:'현장 비교'}],
+    settings:[{id:'account',label:'계정 관리'},{id:'permission',label:'현장 권한'},{id:'noti',label:'알림 채널'}],
+  };
+
+  const tabs = TABS_MAP[section]||[];
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* 사이드바 — 밝은 화이트 */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+        <div style={{padding:'0 16px 16px',display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:700}}>P</div>
+          <span style={{fontSize:15,fontWeight:700,color:C.text}}>프롭마스터</span>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV.filter(n=>n.id!=='settings').map(n=>(
+            <button key={n.id} onClick={()=>{setSection(n.id);setTab(0);setSelected(null)}} style={{
+              display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',
+              background:section===n.id?`${C.accent}12`:'transparent',
+              color:section===n.id?C.accent:C.textSec,
+              borderLeft:section===n.id?`3px solid ${C.accent}`:'3px solid transparent',
+              fontSize:13,fontWeight:section===n.id?600:400,fontFamily:'inherit',transition:'all 150ms',textAlign:'left',
+            }}
+            onMouseEnter={e=>{if(section!==n.id)e.currentTarget.style.background='#F8FAFC'}}
+            onMouseLeave={e=>{if(section!==n.id)e.currentTarget.style.background='transparent'}}
+            ><span style={{fontSize:16}}>{n.icon}</span>{n.label}</button>
+          ))}
+        </div>
+        <div style={{padding:'0 8px 12px'}}>
+          <button onClick={()=>{setSection('settings');setTab(0);setSelected(null)}} style={{
+            display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',
+            background:section==='settings'?`${C.accent}12`:'transparent',color:section==='settings'?C.accent:C.textSec,
+            borderLeft:section==='settings'?`3px solid ${C.accent}`:'3px solid transparent',
+            fontSize:13,fontWeight:section==='settings'?600:400,fontFamily:'inherit',textAlign:'left',
+          }}>⚙️ 시스템 설정</button>
+        </div>
+      </nav>
+
+      <div style={{flex:1,marginLeft:240,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* 앱바 */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>프롭마스터</span>
+          <span style={{fontSize:12,color:C.textLight}}>›</span>
+          <span style={{fontSize:12,color:C.text,fontWeight:600}}>{NAV.find(n=>n.id===section)?.label}</span>
+          {tabs[tab]&&<><span style={{fontSize:12,color:C.textLight}}>›</span><span style={{fontSize:12,color:C.textSec}}>{tabs[tab].label}</span></>}
+          <div style={{flex:1}}/>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{width:160,padding:'5px 10px 5px 28px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:'#F8FAFC'}}/>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:C.textLight}}>🔍</span>
+          </div>
+          <div style={{width:26,height:26,borderRadius:'50%',background:C.accent,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:700}}>관</div>
+        </header>
+
+        {/* 탭 스트립 */}
+        <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+          {tabs.map((t,i)=>(
+            <button key={t.id} onClick={()=>{setTab(i);setSelected(null)}} style={{
+              padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,
+              color:tab===i?C.accent:C.textLight,fontWeight:tab===i?600:400,
+              borderBottom:tab===i?`2px solid ${C.accent}`:'2px solid transparent',marginBottom:-1,
+            }}>{t.label}</button>
+          ))}
+          <div style={{flex:1}}/>
+        </div>
+
+        {/* 콘텐츠 */}
+        <div key={`${section}-${tab}`} style={{flex:1,overflow:'auto',animation:'fadeIn 250ms ease'}}>
+          {section==='workspace'&&<WorkspacePage tab={tab} selected={selected} setSelected={setSelected} setToast={setToast}/>}
+          {section==='site'&&<SitePage tab={tab} selected={selected} setSelected={setSelected} setToast={setToast}/>}
+          {section==='customer'&&<CustomerPage tab={tab} selected={selected} setSelected={setSelected} setToast={setToast}/>}
+          {section==='marketing'&&<MarketingPage tab={tab} selected={selected} setSelected={setSelected}/>}
+          {section==='settings'&&<SettingsPage tab={tab} setToast={setToast}/>}
+        </div>
+      </div>
+
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+function Skeleton(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`}}/>
+      <div style={{flex:1,padding:20}}>
+        <div style={{display:'flex',gap:16}}>
+          <div style={{width:'42%',display:'flex',flexDirection:'column',gap:8}}>
+            {[...Array(5)].map((_,i)=><div key={i} style={{height:56,borderRadius:10,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{height:300,borderRadius:14,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 마스터-디테일 레이아웃 ─── */
+function MasterDetail({master,detail,masterWidth='42%'}){
+  return(
+    <div style={{display:'flex',height:'100%'}}>
+      <div style={{width:masterWidth,borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>{master}</div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>{detail}</div>
+    </div>
+  );
+}
+
+function ListItem({active,onClick,children}){
+  return(
+    <div onClick={onClick} style={{
+      padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',
+      background:active?`${C.accent}08`:'transparent',
+      borderLeft:active?`3px solid ${C.accent}`:'3px solid transparent',
+      transition:'all 150ms',
+    }}
+    onMouseEnter={e=>{if(!active)e.currentTarget.style.background='#F8FAFC'}}
+    onMouseLeave={e=>{if(!active)e.currentTarget.style.background='transparent'}}
+    >{children}</div>
+  );
+}
+
+function EmptyDetail(){
+  return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>항목을 선택하세요</div>;
+}
+
+/* ─── 통합 워크스페이스 ─── */
+function WorkspacePage({tab,selected,setSelected,setToast}){
+  if(tab===0) return <WorkspaceOverview selected={selected} setSelected={setSelected}/>;
+  return <WorkspaceRecent selected={selected} setSelected={setSelected}/>;
+}
+
+function WorkspaceOverview({selected,setSelected}){
+  const site = selected ? SITES.find(s=>s.id===selected) : null;
+  const inqs = site ? (INQUIRIES_BY_SITE[site.id]||[]) : [];
+
+  const master = (
+    <div>
+      <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:'#F8FAFC'}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>분양 현장 ({SITES.length})</div>
+      </div>
+      {SITES.map(s=>(
+        <ListItem key={s.id} active={selected===s.id} onClick={()=>setSelected(s.id)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{s.name}</div>
+              <div style={{fontSize:11,color:C.textSec}}>{s.location} · {s.units}세대</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <Badge text={s.status} colors={SITE_STATUS[s.status]}/>
+              <div style={{fontSize:11,color:C.textLight,marginTop:3}}>문의 {s.inquiries}건</div>
+            </div>
+          </div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = site ? (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+        <div>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:4}}>{site.name}</h2>
+          <div style={{fontSize:13,color:C.textSec}}>{site.location} · {site.units}세대 · {site.start} ~ {site.end}</div>
+        </div>
+        <Badge text={site.status} colors={SITE_STATUS[site.status]}/>
+      </div>
+
+      {/* KPI */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+        {[{l:'총 문의',v:site.inquiries,s:'건',c:C.primary},{l:'오늘 신규',v:site.newToday,s:'건',c:C.accent},{l:'계약 전환',v:site.conversion,s:'건',c:C.success}].map((k,i)=>(
+          <div key={i} style={{padding:14,background:'#F8FAFC',borderRadius:14,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>{k.l}</div>
+            <div style={{fontSize:22,fontWeight:700,color:k.c}}><CountUp end={k.v} suffix={k.s}/></div>
+          </div>
+        ))}
+      </div>
+
+      {/* 추이 차트 */}
+      <div style={{background:'#F8FAFC',borderRadius:14,border:`1px solid ${C.border}`,padding:16,marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:12}}>일별 문의 추이</div>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart data={DAILY_TREND}>
+            <defs><linearGradient id="ag3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.accent} stopOpacity={.2}/><stop offset="100%" stopColor={C.accent} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="d" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:12}}/>
+            <Area type="monotone" dataKey="v" name="문의" stroke={C.accent} fill="url(#ag3)" strokeWidth={2} dot={{r:3,fill:C.accent}}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* 최근 문의 피드 */}
+      <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>최근 문의</div>
+      {inqs.length===0&&<div style={{fontSize:13,color:C.textLight,padding:20,textAlign:'center'}}>문의 내역이 없습니다</div>}
+      {inqs.map((q,i)=>(
+        <div key={q.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<inqs.length-1?`1px solid ${C.border}`:'none',animation:`slideUp 200ms ease ${i*40}ms both`}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:`${C.accent}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:600,color:C.accent,flexShrink:0}}>{q.name[0]}</div>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:13,fontWeight:600}}>{q.name}</span>
+              <Badge text={q.status} colors={STATUS_C[q.status]}/>
+            </div>
+            <div style={{fontSize:11,color:C.textSec}}>{q.type} · {q.source} · {q.date}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+function WorkspaceRecent({selected,setSelected}){
+  const allInqs = Object.entries(INQUIRIES_BY_SITE).flatMap(([siteId,inqs])=>inqs.map(q=>({...q,siteId:+siteId,siteName:SITES.find(s=>s.id===+siteId)?.name||''})));
+  allInqs.sort((a,b)=>b.date.localeCompare(a.date));
+  const sel = selected?allInqs.find(q=>q.id===selected):null;
+
+  const master = (
+    <div>
+      <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:'#F8FAFC'}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>전체 현장 최근 문의 ({allInqs.length})</div>
+      </div>
+      {allInqs.map(q=>(
+        <ListItem key={q.id} active={selected===q.id} onClick={()=>setSelected(q.id)}>
+          <div style={{display:'flex',justifyContent:'space-between'}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>{q.name} <span style={{fontSize:11,color:C.textLight,fontWeight:400}}>· {q.siteName}</span></div>
+              <div style={{fontSize:11,color:C.textSec,marginTop:2}}>{q.type} · {q.source}</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <Badge text={q.status} colors={STATUS_C[q.status]}/>
+              <div style={{fontSize:10,color:C.textLight,marginTop:3}}>{q.date}</div>
+            </div>
+          </div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = sel ? (
+    <div>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>문의 상세</h3>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+        {[{l:'고객명',v:sel.name},{l:'연락처',v:sel.phone},{l:'관심 평형',v:sel.type},{l:'유입 경로',v:sel.source},{l:'현장',v:sel.siteName},{l:'접수일',v:sel.date},{l:'상태',v:sel.status},{l:'세그먼트',v:sel.segment}].map((f,i)=>(
+          <div key={i} style={{padding:12,background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.textLight,marginBottom:2}}>{f.l}</div>
+            <div style={{fontSize:13,fontWeight:600}}>{f.v}</div>
+          </div>
+        ))}
+      </div>
+      <FormField label="관리자 메모"><textarea rows={3} style={{...inp,resize:'vertical'}} placeholder="메모 입력..."/></FormField>
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+/* ─── 현장 관리 ─── */
+function SitePage({tab,selected,setSelected,setToast}){
+  if(tab===0) return <SiteList selected={selected} setSelected={setSelected} setToast={setToast}/>;
+  if(tab===1) return <SitePromo selected={selected} setSelected={setSelected}/>;
+  return <SiteStatus/>;
+}
+
+function SiteList({selected,setSelected,setToast}){
+  const site = selected?SITES.find(s=>s.id===selected):null;
+
+  const master=(
+    <div>
+      <div style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>현장 ({SITES.length})</span>
+        <button onClick={()=>setToast('현장 등록 폼이 열렸습니다.')} style={{padding:'4px 10px',borderRadius:6,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:11,fontFamily:'inherit',fontWeight:600}}>＋ 등록</button>
+      </div>
+      {SITES.map(s=>(
+        <ListItem key={s.id} active={selected===s.id} onClick={()=>setSelected(s.id)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600}}>{s.name}</div>
+              <div style={{fontSize:11,color:C.textSec}}>{s.location} · {s.units}세대</div>
+            </div>
+            <Badge text={s.status} colors={SITE_STATUS[s.status]}/>
+          </div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = site ? (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+        <h2 style={{fontSize:20,fontWeight:700}}>{site.name}</h2>
+        <button onClick={()=>setToast('현장이 복제되었습니다.')} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>📋 현장 복제</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+        {[{l:'위치',v:site.location},{l:'총 세대수',v:`${site.units}세대`},{l:'분양 기간',v:`${site.start} ~ ${site.end}`},{l:'문의 건수',v:`${site.inquiries}건`},{l:'상태',v:site.status},{l:'계약 전환',v:`${site.conversion}건`}].map((f,i)=>(
+          <div key={i} style={{padding:12,background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.textLight,marginBottom:2}}>{f.l}</div>
+            <div style={{fontSize:13,fontWeight:600}}>{f.v}</div>
+          </div>
+        ))}
+      </div>
+      <FormField label="프로젝트명"><input defaultValue={site.name} style={inp}/></FormField>
+      <FormField label="위치"><input defaultValue={site.location} style={inp}/></FormField>
+      <FormField label="총 세대수"><input defaultValue={site.units} type="number" style={inp}/></FormField>
+      <FormField label="상태">
+        <select defaultValue={site.status} style={inp}><option>준비</option><option>분양중</option><option>완료</option></select>
+      </FormField>
+      <button onClick={()=>setToast('현장 정보가 저장되었습니다.')} style={{padding:'9px 18px',borderRadius:10,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>저장</button>
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+function SitePromo({selected,setSelected}){
+  const sections=['단지 개요','입지 분석','평면도','갤러리'];
+  const site = selected?SITES.find(s=>s.id===selected):null;
+
+  const master=(
+    <div>
+      <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:'#F8FAFC'}}>
+        <span style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>현장별 홍보 섹션</span>
+      </div>
+      {SITES.filter(s=>s.status!=='완료').map(s=>(
+        <ListItem key={s.id} active={selected===s.id} onClick={()=>setSelected(s.id)}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{s.name}</div>
+          <div style={{fontSize:11,color:C.textSec}}>섹션 {sections.length}개 · {s.status}</div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = site ? (
+    <div>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>{site.name} — 홍보 섹션</h3>
+      {sections.map((sec,i)=>(
+        <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:14,background:'#F8FAFC',borderRadius:12,border:`1px solid ${C.border}`,marginBottom:10,cursor:'pointer',transition:'all 150ms'}}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.borderLeft=`1px solid ${C.border}`}}
+        >
+          <div style={{width:40,height:40,borderRadius:10,background:`${C.accent}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>
+            {['🏢','📍','📐','🖼'][i]}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:600}}>{sec}</div>
+            <div style={{fontSize:11,color:C.textSec}}>마지막 수정: 2025.06.{28-i}</div>
+          </div>
+          <Badge text="게시중" colors={{bg:'#D1FAE5',color:'#047857'}}/>
+        </div>
+      ))}
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+function SiteStatus(){
+  return(
+    <div style={{padding:20}}>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>현장 상태 라이프사이클</h3>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {[{status:'준비',sites:SITES.filter(s=>s.status==='준비'),color:'#3B82F6'},{status:'분양중',sites:SITES.filter(s=>s.status==='분양중'),color:C.success},{status:'완료',sites:SITES.filter(s=>s.status==='완료'),color:C.textSec}].map(g=>(
+          <div key={g.status} style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+            <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,background:`${g.color}08`}}>
+              <div style={{fontSize:13,fontWeight:700,color:g.color}}>{g.status} ({g.sites.length})</div>
+            </div>
+            {g.sites.map(s=>(
+              <div key={s.id} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`}}>
+                <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
+                <div style={{fontSize:11,color:C.textSec}}>{s.location} · {s.units}세대</div>
+              </div>
+            ))}
+            {g.sites.length===0&&<div style={{padding:20,textAlign:'center',fontSize:12,color:C.textLight}}>해당 없음</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── 고객 분석 ─── */
+function CustomerPage({tab,selected,setSelected,setToast}){
+  if(tab===0) return <CustomerDB selected={selected} setSelected={setSelected}/>;
+  if(tab===1) return <CustomerSource/>;
+  return <CustomerSegment/>;
+}
+
+function CustomerDB({selected,setSelected}){
+  const cust = selected?CUSTOMERS.find(c=>c.id===selected):null;
+
+  const master=(
+    <div>
+      <div style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,background:'#F8FAFC',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>통합 고객 ({CUSTOMERS.length})</span>
+        <div style={{display:'flex',gap:4}}>
+          {['전체','중복'].map(f=><button key={f} style={{padding:'3px 8px',borderRadius:4,border:`1px solid ${C.border}`,background:'#fff',cursor:'pointer',fontSize:10,fontFamily:'inherit',color:C.textSec}}>{f}</button>)}
+        </div>
+      </div>
+      {CUSTOMERS.map(c=>(
+        <ListItem key={c.id} active={selected===c.id} onClick={()=>setSelected(c.id)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:13,fontWeight:600}}>{c.name}</span>
+                {c.sites.length>1&&<span style={{fontSize:9,padding:'1px 5px',borderRadius:4,background:'#FEF3C7',color:'#B45309',fontWeight:600}}>중복</span>}
+              </div>
+              <div style={{fontSize:11,color:C.textSec,marginTop:2}}>{c.sites.join(', ')}</div>
+            </div>
+            <Badge text={c.segment} colors={SEG_C[c.segment]}/>
+          </div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = cust ? (
+    <div>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:4}}>{cust.name}</h3>
+      <div style={{fontSize:13,color:C.textSec,marginBottom:16}}>{cust.phone} · {cust.source}</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+        {[{l:'세그먼트',v:cust.segment},{l:'총 문의 횟수',v:`${cust.inquiryCount}회`},{l:'마지막 문의',v:cust.lastDate},{l:'관심 현장',v:`${cust.sites.length}개`}].map((f,i)=>(
+          <div key={i} style={{padding:12,background:'#F8FAFC',borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.textLight,marginBottom:2}}>{f.l}</div>
+            <div style={{fontSize:13,fontWeight:600}}>{f.v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>관심 현장 이력</div>
+      {cust.sites.map((s,i)=>(
+        <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:i<cust.sites.length-1?`1px solid ${C.border}`:'none'}}>
+          <div style={{width:6,height:6,borderRadius:'50%',background:C.accent}}/>
+          <span style={{fontSize:13}}>{s}</span>
+        </div>
+      ))}
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+function CustomerSource(){
+  return(
+    <div style={{padding:20}}>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>유입 경로별 월간 추이</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={SOURCE_TREND}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="month" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:12}}/>
+            <Legend wrapperStyle={{fontSize:11}}/>
+            <Bar dataKey="online" name="온라인 광고" fill={C.primary} radius={[3,3,0,0]} barSize={12}/>
+            <Bar dataKey="search" name="네이버 검색" fill={C.accent} radius={[3,3,0,0]} barSize={12}/>
+            <Bar dataKey="visit" name="현장 방문" fill={C.success} radius={[3,3,0,0]} barSize={12}/>
+            <Line type="monotone" dataKey="referral" name="지인 소개" stroke={C.warning} strokeWidth={2} dot={{r:3}}/>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:20}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>유입 경로별 비율</h3>
+        <div style={{display:'flex',gap:20}}>
+          <div style={{width:200}}>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart><Pie data={[{name:'온라인 광고',value:37},{name:'네이버 검색',value:25},{name:'현장 방문',value:18},{name:'지인 소개',value:13},{name:'포털 배너',value:7}]} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={2}>
+                {[0,1,2,3,4].map(i=><Cell key={i} fill={PIE_COLORS[i]}/>)}
+              </Pie></PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',gap:8}}>
+            {[{n:'온라인 광고',p:37},{n:'네이버 검색',p:25},{n:'현장 방문',p:18},{n:'지인 소개',p:13},{n:'포털 배너',p:7}].map((s,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:8,height:8,borderRadius:2,background:PIE_COLORS[i]}}/>
+                <span style={{fontSize:12,color:C.textSec,width:80}}>{s.n}</span>
+                <div style={{flex:1,height:6,borderRadius:3,background:'#F1F5F9',overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:3,background:PIE_COLORS[i],width:`${s.p}%`}}/>
+                </div>
+                <span style={{fontSize:12,fontWeight:600,width:30,textAlign:'right'}}>{s.p}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomerSegment(){
+  const segs = [{name:'실거주',count:5,pct:50,desc:'실제 거주 목적 고객'},{name:'투자',count:3,pct:30,desc:'투자 목적 고객'},{name:'프리미엄',count:2,pct:20,desc:'고가 평형 선호 고객'}];
+  return(
+    <div style={{padding:20}}>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>고객 세그먼트 분류</h3>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+        {segs.map((s,i)=>(
+          <div key={i} style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:18}}>
+            <Badge text={s.name} colors={SEG_C[s.name]}/>
+            <div style={{fontSize:28,fontWeight:700,margin:'10px 0 4px'}}>{s.count}명</div>
+            <div style={{fontSize:12,color:C.textSec}}>{s.pct}% · {s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── 마케팅 통계 ─── */
+function MarketingPage({tab,selected,setSelected}){
+  if(tab===0) return <MarketingChannel selected={selected} setSelected={setSelected}/>;
+  if(tab===1) return <MarketingCost/>;
+  return <MarketingCompare/>;
+}
+
+function MarketingChannel({selected,setSelected}){
+  const ch = selected?CHANNEL_PERF.find((_,i)=>i+1===selected):null;
+
+  const master=(
+    <div>
+      <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:'#F8FAFC'}}>
+        <span style={{fontSize:11,fontWeight:700,color:C.textSec,textTransform:'uppercase',letterSpacing:'.06em'}}>마케팅 채널 ({CHANNEL_PERF.length})</span>
+      </div>
+      {CHANNEL_PERF.map((c,i)=>(
+        <ListItem key={i} active={selected===i+1} onClick={()=>setSelected(i+1)}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>{c.channel}</div>
+              <div style={{fontSize:11,color:C.textSec}}>문의 {c.inquiries}건 · 전환률 {c.conversion}%</div>
+            </div>
+            <div style={{fontSize:13,fontWeight:700,color:C.accent}}>₩{c.cpi}</div>
+          </div>
+        </ListItem>
+      ))}
+    </div>
+  );
+
+  const detail = ch ? (
+    <div>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>{ch.channel}</h3>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
+        {[{l:'문의 건수',v:`${ch.inquiries}건`},{l:'투입 비용',v:`₩${ch.cost}`},{l:'건당 비용(CPI)',v:`₩${ch.cpi}`},{l:'전환률',v:`${ch.conversion}%`}].map((f,i)=>(
+          <div key={i} style={{padding:14,background:'#F8FAFC',borderRadius:12,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:10,color:C.textLight,marginBottom:3}}>{f.l}</div>
+            <div style={{fontSize:16,fontWeight:700}}>{f.v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#F8FAFC',borderRadius:12,border:`1px solid ${C.border}`,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,marginBottom:10}}>현장별 채널 성과</div>
+        {SITES.filter(s=>s.status!=='완료').map((s,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:i<1?`1px solid ${C.border}`:'none'}}>
+            <span style={{fontSize:12,width:120}}>{s.name}</span>
+            <div style={{flex:1,height:6,borderRadius:3,background:'#E2E8F0',overflow:'hidden'}}>
+              <div style={{height:'100%',borderRadius:3,background:C.accent,width:`${30+Math.random()*50}%`}}/>
+            </div>
+            <span style={{fontSize:12,fontWeight:600,color:C.textSec}}>{Math.floor(ch.inquiries*(0.3+i*0.2))}건</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : <EmptyDetail/>;
+
+  return <MasterDetail master={master} detail={detail}/>;
+}
+
+function MarketingCost(){
+  return(
+    <div style={{padding:20}}>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:20,marginBottom:16}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>채널별 비용 대비 효율</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={CHANNEL_PERF} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false}/>
+            <XAxis type="number" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <YAxis dataKey="channel" type="category" width={90} tick={{fontSize:11,fill:C.textSec}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:12}}/>
+            <Legend wrapperStyle={{fontSize:11}}/>
+            <Bar dataKey="inquiries" name="문의 건수" fill={C.primary} radius={[0,4,4,0]} barSize={14}/>
+            <Bar dataKey="conversion" name="전환률(%)" fill={C.accent} radius={[0,4,4,0]} barSize={14}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:'#F8FAFC'}}>
+            {['채널','문의 건수','투입 비용','건당 비용','전환률'].map(h=><th key={h} style={{padding:'10px 14px',fontSize:11,fontWeight:600,color:C.textSec,textAlign:'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {CHANNEL_PERF.map((c,i)=>(
+              <tr key={i} style={{borderBottom:`1px solid ${C.border}`,transition:'background 150ms'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='#F8FAFC';e.currentTarget.style.borderLeft=`2px solid ${C.accent}`}}
+                onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none'}}
+              >
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{c.channel}</td>
+                <td style={{padding:'10px 14px',fontSize:13}}>{c.inquiries}건</td>
+                <td style={{padding:'10px 14px',fontSize:13,color:C.textSec}}>₩{c.cost}</td>
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:600,color:C.accent}}>₩{c.cpi}</td>
+                <td style={{padding:'10px 14px',fontSize:13}}>{c.conversion}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function MarketingCompare(){
+  return(
+    <div style={{padding:20}}>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,padding:20}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:14}}>현장 간 채널 성과 비교</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <RadarChart data={RADAR_DATA}>
+            <PolarGrid stroke="#E2E8F0"/>
+            <PolarAngleAxis dataKey="subject" tick={{fontSize:11,fill:C.textSec}}/>
+            <PolarRadiusAxis tick={{fontSize:10,fill:C.textLight}} domain={[0,100]}/>
+            <Radar name="파크뷰" dataKey="파크뷰" stroke={C.primary} fill={C.primary} fillOpacity={.15} strokeWidth={2}/>
+            <Radar name="리버사이드" dataKey="리버사이드" stroke={C.accent} fill={C.accent} fillOpacity={.15} strokeWidth={2}/>
+            <Radar name="센트럴파크" dataKey="센트럴파크" stroke={C.success} fill={C.success} fillOpacity={.15} strokeWidth={2}/>
+            <Legend wrapperStyle={{fontSize:12}}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.1)',fontSize:12}}/>
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 시스템 설정 ─── */
+function SettingsPage({tab,setToast}){
+  if(tab===0) return(
+    <div style={{padding:20,maxWidth:500}}>
+      <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>계정 관리</h3>
+      <FormField label="이름"><input defaultValue="관리자" style={inp}/></FormField>
+      <FormField label="이메일"><input defaultValue="admin@propmaster.kr" style={inp}/></FormField>
+      <FormField label="연락처"><input defaultValue="02-1234-5678" style={inp}/></FormField>
+      <FormField label="비밀번호"><input type="password" placeholder="새 비밀번호" style={inp}/></FormField>
+      <button onClick={()=>setToast('계정 정보가 저장되었습니다.')} style={{padding:'9px 18px',borderRadius:10,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>저장</button>
+    </div>
+  );
+  if(tab===1) return(
+    <div style={{padding:20}}>
+      <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>현장 권한 설정</h3>
+      <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:'#F8FAFC'}}>
+            {['현장명','접근 권한','문의 관리','콘텐츠 편집','통계 조회'].map(h=><th key={h} style={{padding:'10px 14px',fontSize:11,fontWeight:600,color:C.textSec,textAlign:'left',borderBottom:`1px solid ${C.border}`}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {SITES.map((s,i)=>(
+              <tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{s.name}</td>
+                {['전체','읽기/쓰기','읽기/쓰기','읽기'].map((v,j)=>(
+                  <td key={j} style={{padding:'10px 14px',fontSize:12,color:C.textSec}}>{v}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+  return(
+    <div style={{padding:20,maxWidth:500}}>
+      <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>알림 채널 설정</h3>
+      {[{l:'신규 문의 알림',d:'새 문의 접수 시 푸시',on:true},{l:'일일 요약 리포트',d:'매일 오전 9시 발송',on:false},{l:'주간 마케팅 리포트',d:'매주 월요일 발송',on:true},{l:'현장 상태 변경',d:'분양 상태 변경 시 알림',on:true}].map((n,i)=>(
+        <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 0',borderBottom:i<3?`1px solid ${C.border}`:'none'}}>
+          <div><div style={{fontSize:14,fontWeight:600}}>{n.l}</div><div style={{fontSize:12,color:C.textSec,marginTop:2}}>{n.d}</div></div>
+          <div onClick={()=>setToast('알림 설정이 변경되었습니다.')} style={{width:38,height:20,borderRadius:10,background:n.on?C.success:'#D1D5DB',position:'relative',cursor:'pointer'}}>
+            <div style={{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:n.on?20:2,boxShadow:'0 1px 2px rgba(0,0,0,.2)',transition:'left 200ms'}}/>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
