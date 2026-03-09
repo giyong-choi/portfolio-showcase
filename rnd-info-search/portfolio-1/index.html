@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>학술논문 통합검색·관리 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#F0F4FA;color:#1A2332;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.skeleton{background:linear-gradient(90deg,#D6E4F0 25%,#BDD0E7 50%,#D6E4F0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback} = React;
+const {BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,AreaChart,Area} = Recharts;
+
+/* ── Design Tokens ── */
+const C = {
+  primary:'#1565C0',primaryDark:'#0D47A1',primaryLight:'#BBDEFB',
+  secondary:'#0D47A1',accent:'#42A5F5',
+  bg:'#F0F4FA',surface:'#FFFFFF',sidebar:'#0D1B2A',sidebarHover:'#1B2D45',
+  border:'#E2E8F0',text:'#1A2332',textSub:'#6B7B8D',textLight:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',info:'#0284C7',
+  card:{borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24},
+};
+const COLORS = ['#1565C0','#42A5F5','#0D47A1','#64B5F6','#1E88E5','#90CAF9'];
+
+/* ── Dummy Data ── */
+const PAPERS = [
+  {id:1,title:'딥러닝 기반 자연어 처리 모델의 한국어 적용 연구',author:'김민수, 이준호',journal:'한국정보과학회 논문지',year:2024,field:'컴퓨터과학',subfield:'인공지능',doi:'10.1234/jkisc.2024.001',keywords:['딥러닝','NLP','한국어'],status:'등록완료',citations:15,pages:'23-45'},
+  {id:2,title:'국가 R&D 투자 효율성 분석을 위한 계량경제학적 접근',author:'박서진, 정하윤',journal:'과학기술정책연구',year:2024,field:'과학기술정책',subfield:'R&D 평가',doi:'10.1234/stpr.2024.012',keywords:['R&D','효율성','DEA'],status:'등록완료',citations:8,pages:'1-22'},
+  {id:3,title:'반도체 공정 최적화를 위한 머신러닝 활용 방안',author:'최우진, 강민재',journal:'전자공학회논문지',year:2023,field:'전자공학',subfield:'반도체',doi:'10.1234/ieie.2023.045',keywords:['반도체','머신러닝','공정최적화'],status:'등록완료',citations:22,pages:'112-130'},
+  {id:4,title:'바이오헬스 분야 정부 R&D 사업의 성과 추적 프레임워크',author:'김서연, 이지은',journal:'보건산업정책연구',year:2024,field:'바이오헬스',subfield:'정책분석',doi:'10.1234/khip.2024.007',keywords:['바이오헬스','R&D','성과추적'],status:'검수중',citations:3,pages:'67-89'},
+  {id:5,title:'에너지 전환 기술의 특허 동향 분석',author:'정수민, 박하나',journal:'에너지공학',year:2023,field:'에너지',subfield:'신재생에너지',doi:'10.1234/energy.2023.033',keywords:['에너지전환','특허분석','탄소중립'],status:'등록완료',citations:11,pages:'45-62'},
+  {id:6,title:'우주 발사체 추진 시스템의 구조 안정성 시뮬레이션',author:'최예린, 강유진',journal:'한국항공우주학회지',year:2024,field:'항공우주',subfield:'추진시스템',doi:'10.1234/ksas.2024.019',keywords:['발사체','추진시스템','구조해석'],status:'등록완료',citations:5,pages:'201-218'},
+  {id:7,title:'농업 분야 ICT 융합 기술 로드맵 연구',author:'김민수, 박서진',journal:'한국농업정보과학회지',year:2023,field:'농업과학',subfield:'스마트농업',doi:'10.1234/kais.2023.055',keywords:['스마트농업','ICT','기술로드맵'],status:'등록완료',citations:7,pages:'88-105'},
+  {id:8,title:'양자컴퓨팅 알고리즘의 최적화 기법 비교 연구',author:'이준호, 정하윤',journal:'한국전산과학회논문지',year:2024,field:'컴퓨터과학',subfield:'양자컴퓨팅',doi:'10.1234/jkcs.2024.028',keywords:['양자컴퓨팅','최적화','알고리즘'],status:'검수중',citations:2,pages:'155-170'},
+  {id:9,title:'해양 환경 모니터링을 위한 IoT 센서 네트워크 설계',author:'강민재, 최우진',journal:'해양공학회지',year:2023,field:'해양과학',subfield:'해양모니터링',doi:'10.1234/joce.2023.041',keywords:['IoT','센서네트워크','해양환경'],status:'등록완료',citations:9,pages:'34-51'},
+  {id:10,title:'재료과학 분야 나노복합소재의 기계적 특성 분석',author:'박하나, 김서연',journal:'한국재료학회지',year:2024,field:'재료과학',subfield:'나노소재',doi:'10.1234/jkms.2024.015',keywords:['나노소재','복합재료','기계적특성'],status:'등록완료',citations:6,pages:'78-94'},
+];
+
+const FIELDS_TREE = [
+  {id:'cs',label:'컴퓨터과학',children:[{id:'cs-ai',label:'인공지능',count:45},{id:'cs-qc',label:'양자컴퓨팅',count:12},{id:'cs-se',label:'소프트웨어공학',count:28}]},
+  {id:'ee',label:'전자공학',children:[{id:'ee-semi',label:'반도체',count:38},{id:'ee-comm',label:'통신공학',count:22}]},
+  {id:'bio',label:'바이오헬스',children:[{id:'bio-pharma',label:'의약학',count:33},{id:'bio-policy',label:'정책분석',count:15}]},
+  {id:'energy',label:'에너지',children:[{id:'en-renew',label:'신재생에너지',count:27},{id:'en-nuclear',label:'원자력',count:14}]},
+  {id:'space',label:'항공우주',children:[{id:'sp-prop',label:'추진시스템',count:18},{id:'sp-sat',label:'위성시스템',count:11}]},
+  {id:'agri',label:'농업과학',children:[{id:'ag-smart',label:'스마트농업',count:20},{id:'ag-bio',label:'농업생명',count:16}]},
+  {id:'ocean',label:'해양과학',children:[{id:'oc-mon',label:'해양모니터링',count:13},{id:'oc-res',label:'해양자원',count:9}]},
+  {id:'mat',label:'재료과학',children:[{id:'mt-nano',label:'나노소재',count:24},{id:'mt-metal',label:'금속공학',count:19}]},
+];
+
+const YEARLY_DATA = [
+  {year:'2019',papers:156,fields:12},{year:'2020',papers:189,fields:14},{year:'2021',papers:234,fields:16},
+  {year:'2022',papers:287,fields:18},{year:'2023',papers:342,fields:20},{year:'2024',papers:298,fields:22},
+];
+const FIELD_DIST = [
+  {name:'컴퓨터과학',value:85},{name:'전자공학',value:60},{name:'바이오헬스',value:48},
+  {name:'에너지',value:41},{name:'항공우주',value:29},{name:'기타',value:89},
+];
+
+const IMPORT_HISTORY = [
+  {id:1,filename:'2024_상반기_논문목록.xlsx',date:'2024-12-15',total:156,success:152,fail:4,status:'완료'},
+  {id:2,filename:'2024_하반기_추가등록.xlsx',date:'2025-01-20',total:89,success:89,fail:0,status:'완료'},
+  {id:3,filename:'2023_누락분_보완.xlsx',date:'2025-02-10',total:42,success:40,fail:2,status:'완료'},
+  {id:4,filename:'2025_1분기_신규등록.xlsx',date:'2025-03-01',total:67,success:64,fail:3,status:'검수중'},
+];
+
+/* ── Components ── */
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.sidebar,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Modal({title,onClose,children,width=600}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textSub}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AnimatedContent({page,children}){
+  const [key,setKey]=useState(0);
+  useEffect(()=>setKey(k=>k+1),[page]);
+  return <div key={key} style={{animation:'fadeIn 300ms ease'}}>{children}</div>;
+}
+
+/* ── Sidebar ── */
+const NAV=[
+  {id:'main',icon:'📊',label:'검색 대시보드'},
+  {id:'search',icon:'🔍',label:'다중조건 검색'},
+  {id:'hierarchy',icon:'🗂️',label:'메타정보 계층 조회'},
+  {id:'manage',icon:'⚙️',label:'데이터 관리'},
+];
+
+function Sidebar({active,onNav}){
+  return(
+    <aside style={{width:260,background:C.sidebar,display:'flex',flexDirection:'column',flexShrink:0,minHeight:'100vh'}}>
+      <div style={{padding:'20px 24px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📚</div>
+          <div><div style={{color:'#fff',fontWeight:700,fontSize:15}}>ScholarSearch</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:11}}>학술논문 통합검색</div></div>
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'12px 12px',display:'flex',flexDirection:'column',gap:2}}>
+        {NAV.map(n=>(
+          <button key={n.id} onClick={()=>onNav(n.id)} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'11px 14px',borderRadius:8,border:'none',cursor:'pointer',background:active===n.id?'rgba(21,101,192,0.25)':'transparent',color:active===n.id?'#90CAF9':'rgba(255,255,255,0.65)',fontSize:14,fontWeight:active===n.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
+            <span style={{fontSize:18}}>{n.icon}</span>{n.label}
+          </button>
+        ))}
+      </nav>
+      <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:32,height:32,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:600}}>관</div>
+        <div><div style={{color:'#fff',fontSize:13,fontWeight:500}}>관리자</div><div style={{color:'rgba(255,255,255,0.4)',fontSize:11}}>admin@scholar.kr</div></div>
+      </div>
+    </aside>
+  );
+}
+
+function TopBar({title}){
+  return(
+    <header style={{height:56,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 28px',gap:16,flexShrink:0}}>
+      <h1 style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{title}</h1>
+      <div style={{flex:1}}/>
+      <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,borderRadius:8,padding:'8px 14px',width:280}}>
+        <span style={{color:C.textLight}}>🔍</span>
+        <input placeholder="논문 검색..." style={{border:'none',background:'transparent',outline:'none',fontSize:13,fontFamily:'inherit',width:'100%',color:C.text}}/>
+      </div>
+      <div style={{position:'relative',cursor:'pointer',fontSize:18}}>🔔<div style={{position:'absolute',top:-2,right:-4,width:8,height:8,borderRadius:'50%',background:C.danger}}/></div>
+    </header>
+  );
+}
+
+/* ── Dashboard Page ── */
+function DashboardPage(){
+  const kpis=[
+    {label:'전체 논문 수',value:1506,icon:'📄',color:C.primary},
+    {label:'등록 분야',value:22,icon:'🏷️',color:C.success},
+    {label:'금월 신규 등록',value:67,icon:'📥',color:C.warning},
+    {label:'검수 대기',value:12,icon:'⏳',color:C.danger},
+  ];
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:24}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20}}>
+        {kpis.map((k,i)=>(
+          <div key={k.label} style={{...C.card,background:C.surface,animation:`slideUp 400ms ease ${i*80}ms both`,display:'flex',flexDirection:'column',gap:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:13,color:C.textSub,fontWeight:500}}>{k.label}</span>
+              <div style={{width:36,height:36,borderRadius:10,background:`${k.color}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{k.icon}</div>
+            </div>
+            <div style={{fontSize:28,fontWeight:800,color:C.text,letterSpacing:'-0.02em'}}><CountUp end={k.value}/></div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20}}>
+        <div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>연도별 논문 등록 추이</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={YEARLY_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6"/>
+              <XAxis dataKey="year" tick={{fontSize:12,fill:C.textSub}}/>
+              <YAxis tick={{fontSize:12,fill:C.textSub}}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Area type="monotone" dataKey="papers" stroke={C.primary} fill={C.primaryLight} strokeWidth={2} name="논문 수"/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>분야별 논문 분포</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={FIELD_DIST} cx="50%" cy="50%" outerRadius={90} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} style={{fontSize:11}}>
+                {FIELD_DIST.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+              </Pie>
+              <Tooltip/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{...C.card,background:C.surface}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:600}}>최근 등록 논문</h3>
+          <span style={{fontSize:13,color:C.primary,cursor:'pointer',fontWeight:500}}>전체 보기 →</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['제목','저자','학회지','연도','분야','상태'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:12,color:C.textSub,fontWeight:600,textAlign:'left'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{PAPERS.slice(0,5).map(p=>(
+            <tr key={p.id} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}} onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseLeave={e=>e.currentTarget.style.background='transparent'} onClick={()=>{}}>
+              <td style={{padding:'12px',fontSize:13,fontWeight:500,maxWidth:280,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</td>
+              <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.author}</td>
+              <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.journal}</td>
+              <td style={{padding:'12px',fontSize:13}}>{p.year}</td>
+              <td style={{padding:'12px'}}><span style={{padding:'3px 10px',borderRadius:12,background:`${C.primary}12`,color:C.primary,fontSize:11,fontWeight:600}}>{p.field}</span></td>
+              <td style={{padding:'12px'}}><span style={{padding:'3px 10px',borderRadius:12,background:p.status==='등록완료'?'#ECFDF5':'#FEF3C7',color:p.status==='등록완료'?C.success:C.warning,fontSize:11,fontWeight:600}}>{p.status}</span></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── Search Page ── */
+function SearchPage({setToast}){
+  const [filters,setFilters]=useState({keyword:'',author:'',journal:'',year:'',field:''});
+  const [results,setResults]=useState(PAPERS);
+  const [modal,setModal]=useState(null);
+
+  const doSearch=()=>{
+    let r=PAPERS;
+    if(filters.keyword)r=r.filter(p=>p.title.includes(filters.keyword)||p.keywords.some(k=>k.includes(filters.keyword)));
+    if(filters.author)r=r.filter(p=>p.author.includes(filters.author));
+    if(filters.year)r=r.filter(p=>String(p.year)===filters.year);
+    if(filters.field)r=r.filter(p=>p.field===filters.field);
+    setResults(r);
+  };
+
+  const fields=['','컴퓨터과학','전자공학','바이오헬스','에너지','항공우주','농업과학','해양과학','재료과학'];
+  const inputStyle={padding:'8px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',outline:'none',width:'100%'};
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{...C.card,background:C.surface}}>
+        <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>검색 조건</h3>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>키워드</label><input style={inputStyle} placeholder="논문 제목 또는 키워드" value={filters.keyword} onChange={e=>setFilters({...filters,keyword:e.target.value})}/></div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>저자</label><input style={inputStyle} placeholder="저자명" value={filters.author} onChange={e=>setFilters({...filters,author:e.target.value})}/></div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>학회지</label><input style={inputStyle} placeholder="학회지명" value={filters.journal} onChange={e=>setFilters({...filters,journal:e.target.value})}/></div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>연도</label><select style={inputStyle} value={filters.year} onChange={e=>setFilters({...filters,year:e.target.value})}><option value="">전체</option><option>2024</option><option>2023</option><option>2022</option></select></div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>학문 분야</label><select style={inputStyle} value={filters.field} onChange={e=>setFilters({...filters,field:e.target.value})}>{fields.map(f=><option key={f} value={f}>{f||'전체'}</option>)}</select></div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:8}}>
+            <button onClick={doSearch} style={{flex:1,padding:'9px 16px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>검색</button>
+            <button onClick={()=>{setFilters({keyword:'',author:'',journal:'',year:'',field:''});setResults(PAPERS)}} style={{padding:'9px 16px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,color:C.textSub,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>초기화</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{...C.card,background:C.surface}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:600}}>검색 결과 <span style={{color:C.primary,fontWeight:700}}>{results.length}</span>건</h3>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setToast('Excel 파일 다운로드를 시작합니다.')} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>📥 Excel</button>
+            <button onClick={()=>setToast('PDF 파일 다운로드를 시작합니다.')} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>📄 PDF</button>
+          </div>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['','제목','저자','학회지','연도','분야','인용','상태'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:12,color:C.textSub,fontWeight:600,textAlign:'left'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{results.map((p,i)=>(
+            <tr key={p.id} onClick={()=>setModal(p)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 300ms ease ${i*50}ms both`}} onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <td style={{padding:'12px',width:40}}><input type="checkbox" style={{accentColor:C.primary}} onClick={e=>e.stopPropagation()}/></td>
+              <td style={{padding:'12px',fontSize:13,fontWeight:500,maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{filters.keyword?<span dangerouslySetInnerHTML={{__html:p.title.replace(new RegExp(`(${filters.keyword})`,'gi'),'<mark style="background:#FEF9C3;padding:0 2px;border-radius:2px">$1</mark>')}}/>:p.title}</td>
+              <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.author}</td>
+              <td style={{padding:'12px',fontSize:12,color:C.textSub,maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.journal}</td>
+              <td style={{padding:'12px',fontSize:13}}>{p.year}</td>
+              <td style={{padding:'12px'}}><span style={{padding:'3px 10px',borderRadius:12,background:`${C.primary}12`,color:C.primary,fontSize:11,fontWeight:600}}>{p.field}</span></td>
+              <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.citations}</td>
+              <td style={{padding:'12px'}}><span style={{padding:'3px 10px',borderRadius:12,background:p.status==='등록완료'?'#ECFDF5':'#FEF3C7',color:p.status==='등록완료'?C.success:C.warning,fontSize:11,fontWeight:600}}>{p.status}</span></td>
+            </tr>
+          ))}</tbody>
+        </table>
+        <div style={{display:'flex',justifyContent:'center',gap:4,marginTop:16}}>
+          {[1,2,3].map(n=><button key={n} style={{width:32,height:32,borderRadius:6,border:n===1?'none':`1px solid ${C.border}`,background:n===1?C.primary:C.surface,color:n===1?'#fff':C.textSub,fontSize:13,fontWeight:600,cursor:'pointer'}}>{n}</button>)}
+        </div>
+      </div>
+
+      {modal&&<Modal title="논문 상세 정보" onClose={()=>setModal(null)} width={640}>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div><span style={{fontSize:12,color:C.textSub,fontWeight:500}}>논문 제목</span><p style={{fontSize:16,fontWeight:600,marginTop:4}}>{modal.title}</p></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+            <div><span style={{fontSize:12,color:C.textSub}}>저자</span><p style={{fontSize:14,marginTop:4}}>{modal.author}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>학회지</span><p style={{fontSize:14,marginTop:4}}>{modal.journal}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>발행연도</span><p style={{fontSize:14,marginTop:4}}>{modal.year}년</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>페이지</span><p style={{fontSize:14,marginTop:4}}>pp. {modal.pages}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>학문 분야</span><p style={{fontSize:14,marginTop:4}}>{modal.field} &gt; {modal.subfield}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>인용 수</span><p style={{fontSize:14,marginTop:4}}>{modal.citations}회</p></div>
+          </div>
+          <div><span style={{fontSize:12,color:C.textSub}}>DOI</span><p style={{fontSize:14,marginTop:4,color:C.primary,cursor:'pointer'}}>{modal.doi}</p></div>
+          <div><span style={{fontSize:12,color:C.textSub}}>키워드</span><div style={{display:'flex',gap:6,marginTop:6}}>{modal.keywords.map(k=><span key={k} style={{padding:'4px 12px',borderRadius:16,background:C.bg,fontSize:12,color:C.primary,fontWeight:500}}>{k}</span>)}</div></div>
+          <div style={{display:'flex',gap:8,marginTop:8}}>
+            <button onClick={()=>{setToast('원문 링크로 이동합니다.');setModal(null)}} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>🔗 원문 보기</button>
+            <button onClick={()=>setModal(null)} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,color:C.textSub,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>닫기</button>
+          </div>
+        </div>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ── Hierarchy Page ── */
+function HierarchyPage(){
+  const [expanded,setExpanded]=useState({});
+  const [selectedField,setSelectedField]=useState(null);
+  const [selectedPaper,setSelectedPaper]=useState(null);
+
+  const toggleExpand=id=>setExpanded(prev=>({...prev,[id]:!prev[id]}));
+  const filteredPapers=selectedField?PAPERS.filter(p=>p.field===selectedField||p.subfield===selectedField):PAPERS;
+
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'320px 1fr',gap:20,height:'calc(100vh - 112px)'}}>
+      <div style={{...C.card,background:C.surface,overflowY:'auto'}}>
+        <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>학문 분류 체계</h3>
+        <div style={{display:'flex',flexDirection:'column',gap:2}}>
+          {FIELDS_TREE.map(f=>(
+            <div key={f.id}>
+              <button onClick={()=>{toggleExpand(f.id);setSelectedField(f.label)}} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',borderRadius:8,border:'none',background:selectedField===f.label?`${C.primary}10`:C.bg,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:selectedField===f.label?600:400,color:selectedField===f.label?C.primary:C.text,transition:'all 150ms'}}>
+                <span>{expanded[f.id]?'▾':'▸'} {f.label}</span>
+                <span style={{fontSize:12,color:C.textLight,background:C.bg,padding:'2px 8px',borderRadius:10}}>{f.children.reduce((a,c)=>a+c.count,0)}</span>
+              </button>
+              {expanded[f.id]&&<div style={{paddingLeft:20,animation:'slideDown 200ms ease'}}>
+                {f.children.map(c=>(
+                  <button key={c.id} onClick={()=>setSelectedField(c.label)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderRadius:6,border:'none',background:selectedField===c.label?`${C.primary}10`:'transparent',cursor:'pointer',fontFamily:'inherit',fontSize:13,color:selectedField===c.label?C.primary:C.textSub,fontWeight:selectedField===c.label?600:400,transition:'all 150ms'}}>
+                    <span>{c.label}</span><span style={{fontSize:11,color:C.textLight}}>{c.count}</span>
+                  </button>
+                ))}
+              </div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:16,overflow:'hidden'}}>
+        <div style={{...C.card,background:C.surface,flex:1,overflowY:'auto'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{fontSize:16,fontWeight:600}}>{selectedField||'전체'} 논문 목록 <span style={{color:C.primary}}>{filteredPapers.length}건</span></h3>
+          </div>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['제목','저자','연도','분야','인용'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:12,color:C.textSub,fontWeight:600,textAlign:'left'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{filteredPapers.map(p=>(
+              <tr key={p.id} onClick={()=>setSelectedPaper(p)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',background:selectedPaper?.id===p.id?`${C.primary}08`:'transparent'}} onMouseEnter={e=>{if(selectedPaper?.id!==p.id)e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{if(selectedPaper?.id!==p.id)e.currentTarget.style.background='transparent'}}>
+                <td style={{padding:'12px',fontSize:13,fontWeight:500,maxWidth:260,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.author}</td>
+                <td style={{padding:'12px',fontSize:13}}>{p.year}</td>
+                <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:10,background:`${C.primary}12`,color:C.primary,fontSize:11,fontWeight:600}}>{p.subfield}</span></td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.citations}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+
+      {selectedPaper&&<Modal title="논문 상세" onClose={()=>setSelectedPaper(null)}>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <p style={{fontSize:16,fontWeight:600}}>{selectedPaper.title}</p>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><span style={{fontSize:12,color:C.textSub}}>저자</span><p style={{fontSize:14,marginTop:4}}>{selectedPaper.author}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>학회지</span><p style={{fontSize:14,marginTop:4}}>{selectedPaper.journal}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>분야</span><p style={{fontSize:14,marginTop:4}}>{selectedPaper.field} &gt; {selectedPaper.subfield}</p></div>
+            <div><span style={{fontSize:12,color:C.textSub}}>DOI</span><p style={{fontSize:14,marginTop:4,color:C.primary}}>{selectedPaper.doi}</p></div>
+          </div>
+          <div><span style={{fontSize:12,color:C.textSub}}>키워드</span><div style={{display:'flex',gap:6,marginTop:6}}>{selectedPaper.keywords.map(k=><span key={k} style={{padding:'4px 12px',borderRadius:16,background:C.bg,fontSize:12,color:C.primary,fontWeight:500}}>{k}</span>)}</div></div>
+        </div>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ── Manage Page ── */
+function ManagePage({setToast}){
+  const [tab,setTab]=useState('upload');
+  const [createModal,setCreateModal]=useState(false);
+  const [editModal,setEditModal]=useState(null);
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{display:'flex',gap:8}}>
+        {[{id:'upload',label:'엑셀 업로드'},{id:'crud',label:'개별 관리'},{id:'history',label:'임포트 이력'}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'8px 18px',borderRadius:8,border:tab===t.id?'none':`1px solid ${C.border}`,background:tab===t.id?C.primary:C.surface,color:tab===t.id?'#fff':C.textSub,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms'}}>{t.label}</button>
+        ))}
+      </div>
+
+      <AnimatedContent page={tab}>
+        {tab==='upload'&&<div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:20}}>엑셀 파일 업로드</h3>
+          <div style={{border:`2px dashed ${C.border}`,borderRadius:12,padding:48,textAlign:'center',background:C.bg}}>
+            <div style={{fontSize:48,marginBottom:16}}>📂</div>
+            <p style={{fontSize:15,fontWeight:600,color:C.text}}>엑셀 파일을 드래그하거나 클릭하여 업로드</p>
+            <p style={{fontSize:13,color:C.textSub,marginTop:8}}>지원 형식: .xlsx, .xls (최대 50MB)</p>
+            <button onClick={()=>setToast('파일 업로드가 시작되었습니다.')} style={{marginTop:20,padding:'10px 28px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>파일 선택</button>
+          </div>
+          <div style={{marginTop:20,padding:16,background:C.bg,borderRadius:8}}>
+            <h4 style={{fontSize:14,fontWeight:600,marginBottom:8}}>컬럼 매핑 규칙</h4>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,fontSize:13,color:C.textSub}}>
+              <div>A열 → 논문 제목</div><div>B열 → 저자</div><div>C열 → 학회지</div>
+              <div>D열 → 발행연도</div><div>E열 → 분야</div><div>F열 → DOI</div>
+            </div>
+          </div>
+        </div>}
+
+        {tab==='crud'&&<div style={{...C.card,background:C.surface}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{fontSize:16,fontWeight:600}}>논문 개별 관리</h3>
+            <button onClick={()=>setCreateModal(true)} style={{padding:'8px 16px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 논문 등록</button>
+          </div>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['제목','저자','연도','분야','상태','관리'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:12,color:C.textSub,fontWeight:600,textAlign:'left'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{PAPERS.map(p=>(
+              <tr key={p.id} style={{borderBottom:`1px solid ${C.border}`,transition:'background 150ms'}} onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'12px',fontSize:13,fontWeight:500,maxWidth:240,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{p.author}</td>
+                <td style={{padding:'12px',fontSize:13}}>{p.year}</td>
+                <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:10,background:`${C.primary}12`,color:C.primary,fontSize:11,fontWeight:600}}>{p.field}</span></td>
+                <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:10,background:p.status==='등록완료'?'#ECFDF5':'#FEF3C7',color:p.status==='등록완료'?C.success:C.warning,fontSize:11,fontWeight:600}}>{p.status}</span></td>
+                <td style={{padding:'12px'}}>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setEditModal(p)} style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>수정</button>
+                    <button onClick={()=>setToast(`'${p.title.slice(0,20)}...' 삭제되었습니다.`)} style={{padding:'4px 10px',borderRadius:6,border:`1px solid #FCA5A5`,background:'#FEF2F2',fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.danger}}>삭제</button>
+                  </div>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>}
+
+        {tab==='history'&&<div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>임포트 이력</h3>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['파일명','날짜','전체','성공','실패','상태'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:12,color:C.textSub,fontWeight:600,textAlign:'left'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{IMPORT_HISTORY.map(h=>(
+              <tr key={h.id} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}} onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`} onMouseLeave={e=>e.currentTarget.style.background='transparent'} onClick={()=>setToast(`${h.filename} 상세 정보를 확인합니다.`)}>
+                <td style={{padding:'12px',fontSize:13,fontWeight:500}}>📄 {h.filename}</td>
+                <td style={{padding:'12px',fontSize:13,color:C.textSub}}>{h.date}</td>
+                <td style={{padding:'12px',fontSize:13}}>{h.total}건</td>
+                <td style={{padding:'12px',fontSize:13,color:C.success}}>{h.success}건</td>
+                <td style={{padding:'12px',fontSize:13,color:h.fail>0?C.danger:C.textSub}}>{h.fail}건</td>
+                <td style={{padding:'12px'}}><span style={{padding:'3px 10px',borderRadius:12,background:h.status==='완료'?'#ECFDF5':'#FEF3C7',color:h.status==='완료'?C.success:C.warning,fontSize:11,fontWeight:600}}>{h.status}</span></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>}
+      </AnimatedContent>
+
+      {createModal&&<Modal title="논문 등록" onClose={()=>setCreateModal(false)} width={640}>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {[{l:'논문 제목',ph:'논문 제목을 입력하세요'},{l:'저자',ph:'저자명 (쉼표로 구분)'},{l:'학회지',ph:'학회지명'},{l:'DOI',ph:'10.xxxx/xxxx'}].map(f=>(
+            <div key={f.l}><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>{f.l}</label><input placeholder={f.ph} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+          ))}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>연도</label><select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}><option>2024</option><option>2023</option><option>2022</option></select></div>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>분야</label><select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}><option>컴퓨터과학</option><option>전자공학</option><option>바이오헬스</option></select></div>
+          </div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>키워드</label><input placeholder="키워드 (쉼표로 구분)" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+          <button onClick={()=>{setCreateModal(false);setToast('논문이 등록되었습니다.')}} style={{marginTop:8,padding:'12px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>등록</button>
+        </div>
+      </Modal>}
+
+      {editModal&&<Modal title="논문 수정" onClose={()=>setEditModal(null)} width={640}>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>논문 제목</label><input defaultValue={editModal.title} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+          <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>저자</label><input defaultValue={editModal.author} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>학회지</label><input defaultValue={editModal.journal} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>DOI</label><input defaultValue={editModal.doi} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div>
+          </div>
+          <button onClick={()=>{setEditModal(null);setToast('논문 정보가 수정되었습니다.')}} style={{marginTop:8,padding:'12px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>저장</button>
+        </div>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ── App ── */
+function App(){
+  const [page,setPage]=useState('main');
+  const [loading,setLoading]=useState(true);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  if(loading) return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:260,background:C.sidebar}}/>
+      <div style={{flex:1,padding:24,display:'flex',flexDirection:'column',gap:16}}>
+        <div className="skeleton" style={{height:56,width:'100%'}}/>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20}}>
+          {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:100}}/>)}
+        </div>
+        <div className="skeleton" style={{height:300}}/>
+      </div>
+    </div>
+  );
+
+  const titles={main:'검색 대시보드',search:'다중조건 검색',hierarchy:'메타정보 계층 조회',manage:'데이터 관리'};
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <Sidebar active={page} onNav={setPage}/>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <TopBar title={titles[page]}/>
+        <main style={{flex:1,overflow:'auto',padding:24}}>
+          <AnimatedContent page={page}>
+            {page==='main'&&<DashboardPage/>}
+            {page==='search'&&<SearchPage setToast={setToast}/>}
+            {page==='hierarchy'&&<HierarchyPage/>}
+            {page==='manage'&&<ManagePage setToast={setToast}/>}
+          </AnimatedContent>
+        </main>
+      </div>
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

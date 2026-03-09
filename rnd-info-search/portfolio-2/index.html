@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>의약품 허가정보 검색·조회 플랫폼</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow:hidden}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.skeleton{background:linear-gradient(90deg,#EDE9FE 25%,#DDD6FE 50%,#EDE9FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#A78BFA}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+const {BarChart,Bar,LineChart,Line,ComposedChart,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,PieChart,Pie,Cell,Area}=Recharts;
+
+const C={
+  primary:'#6D28D9',primaryDark:'#4C1D95',primaryLight:'#EDE9FE',
+  secondary:'#4C1D95',accent:'#F59E0B',
+  bg:'#FAF5FF',surface:'#FFFFFF',
+  border:'#E9D5FF',text:'#1E1B4B',textSub:'#6B7280',textLight:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',info:'#6D28D9',
+  card:{borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',padding:20},
+};
+const COLORS=['#6D28D9','#8B5CF6','#A78BFA','#F59E0B','#10B981','#EC4899'];
+
+const DRUGS=[
+  {id:1,name:'타이레놀정 500mg',generic:'아세트아미노펜',company:'한국얀센',type:'일반의약품',form:'정제',atc:'N02BE01',permitDate:'2024-06-15',status:'허가',indication:'해열, 진통',renewal:'2029-06-14'},
+  {id:2,name:'리피토정 20mg',generic:'아토르바스타틴칼슘',company:'한국화이자',type:'전문의약품',form:'정제',atc:'C10AA05',permitDate:'2024-03-22',status:'허가',indication:'고콜레스테롤혈증',renewal:'2029-03-21'},
+  {id:3,name:'넥시움정 40mg',generic:'에스오메프라졸',company:'한국아스트라제네카',type:'전문의약품',form:'장용정',atc:'A02BC05',permitDate:'2023-11-10',status:'허가',indication:'위식도역류질환',renewal:'2028-11-09'},
+  {id:4,name:'글리아티린연질캡슐',generic:'콜린알포세레이트',company:'대웅제약',type:'전문의약품',form:'연질캡슐',atc:'N07AX02',permitDate:'2024-01-08',status:'허가',indication:'뇌기능장애',renewal:'2029-01-07'},
+  {id:5,name:'크레스토정 10mg',generic:'로수바스타틴칼슘',company:'한국아스트라제네카',type:'전문의약품',form:'정제',atc:'C10AA07',permitDate:'2023-08-20',status:'허가',indication:'고지혈증',renewal:'2028-08-19'},
+  {id:6,name:'가스모틴정 5mg',generic:'모사프리드구연산염',company:'대웅제약',type:'전문의약품',form:'정제',atc:'A03FA09',permitDate:'2024-09-12',status:'변경허가',indication:'기능성 소화불량',renewal:'2029-09-11'},
+  {id:7,name:'트라젠타정 5mg',generic:'리나글립틴',company:'한국베링거인겔하임',type:'전문의약품',form:'정제',atc:'A10BH05',permitDate:'2024-05-30',status:'허가',indication:'제2형 당뇨병',renewal:'2029-05-29'},
+  {id:8,name:'자누비아정 100mg',generic:'시타글립틴인산염',company:'한국MSD',type:'전문의약품',form:'정제',atc:'A10BH01',permitDate:'2023-07-15',status:'안전성서한',indication:'제2형 당뇨병',renewal:'2028-07-14'},
+  {id:9,name:'듀오디파정',generic:'레보도파/벤세라지드',company:'한국로슈',type:'전문의약품',form:'정제',atc:'N04BA02',permitDate:'2024-02-28',status:'허가',indication:'파킨슨병',renewal:'2029-02-27'},
+  {id:10,name:'프레가발린캡슐 75mg',generic:'프레가발린',company:'한국화이자',type:'전문의약품',form:'캡슐',atc:'N03AX16',permitDate:'2024-04-18',status:'허가',indication:'신경병성 통증',renewal:'2029-04-17'},
+];
+
+const ATC_TREE=[
+  {id:'A',label:'소화기관 및 대사',children:[{id:'A02',label:'제산제/항궤양제',count:34},{id:'A03',label:'위장운동조절제',count:18},{id:'A10',label:'당뇨병치료제',count:42}]},
+  {id:'C',label:'심혈관계',children:[{id:'C07',label:'베타차단제',count:21},{id:'C09',label:'레닌-안지오텐신계',count:28},{id:'C10',label:'지질조절제',count:35}]},
+  {id:'N',label:'신경계',children:[{id:'N02',label:'진통제',count:45},{id:'N03',label:'항전간제',count:16},{id:'N04',label:'항파킨슨제',count:12},{id:'N07',label:'기타 신경계약물',count:9}]},
+  {id:'L',label:'항종양 및 면역조절',children:[{id:'L01',label:'항종양제',count:56},{id:'L04',label:'면역억제제',count:23}]},
+  {id:'J',label:'전신 항감염제',children:[{id:'J01',label:'항균제',count:38},{id:'J05',label:'항바이러스제',count:19}]},
+];
+
+const MONTHLY_DATA=[
+  {month:'2024.07',new:28,change:5,cancel:1},{month:'2024.08',new:32,change:7,cancel:0},
+  {month:'2024.09',new:24,change:4,cancel:2},{month:'2024.10',new:35,change:8,cancel:1},
+  {month:'2024.11',new:29,change:6,cancel:0},{month:'2024.12',new:38,change:9,cancel:1},
+  {month:'2025.01',new:22,change:3,cancel:0},{month:'2025.02',new:31,change:5,cancel:1},
+];
+const FORM_DIST=[{name:'정제',value:42},{name:'캡슐',value:18},{name:'주사',value:15},{name:'시럽',value:8},{name:'연고',value:7},{name:'기타',value:10}];
+
+const TABS=[
+  {id:'main',label:'허가정보 현황'},{id:'search',label:'통합검색'},{id:'classification',label:'ATC 분류 조회'},{id:'admin',label:'데이터 관리'},
+];
+
+const PAGE_META={
+  main:{title:'허가정보 현황',desc:'등록 의약품 현황과 허가 추이를 확인하세요',kpis:[{label:'등록 의약품',value:'2,847건'},{label:'금월 신규허가',value:'31건'},{label:'변경허가',value:'5건'}]},
+  search:{title:'통합검색',desc:'성분명·효능·제조사·ATC코드로 정밀 검색',kpis:[{label:'검색 가능 의약품',value:'2,847건'},{label:'ATC 분류',value:'148개'},{label:'제조사',value:'234곳'}]},
+  classification:{title:'ATC 분류 조회',desc:'WHO ATC 코드 체계로 의약품을 계층 탐색',kpis:[{label:'ATC 대분류',value:'14개'},{label:'소분류',value:'148개'},{label:'등록 의약품',value:'2,847건'}]},
+  admin:{title:'데이터 관리',desc:'엑셀 임포트·개별 등록·이력 관리',kpis:[{label:'최근 임포트',value:'2025.02.15'},{label:'대기 건수',value:'8건'},{label:'오류율',value:'1.2%'}]},
+};
+
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primaryDark,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 20px rgba(109,40,217,0.3)',fontSize:14}}>{message}</div>;
+}
+
+function Drawer({item,onClose}){
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'fixed',top:0,right:0,bottom:0,width:480,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',zIndex:201,overflowY:'auto',padding:28,animation:'slideInRight 200ms ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>의약품 상세 정보</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textSub}}>✕</button>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{padding:16,background:C.primaryLight,borderRadius:12}}>
+            <div style={{fontSize:12,color:C.primary,fontWeight:600,marginBottom:4}}>의약품명</div>
+            <div style={{fontSize:18,fontWeight:700,color:C.primaryDark}}>{item.name}</div>
+          </div>
+          {[{l:'일반명(성분명)',v:item.generic},{l:'제조사',v:item.company},{l:'의약품 분류',v:item.type},{l:'제형',v:item.form},{l:'ATC 코드',v:item.atc},{l:'허가일',v:item.permitDate},{l:'갱신 만료일',v:item.renewal},{l:'적응증',v:item.indication}].map(r=>(
+            <div key={r.l} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+              <span style={{fontSize:13,color:C.textSub}}>{r.l}</span>
+              <span style={{fontSize:13,fontWeight:500}}>{r.v}</span>
+            </div>
+          ))}
+          <div style={{padding:12,background:'#FFFBEB',borderRadius:8,marginTop:8}}>
+            <div style={{fontSize:12,fontWeight:600,color:C.warning,marginBottom:4}}>허가 상태</div>
+            <span style={{padding:'4px 12px',borderRadius:16,background:item.status==='허가'?'#ECFDF5':item.status==='안전성서한'?'#FEF2F2':'#FEF3C7',color:item.status==='허가'?C.success:item.status==='안전성서한'?C.danger:C.warning,fontSize:13,fontWeight:600}}>{item.status}</span>
+          </div>
+          <div style={{marginTop:8}}>
+            <label style={{fontSize:12,color:C.textSub,fontWeight:500}}>관리자 메모</label>
+            <textarea placeholder="메모를 입력하세요..." style={{width:'100%',marginTop:6,padding:12,borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical',minHeight:80,outline:'none'}}/>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>🔗 식약처 원문</button>
+            <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.textSub,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>닫기</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Modal({title,onClose,children,width=560}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textSub}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Dashboard ── */
+function MainContent({setDrawer}){
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20}}>
+        <div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16,fontSize:13,color:C.textSub}}>월별 허가 현황</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart data={MONTHLY_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF"/>
+              <XAxis dataKey="month" tick={{fontSize:11,fill:C.textSub}}/>
+              <YAxis tick={{fontSize:11,fill:C.textSub}}/>
+              <Tooltip contentStyle={{borderRadius:12,border:'none',boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}/>
+              <Legend wrapperStyle={{fontSize:12}}/>
+              <Bar dataKey="new" fill={C.primary} name="신규허가" radius={[4,4,0,0]}/>
+              <Bar dataKey="change" fill={C.accent} name="변경허가" radius={[4,4,0,0]}/>
+              <Line type="monotone" dataKey="cancel" stroke={C.danger} name="취소" strokeWidth={2} dot={{r:3}}/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16,color:C.textSub}}>제형별 분포</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={FORM_DIST} cx="50%" cy="50%" outerRadius={85} innerRadius={50} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} style={{fontSize:11}}>
+                {FORM_DIST.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+              </Pie>
+              <Tooltip/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{...C.card,background:C.surface}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textSub}}>최근 허가 의약품</h3>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+          {DRUGS.slice(0,6).map((d,i)=>(
+            <div key={d.id} onClick={()=>setDrawer(d)} style={{...C.card,background:C.bg,cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(109,40,217,0.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=C.card.boxShadow}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+                <span style={{padding:'3px 10px',borderRadius:16,background:C.primaryLight,color:C.primary,fontSize:11,fontWeight:600}}>{d.form}</span>
+                <span style={{padding:'3px 10px',borderRadius:16,background:d.status==='허가'?'#ECFDF5':d.status==='안전성서한'?'#FEF2F2':'#FEF3C7',color:d.status==='허가'?C.success:d.status==='안전성서한'?C.danger:C.warning,fontSize:11,fontWeight:600}}>{d.status}</span>
+              </div>
+              <h4 style={{fontSize:14,fontWeight:600,marginBottom:4}}>{d.name}</h4>
+              <p style={{fontSize:12,color:C.textSub}}>{d.generic}</p>
+              <div style={{marginTop:10,display:'flex',justifyContent:'space-between',fontSize:11,color:C.textLight}}>
+                <span>{d.company}</span><span>{d.permitDate}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Search ── */
+function SearchContent({setDrawer,setToast}){
+  const [filters,setFilters]=useState({keyword:'',company:'',atc:'',type:'',dateFrom:'',dateTo:''});
+  const [results,setResults]=useState(DRUGS);
+
+  const doSearch=()=>{
+    let r=DRUGS;
+    if(filters.keyword)r=r.filter(d=>d.name.includes(filters.keyword)||d.generic.includes(filters.keyword)||d.indication.includes(filters.keyword));
+    if(filters.company)r=r.filter(d=>d.company.includes(filters.company));
+    if(filters.type&&filters.type!=='전체')r=r.filter(d=>d.type===filters.type);
+    setResults(r);
+  };
+
+  const inputStyle={padding:'9px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',outline:'none',width:'100%'};
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{...C.card,background:C.surface}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          <div><label style={{fontSize:11,color:C.textSub,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'block'}}>키워드</label><input style={inputStyle} placeholder="의약품명, 성분명, 적응증" value={filters.keyword} onChange={e=>setFilters({...filters,keyword:e.target.value})}/></div>
+          <div><label style={{fontSize:11,color:C.textSub,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'block'}}>제조사</label><input style={inputStyle} placeholder="제조사명" value={filters.company} onChange={e=>setFilters({...filters,company:e.target.value})}/></div>
+          <div><label style={{fontSize:11,color:C.textSub,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4,display:'block'}}>의약품 분류</label><select style={inputStyle} value={filters.type} onChange={e=>setFilters({...filters,type:e.target.value})}><option value="">전체</option><option>전문의약품</option><option>일반의약품</option></select></div>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:12}}>
+          <button onClick={doSearch} style={{padding:'10px 24px',borderRadius:10,border:'none',background:`linear-gradient(135deg,${C.primary},${C.accent})`,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>🔍 검색</button>
+          <button onClick={()=>{setFilters({keyword:'',company:'',atc:'',type:'',dateFrom:'',dateTo:''});setResults(DRUGS)}} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,color:C.textSub,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>초기화</button>
+          <div style={{flex:1}}/>
+          <button onClick={()=>setToast('Excel 다운로드를 시작합니다.')} style={{padding:'10px 16px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>📥 Excel</button>
+          <button onClick={()=>setToast('PDF 다운로드를 시작합니다.')} style={{padding:'10px 16px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>📄 PDF</button>
+        </div>
+      </div>
+
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:-8}}>
+        <span style={{fontSize:13,color:C.textSub}}>검색 결과</span>
+        <span style={{fontSize:16,fontWeight:700,color:C.primary}}>{results.length}</span>
+        <span style={{fontSize:13,color:C.textSub}}>건</span>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {results.map((d,i)=>(
+          <div key={d.id} onClick={()=>setDrawer(d)} style={{...C.card,background:C.surface,cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(109,40,217,0.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=C.card.boxShadow}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+              <span style={{padding:'3px 10px',borderRadius:16,background:C.primaryLight,color:C.primary,fontSize:11,fontWeight:600}}>{d.atc}</span>
+              <span style={{padding:'3px 10px',borderRadius:16,background:d.status==='허가'?'#ECFDF5':d.status==='안전성서한'?'#FEF2F2':'#FEF3C7',color:d.status==='허가'?C.success:d.status==='안전성서한'?C.danger:C.warning,fontSize:11,fontWeight:600}}>{d.status}</span>
+            </div>
+            <h4 style={{fontSize:14,fontWeight:600,marginBottom:4}}>{filters.keyword?<span dangerouslySetInnerHTML={{__html:d.name.replace(new RegExp(`(${filters.keyword})`,'gi'),'<mark style="background:#FEF9C3;padding:0 2px;border-radius:2px">$1</mark>')}}/>:d.name}</h4>
+            <p style={{fontSize:12,color:C.textSub,marginBottom:6}}>{d.generic}</p>
+            <p style={{fontSize:12,color:C.textLight}}>{d.indication}</p>
+            <div style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',fontSize:11,color:C.textLight}}>
+              <span>{d.company}</span><span>{d.permitDate}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Classification ── */
+function ClassificationContent({setDrawer}){
+  const [expanded,setExpanded]=useState({});
+  const [selectedAtc,setSelectedAtc]=useState(null);
+  const toggleExpand=id=>setExpanded(p=>({...p,[id]:!p[id]}));
+  const filteredDrugs=selectedAtc?DRUGS.filter(d=>d.atc.startsWith(selectedAtc)):DRUGS;
+
+  return(
+    <div style={{display:'grid',gridTemplateColumns:'360px 1fr',gap:20,height:'calc(100vh - 168px)'}}>
+      <div style={{...C.card,background:C.surface,overflowY:'auto'}}>
+        <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textSub,marginBottom:16}}>ATC 분류 체계</h3>
+        {ATC_TREE.map(a=>(
+          <div key={a.id} style={{marginBottom:4}}>
+            <button onClick={()=>{toggleExpand(a.id);setSelectedAtc(a.id)}} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 14px',borderRadius:12,border:'none',background:selectedAtc===a.id?C.primaryLight:'transparent',cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:selectedAtc===a.id?600:400,color:selectedAtc===a.id?C.primary:C.text,transition:'all 150ms'}}>
+              <span><span style={{fontSize:16,marginRight:8}}>{expanded[a.id]?'▾':'▸'}</span><span style={{fontWeight:700,marginRight:6}}>[{a.id}]</span>{a.label}</span>
+              <span style={{fontSize:11,background:C.bg,padding:'3px 10px',borderRadius:16,color:C.textLight}}>{a.children.reduce((s,c)=>s+c.count,0)}</span>
+            </button>
+            {expanded[a.id]&&<div style={{paddingLeft:28,animation:'slideDown 200ms ease'}}>
+              {a.children.map(c=>(
+                <button key={c.id} onClick={()=>setSelectedAtc(c.id)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 14px',borderRadius:8,border:'none',background:selectedAtc===c.id?C.primaryLight:'transparent',cursor:'pointer',fontFamily:'inherit',fontSize:13,color:selectedAtc===c.id?C.primary:C.textSub,fontWeight:selectedAtc===c.id?600:400,transition:'all 150ms'}}>
+                  <span>[{c.id}] {c.label}</span><span style={{fontSize:11,color:C.textLight}}>{c.count}</span>
+                </button>
+              ))}
+            </div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{...C.card,background:C.surface,overflowY:'auto'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',color:C.textSub}}>의약품 목록 — {selectedAtc||'전체'} <span style={{color:C.primary}}>{filteredDrugs.length}건</span></h3>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {filteredDrugs.map((d,i)=>(
+            <div key={d.id} onClick={()=>setDrawer(d)} style={{padding:16,borderRadius:12,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all 200ms',animation:`slideUp 300ms ease ${i*60}ms both`}} onMouseEnter={e=>{e.currentTarget.style.background=C.primaryLight;e.currentTarget.style.borderColor=C.primary}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderColor=C.border}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <h4 style={{fontSize:14,fontWeight:600}}>{d.name}</h4>
+                  <p style={{fontSize:12,color:C.textSub,marginTop:2}}>{d.generic} · {d.company}</p>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <span style={{padding:'3px 10px',borderRadius:16,background:C.primaryLight,color:C.primary,fontSize:11,fontWeight:600}}>{d.atc}</span>
+                  <span style={{padding:'3px 10px',borderRadius:16,background:d.status==='허가'?'#ECFDF5':'#FEF3C7',color:d.status==='허가'?C.success:C.warning,fontSize:11,fontWeight:600}}>{d.status}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Admin ── */
+function AdminContent({setToast}){
+  const [tab,setTab]=useState('import');
+  const [createModal,setCreateModal]=useState(false);
+
+  const IMPORT_HIST=[
+    {id:1,file:'2024_하반기_허가목록.xlsx',date:'2025-02-15',total:234,success:230,fail:4,status:'완료'},
+    {id:2,file:'2025_1분기_변경허가.xlsx',date:'2025-03-01',total:45,success:43,fail:2,status:'완료'},
+    {id:3,file:'2025_안전성정보_업데이트.xlsx',date:'2025-03-08',total:18,success:18,fail:0,status:'검수중'},
+  ];
+
+  const inputStyle={width:'100%',padding:'10px 14px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',outline:'none'};
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:20}}>
+      <div style={{display:'flex',gap:8}}>
+        {[{id:'import',label:'엑셀 임포트'},{id:'register',label:'개별 등록/관리'},{id:'history',label:'임포트 이력'}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'9px 20px',borderRadius:10,border:tab===t.id?'none':`1px solid ${C.border}`,background:tab===t.id?`linear-gradient(135deg,${C.primary},${C.accent})`:C.surface,color:tab===t.id?'#fff':C.textSub,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{t.label}</button>
+        ))}
+      </div>
+
+      <div key={tab} style={{animation:'fadeIn 300ms ease'}}>
+        {tab==='import'&&<div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>식약처 엑셀 데이터 임포트</h3>
+          <div style={{border:`2px dashed ${C.border}`,borderRadius:16,padding:48,textAlign:'center',background:`${C.primary}06`}}>
+            <div style={{fontSize:48,marginBottom:12}}>💊</div>
+            <p style={{fontSize:15,fontWeight:600}}>식약처 엑셀 파일을 업로드하세요</p>
+            <p style={{fontSize:12,color:C.textSub,marginTop:6}}>Pydantic 스키마 검증 → ATC코드 형식·필수값 자동 체크</p>
+            <button onClick={()=>setToast('파일 업로드가 시작되었습니다.')} style={{marginTop:16,padding:'10px 28px',borderRadius:10,border:'none',background:`linear-gradient(135deg,${C.primary},${C.accent})`,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>파일 선택</button>
+          </div>
+        </div>}
+
+        {tab==='register'&&<div style={{...C.card,background:C.surface}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{fontSize:16,fontWeight:700}}>의약품 등록/관리</h3>
+            <button onClick={()=>setCreateModal(true)} style={{padding:'9px 18px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 의약품 등록</button>
+          </div>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['의약품명','성분명','제조사','ATC','상태','관리'].map(h=><th key={h} style={{padding:'10px 12px',fontSize:11,color:C.textSub,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',textAlign:'left'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{DRUGS.map(d=>(
+              <tr key={d.id} style={{borderBottom:`1px solid ${C.border}`,transition:'all 150ms'}} onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}06`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+                <td style={{padding:'12px',fontSize:13,fontWeight:500}}>{d.name}</td>
+                <td style={{padding:'12px',fontSize:12,color:C.textSub}}>{d.generic}</td>
+                <td style={{padding:'12px',fontSize:12,color:C.textSub}}>{d.company}</td>
+                <td style={{padding:'12px'}}><span style={{padding:'2px 8px',borderRadius:8,background:C.primaryLight,color:C.primary,fontSize:11,fontWeight:600}}>{d.atc}</span></td>
+                <td style={{padding:'12px'}}><span style={{padding:'2px 8px',borderRadius:8,background:d.status==='허가'?'#ECFDF5':'#FEF3C7',color:d.status==='허가'?C.success:C.warning,fontSize:11,fontWeight:600}}>{d.status}</span></td>
+                <td style={{padding:'12px'}}><button onClick={()=>setToast(`${d.name} 수정 모드`)} style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.textSub}}>수정</button></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>}
+
+        {tab==='history'&&<div style={{...C.card,background:C.surface}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>임포트 이력</h3>
+          {IMPORT_HIST.map((h,i)=>(
+            <div key={h.id} onClick={()=>setToast(`${h.file} 상세 이력`)} style={{padding:16,borderRadius:12,border:`1px solid ${C.border}`,marginBottom:8,cursor:'pointer',transition:'all 200ms',animation:`slideUp 300ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.background=C.primaryLight}} onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <h4 style={{fontSize:14,fontWeight:600}}>📄 {h.file}</h4>
+                  <p style={{fontSize:12,color:C.textSub,marginTop:4}}>{h.date} · 총 {h.total}건 · 성공 <span style={{color:C.success}}>{h.success}</span> · 실패 <span style={{color:h.fail>0?C.danger:C.textSub}}>{h.fail}</span></p>
+                </div>
+                <span style={{padding:'4px 14px',borderRadius:16,background:h.status==='완료'?'#ECFDF5':'#FEF3C7',color:h.status==='완료'?C.success:C.warning,fontSize:12,fontWeight:600}}>{h.status}</span>
+              </div>
+              {h.fail>0&&<div style={{marginTop:10,padding:10,background:'#FEF2F2',borderRadius:8,fontSize:12,color:C.danger}}>⚠️ {h.fail}건 오류 — ATC코드 형식 불일치 ({h.fail}건)</div>}
+            </div>
+          ))}
+        </div>}
+      </div>
+
+      {createModal&&<Modal title="의약품 등록" onClose={()=>setCreateModal(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          {[{l:'의약품명',ph:'의약품 제품명'},{l:'일반명(성분명)',ph:'성분명'},{l:'제조사',ph:'제조사명'},{l:'ATC 코드',ph:'예: N02BE01'},{l:'적응증',ph:'적응증을 입력하세요'}].map(f=>(
+            <div key={f.l}><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>{f.l}</label><input placeholder={f.ph} style={inputStyle}/></div>
+          ))}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>분류</label><select style={inputStyle}><option>전문의약품</option><option>일반의약품</option></select></div>
+            <div><label style={{fontSize:12,color:C.textSub,fontWeight:500,marginBottom:4,display:'block'}}>제형</label><select style={inputStyle}><option>정제</option><option>캡슐</option><option>주사</option></select></div>
+          </div>
+          <button onClick={()=>{setCreateModal(false);setToast('의약품이 등록되었습니다.')}} style={{marginTop:8,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>등록</button>
+        </div>
+      </Modal>}
+    </div>
+  );
+}
+
+/* ── App ── */
+function App(){
+  const [tab,setTab]=useState('main');
+  const [drawer,setDrawer]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  if(loading) return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      <div className="skeleton" style={{height:56,width:'100%'}}/>
+      <div className="skeleton" style={{height:120,margin:'0 32px',marginTop:0}}/>
+      <div style={{padding:'24px 32px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {[1,2,3,4,5,6].map(i=><div key={i} className="skeleton" style={{height:160}}/>)}
+      </div>
+    </div>
+  );
+
+  const meta=PAGE_META[tab];
+
+  return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      {/* Top Nav */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 28px',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginRight:20}}>
+          <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>💊</div>
+          <span style={{fontWeight:700,fontSize:15,color:C.text}}>PharmaDB</span>
+        </div>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'8px 16px',borderRadius:8,border:'none',background:tab===t.id?C.primaryLight:'transparent',color:tab===t.id?C.primary:C.textSub,fontSize:13,fontWeight:tab===t.id?600:400,cursor:'pointer',fontFamily:'inherit',transition:'all 150ms'}}>{t.label}</button>
+        ))}
+        <div style={{flex:1}}/>
+        <div style={{display:'flex',alignItems:'center',gap:6,background:C.bg,borderRadius:10,padding:'7px 14px',width:220}}>
+          <span style={{color:C.textLight,fontSize:14}}>🔍</span>
+          <input placeholder="검색..." style={{border:'none',background:'transparent',outline:'none',fontSize:13,fontFamily:'inherit',width:'100%'}}/>
+        </div>
+        <div style={{position:'relative',cursor:'pointer',fontSize:17}}>🔔<div style={{position:'absolute',top:-2,right:-4,width:7,height:7,borderRadius:'50%',background:C.danger}}/></div>
+        <div style={{width:32,height:32,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:600}}>관</div>
+      </header>
+
+      {/* Hero Banner */}
+      <div style={{background:`linear-gradient(135deg,${C.primary},${C.accent})`,padding:'24px 32px',color:'#fff'}}>
+        <h1 style={{fontSize:22,fontWeight:800,letterSpacing:'-0.03em'}}>{meta.title}</h1>
+        <p style={{fontSize:13,opacity:0.85,marginTop:4}}>{meta.desc}</p>
+        <div style={{display:'flex',gap:32,marginTop:14}}>
+          {meta.kpis.map(k=>(
+            <div key={k.label}>
+              <div style={{fontSize:11,opacity:0.75}}>{k.label}</div>
+              <div style={{fontSize:20,fontWeight:700,marginTop:2}}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <main style={{padding:'24px 32px',overflowY:'auto',height:'calc(100vh - 56px - 120px)'}}>
+        <div key={tab} style={{animation:'fadeIn 300ms ease'}}>
+          {tab==='main'&&<MainContent setDrawer={setDrawer}/>}
+          {tab==='search'&&<SearchContent setDrawer={setDrawer} setToast={setToast}/>}
+          {tab==='classification'&&<ClassificationContent setDrawer={setDrawer}/>}
+          {tab==='admin'&&<AdminContent setToast={setToast}/>}
+        </div>
+      </main>
+
+      {drawer&&<Drawer item={drawer} onClose={()=>setDrawer(null)}/>}
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
