@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>마인드케어 심리상담 검사·분석 통합 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#ECFDF5;color:#0F172A;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.5}100%{transform:scale(4);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback} = React;
+const {RadarChart,Radar,PolarGrid,PolarAngleAxis,PolarRadiusAxis,ResponsiveContainer,LineChart,Line,XAxis,YAxis,Tooltip,BarChart,Bar,PieChart,Pie,Cell,ReferenceLine} = Recharts;
+
+const C={
+  primary:'#059669',secondary:'#064E3B',accent:'#34D399',
+  bg:'#ECFDF5',surface:'#FFFFFF',text:'#0F172A',textLight:'#64748B',
+  border:'#E5E7EB',success:'#059669',warning:'#D97706',danger:'#DC2626',
+};
+
+// ─── Data ───
+const CLIENTS=[
+  {id:1,name:'김서연',age:32,sex:'여',counselor:'박상담',status:'상담중',tests:5,lastTest:'2024.03.12',concern:'직장 스트레스',sessions:8,radar:{우울:35,불안:42,스트레스:68,자존감:55,대인관계:48,수면:60}},
+  {id:2,name:'이준호',age:28,sex:'남',counselor:'이심리',status:'상담중',tests:3,lastTest:'2024.03.10',concern:'사회 불안',sessions:5,radar:{우울:28,불안:72,스트레스:45,자존감:40,대인관계:65,수면:38}},
+  {id:3,name:'정수민',age:45,sex:'여',counselor:'박상담',status:'종결',tests:8,lastTest:'2024.02.28',concern:'우울감',sessions:12,radar:{우울:22,불안:25,스트레스:30,자존감:72,대인관계:28,수면:25}},
+  {id:4,name:'최우진',age:19,sex:'남',counselor:'김전문',status:'대기',tests:1,lastTest:'2024.03.08',concern:'진로 고민',sessions:2,radar:{우울:45,불안:38,스트레스:52,자존감:48,대인관계:35,수면:42}},
+  {id:5,name:'강유진',age:37,sex:'여',counselor:'이심리',status:'상담중',tests:4,lastTest:'2024.03.11',concern:'부부갈등',sessions:6,radar:{우울:40,불안:35,스트레스:62,자존감:52,대인관계:70,수면:45}},
+  {id:6,name:'박하나',age:24,sex:'여',counselor:'김전문',status:'상담중',tests:2,lastTest:'2024.03.13',concern:'학업 스트레스',sessions:3,radar:{우울:50,불안:55,스트레스:75,자존감:38,대인관계:42,수면:58}},
+  {id:7,name:'김민수',age:52,sex:'남',counselor:'박상담',status:'종결',tests:6,lastTest:'2024.01.15',concern:'불면증',sessions:10,radar:{우울:18,불안:20,스트레스:22,자존감:78,대인관계:25,수면:15}},
+];
+
+const ASSESSMENTS=[
+  {id:'bdi',name:'BDI-II (우울)',fullName:'Beck Depression Inventory-II',questions:21,type:'리커트 4점',time:'10분',desc:'우울 증상의 심각도를 측정하는 자기보고식 검사'},
+  {id:'bai',name:'BAI (불안)',fullName:'Beck Anxiety Inventory',questions:21,type:'리커트 4점',time:'10분',desc:'불안 증상의 심각도를 측정하는 자기보고식 검사'},
+  {id:'pss',name:'PSS (스트레스)',fullName:'Perceived Stress Scale',questions:10,type:'리커트 5점',time:'5분',desc:'지각된 스트레스 수준을 측정하는 척도'},
+  {id:'rses',name:'RSES (자존감)',fullName:'Rosenberg Self-Esteem Scale',questions:10,type:'리커트 4점',time:'5분',desc:'전반적인 자존감 수준을 측정하는 척도'},
+];
+
+const TIMELINE_DATA=[
+  {date:'2024.01.15',test:'BDI-II',score:28,level:'중등도'},
+  {date:'2024.02.05',test:'BDI-II',score:22,level:'경미'},
+  {date:'2024.02.20',test:'BAI',score:18,level:'경미'},
+  {date:'2024.03.01',test:'BDI-II',score:15,level:'최소'},
+  {date:'2024.03.12',test:'PSS',score:24,level:'중등도'},
+];
+
+const COMPARISON_DATA=[
+  {time:'사전',bdi:28,bai:32,pss:30},{time:'2주차',bdi:24,bai:28,pss:27},
+  {time:'4주차',bdi:20,bai:22,pss:24},{time:'6주차',bdi:16,bai:18,pss:20},
+  {time:'8주차',bdi:15,bai:14,pss:18},{time:'사후',bdi:12,bai:11,pss:15},
+];
+
+const COUNSELORS=[
+  {id:1,name:'박상담',title:'임상심리전문가',license:'제1234호',clients:8,max:12,weekly:24,specialty:'우울·불안'},
+  {id:2,name:'이심리',title:'상담심리사 1급',license:'제5678호',clients:6,max:10,weekly:18,specialty:'대인관계·부부'},
+  {id:3,name:'김전문',title:'정신건강임상심리사',license:'제9012호',clients:5,max:10,weekly:15,specialty:'청소년·진로'},
+];
+
+const SCHEDULE=[
+  {day:'월',slots:[{time:'10:00',client:'김서연'},{time:'11:00',client:''},{time:'14:00',client:'이준호'},{time:'15:00',client:'강유진'},{time:'16:00',client:''}]},
+  {day:'화',slots:[{time:'10:00',client:'박하나'},{time:'11:00',client:'김서연'},{time:'14:00',client:''},{time:'15:00',client:'최우진'},{time:'16:00',client:''}]},
+  {day:'수',slots:[{time:'10:00',client:''},{time:'11:00',client:'이준호'},{time:'14:00',client:'강유진'},{time:'15:00',client:''},{time:'16:00',client:'김서연'}]},
+  {day:'목',slots:[{time:'10:00',client:'박하나'},{time:'11:00',client:''},{time:'14:00',client:'최우진'},{time:'15:00',client:'이준호'},{time:'16:00',client:''}]},
+  {day:'금',slots:[{time:'10:00',client:'김서연'},{time:'11:00',client:'강유진'},{time:'14:00',client:''},{time:'15:00',client:''},{time:'16:00',client:''}]},
+];
+
+const NAV_ITEMS=[
+  {id:'workspace',label:'내담자 워크스페이스',icon:'👥'},
+  {id:'assessment',label:'검사 실시',icon:'📝'},
+  {id:'comparison',label:'비교 분석',icon:'📊'},
+  {id:'counselor',label:'상담사 관리',icon:'🏥'},
+  {id:'report-center',label:'리포트 센터',icon:'📋'},
+  {id:'settings',label:'시스템 설정',icon:'⚙️'},
+];
+
+const SECTION_TABS={
+  workspace:[{id:'all',label:'전체 내담자'},{id:'active',label:'상담중'},{id:'completed',label:'종결'}],
+  assessment:[{id:'select',label:'검사 선택'},{id:'history',label:'실시 이력'}],
+  comparison:[{id:'pre-post',label:'사전-사후 비교'},{id:'group',label:'그룹 분석'}],
+  counselor:[{id:'list',label:'상담사 목록'},{id:'schedule',label:'주간 스케줄'}],
+  'report-center':[{id:'generate',label:'리포트 생성'},{id:'history',label:'생성 이력'}],
+  settings:[{id:'tests',label:'검사 유형 관리'},{id:'scoring',label:'채점 기준'},{id:'permissions',label:'권한'}],
+};
+
+// ─── Components ───
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:20,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({text,size='sm'}){
+  const colors={상담중:{bg:'#DBEAFE',text:'#1D4ED8'},종결:{bg:'#D1FAE5',text:'#065F46'},대기:{bg:'#FEF3C7',text:'#92400E'},최소:{bg:'#D1FAE5',text:'#065F46'},경미:{bg:'#FEF9C3',text:'#854D0E'},중등도:{bg:'#FED7AA',text:'#9A3412'},심각:{bg:'#FEE2E2',text:'#991B1B'}};
+  const c=colors[text]||{bg:'#F3F4F6',text:'#6B7280'};
+  return <span style={{display:'inline-block',padding:size==='xs'?'2px 8px':'3px 10px',borderRadius:20,fontSize:size==='xs'?11:12,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+
+function Btn({children,onClick,variant='primary',size='md',style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,borderRadius:20,transition:'all 200ms',display:'inline-flex',alignItems:'center',gap:6};
+  const vars={primary:{background:C.primary,color:'#fff',padding:size==='sm'?'6px 14px':'10px 20px',fontSize:size==='sm'?12:14},
+    outline:{background:'transparent',color:C.primary,border:`1px solid ${C.primary}`,padding:size==='sm'?'5px 13px':'9px 19px',fontSize:size==='sm'?12:14},
+    ghost:{background:'transparent',color:C.textLight,padding:size==='sm'?'6px 14px':'10px 20px',fontSize:size==='sm'?12:14}};
+  return <button onClick={onClick} style={{...base,...vars[variant],...s}} onMouseEnter={e=>e.currentTarget.style.background=variant==='primary'?'#047857':variant==='outline'?`${C.primary}08`:'#F3F4F6'} onMouseLeave={e=>e.currentTarget.style.background=vars[variant].background}>{children}</button>;
+}
+
+function SideNavItem({icon,label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',
+      background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,
+      borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}
+      onMouseEnter={e=>{if(!active)e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{if(!active)e.currentTarget.style.background='transparent'}}>
+      <span style={{fontSize:18}}>{icon}</span>{label}
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,
+      color:active?C.primary:C.textLight,fontWeight:active?600:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{label}</button>
+  );
+}
+
+// ─── Pages ───
+function WorkspacePage({selected,setSelected,tab}){
+  const filtered=tab===0?CLIENTS:tab===1?CLIENTS.filter(c=>c.status==='상담중'):CLIENTS.filter(c=>c.status==='종결');
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {filtered.map((c,i)=>(
+          <div key={c.id} onClick={()=>setSelected(c)}
+            style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',cursor:'pointer',transition:'all 150ms',
+              background:selected?.id===c.id?`${C.primary}06`:'transparent',borderLeft:selected?.id===c.id?`3px solid ${C.primary}`:'3px solid transparent',
+              animation:`slideUp 300ms ease ${i*40}ms both`}}
+            onMouseEnter={e=>{if(selected?.id!==c.id){e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}}
+            onMouseLeave={e=>{if(selected?.id!==c.id){e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}}>
+            <div style={{width:36,height:36,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:C.primary,flexShrink:0}}>{c.name[0]}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:14,fontWeight:600}}>{c.name}</span>
+                <Badge text={c.status} size="xs"/>
+              </div>
+              <div style={{fontSize:12,color:C.textLight,marginTop:2}}>{c.age}세 · {c.sex} · {c.concern}</div>
+            </div>
+            <div style={{fontSize:12,color:C.textLight,flexShrink:0}}>{c.lastTest}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:24}}>
+              <div style={{width:56,height:56,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:700,color:C.primary}}>{selected.name[0]}</div>
+              <div>
+                <div style={{fontSize:22,fontWeight:700,letterSpacing:'-0.01em'}}>{selected.name}</div>
+                <div style={{fontSize:13,color:C.textLight}}>{selected.age}세 · {selected.sex} · 담당: {selected.counselor} · {selected.concern}</div>
+              </div>
+              <div style={{marginLeft:'auto'}}><Badge text={selected.status}/></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:24}}>
+              {[{l:'검사 횟수',v:`${selected.tests}회`},{l:'상담 회기',v:`${selected.sessions}회`},{l:'마지막 검사',v:selected.lastTest}].map(s=>(
+                <div key={s.l} style={{background:C.bg,borderRadius:20,padding:16,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:12,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{s.l}</div>
+                  <div style={{fontSize:18,fontWeight:700,marginTop:4}}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>심리 프로파일</div>
+            <div style={{background:C.surface,borderRadius:20,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:24}}>
+              <div style={{height:200}}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={Object.entries(selected.radar).map(([k,v])=>({area:k,score:v,baseline:50}))}>
+                    <PolarGrid stroke="#E5E7EB"/>
+                    <PolarAngleAxis dataKey="area" tick={{fontSize:12,fill:C.textLight}}/>
+                    <PolarRadiusAxis tick={{fontSize:10}} domain={[0,100]}/>
+                    <Radar dataKey="baseline" stroke="#D1D5DB" fill="#D1D5DB" fillOpacity={0.1} name="기준선"/>
+                    <Radar dataKey="score" stroke={C.primary} fill={C.primary} fillOpacity={0.2} name="현재"/>
+                    <Tooltip/>
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{fontSize:12,color:C.textLight,textAlign:'center',marginTop:4}}>※ 점수가 높을수록 증상이 심함 (자존감 제외)</div>
+            </div>
+            <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>검사 이력 타임라인</div>
+            <div style={{position:'relative',paddingLeft:24}}>
+              <div style={{position:'absolute',left:8,top:0,bottom:0,width:2,background:C.border}}/>
+              {TIMELINE_DATA.map((t,i)=>(
+                <div key={i} style={{position:'relative',marginBottom:16,paddingLeft:20,animation:`slideUp 300ms ease ${i*80}ms both`}}>
+                  <div style={{position:'absolute',left:-4,top:4,width:12,height:12,borderRadius:'50%',background:C.surface,border:`3px solid ${C.primary}`,zIndex:1}}/>
+                  <div style={{background:C.surface,borderRadius:16,padding:14,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{fontSize:13,fontWeight:600}}>{t.test}</div>
+                      <Badge text={t.level} size="xs"/>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:6}}>
+                      <span style={{fontSize:12,color:C.textLight}}>{t.date}</span>
+                      <span style={{fontSize:14,fontWeight:700,color:C.primary}}>{t.score}점</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:8,marginTop:8}}>상담 메모</div>
+            <textarea style={{width:'100%',height:80,border:`1px solid ${C.border}`,borderRadius:16,padding:14,fontSize:14,fontFamily:'inherit',resize:'vertical'}} placeholder="상담 메모를 입력하세요..."/>
+          </div>
+        ):(
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>
+            <div style={{fontSize:48,marginBottom:16}}>👈</div>
+            <div style={{fontSize:14}}>좌측 목록에서 내담자를 선택하세요</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AssessmentPage({tab,setToast}){
+  const [selectedTest,setSelectedTest]=useState(null);
+  const [step,setStep]=useState(0);
+  const [answers,setAnswers]=useState({});
+
+  if(tab===1) return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {[{client:'김서연',test:'BDI-II',date:'2024.03.12',score:15},{client:'이준호',test:'BAI',date:'2024.03.10',score:22},
+          {client:'박하나',test:'PSS',date:'2024.03.13',score:24},{client:'강유진',test:'BDI-II',date:'2024.03.11',score:18},
+          {client:'최우진',test:'RSES',date:'2024.03.08',score:28}].map((h,i)=>(
+          <div key={i} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div><div style={{fontSize:14,fontWeight:600}}>{h.client}</div><div style={{fontSize:12,color:C.textLight}}>{h.test} · {h.date}</div></div>
+              <div style={{fontSize:16,fontWeight:700,color:C.primary}}>{h.score}점</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:C.textLight}}>
+        <div style={{textAlign:'center'}}><div style={{fontSize:48,marginBottom:16}}>📋</div><div>좌측에서 검사 이력을 선택하세요</div></div>
+      </div>
+    </div>
+  );
+
+  if(selectedTest&&step>0){
+    const questions=[
+      '나는 슬프다고 느낀다','나는 미래에 대해 비관적이다','나는 과거에 대해 실패감을 느낀다','나는 예전만큼 즐겁지 않다','나는 죄책감을 느낀다',
+    ];
+    const q=questions[step-1];
+    const progress=Math.round((Object.keys(answers).length/questions.length)*100);
+    return(
+      <div style={{flex:1,overflowY:'auto',padding:24}}>
+        <div style={{maxWidth:640,margin:'0 auto',animation:'fadeIn 300ms ease'}}>
+          <div style={{background:C.surface,borderRadius:20,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:20}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontSize:16,fontWeight:700}}>{selectedTest.fullName}</div>
+              <div style={{fontSize:13,fontWeight:600,color:C.primary}}>{progress}%</div>
+            </div>
+            <div style={{height:4,background:'#E5E7EB',borderRadius:2,overflow:'hidden'}}>
+              <div style={{height:'100%',background:C.primary,borderRadius:2,width:`${progress}%`,transition:'width 500ms ease'}}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:16}}>
+            {questions.map((_,i)=>(
+              <div key={i} style={{flex:1,height:4,borderRadius:2,background:answers[i]!==undefined?C.primary:step-1===i?C.accent:C.border,transition:'all 200ms'}}/>
+            ))}
+          </div>
+          <div style={{background:C.surface,borderRadius:20,padding:28,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',animation:'slideInRight 250ms ease'}}>
+            <div style={{display:'flex',gap:8,marginBottom:16}}>
+              <span style={{background:`${C.primary}10`,color:C.primary,padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600}}>문항 {step}/{questions.length}</span>
+            </div>
+            <div style={{fontSize:16,fontWeight:600,lineHeight:1.7,marginBottom:24}}>{q}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {['전혀 아니다 (0)','약간 그렇다 (1)','상당히 그렇다 (2)','매우 심하다 (3)'].map((opt,oi)=>(
+                <button key={oi} onClick={()=>setAnswers(p=>({...p,[step-1]:oi}))}
+                  style={{padding:'14px 20px',borderRadius:16,border:`1px solid ${answers[step-1]===oi?C.primary:C.border}`,
+                    background:answers[step-1]===oi?`${C.primary}08`:'#fff',textAlign:'left',fontSize:14,cursor:'pointer',
+                    fontFamily:'inherit',transition:'all 200ms',fontWeight:answers[step-1]===oi?600:400,color:answers[step-1]===oi?C.primary:C.text}}
+                  onMouseEnter={e=>{if(answers[step-1]!==oi)e.currentTarget.style.borderColor=C.accent}}
+                  onMouseLeave={e=>{if(answers[step-1]!==oi)e.currentTarget.style.borderColor=C.border}}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:24}}>
+              <Btn variant="outline" onClick={()=>setStep(Math.max(1,step-1))}>← 이전</Btn>
+              {step<questions.length?
+                <Btn onClick={()=>setStep(step+1)}>다음 →</Btn>:
+                <Btn onClick={()=>{setSelectedTest(null);setStep(0);setAnswers({});setToast('검사가 완료되었습니다. 채점 결과: 15점 (최소 수준)')}}>제출</Btn>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {ASSESSMENTS.map((a,i)=>(
+          <div key={a.id} onClick={()=>setSelectedTest(a)}
+            style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',
+              background:selectedTest?.id===a.id?`${C.primary}06`:'transparent',borderLeft:selectedTest?.id===a.id?`3px solid ${C.primary}`:'3px solid transparent',
+              animation:`slideUp 300ms ease ${i*60}ms both`}}
+            onMouseEnter={e=>{if(selectedTest?.id!==a.id){e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}}
+            onMouseLeave={e=>{if(selectedTest?.id!==a.id){e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}}>
+            <div style={{fontSize:14,fontWeight:600}}>{a.name}</div>
+            <div style={{fontSize:12,color:C.textLight,marginTop:2}}>{a.questions}문항 · {a.type} · {a.time}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selectedTest?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <div style={{fontSize:22,fontWeight:700,marginBottom:4}}>{selectedTest.fullName}</div>
+            <div style={{fontSize:13,color:C.textLight,marginBottom:20}}>{selectedTest.desc}</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:24}}>
+              {[{l:'문항 수',v:`${selectedTest.questions}문항`},{l:'응답 유형',v:selectedTest.type},{l:'소요 시간',v:selectedTest.time}].map(s=>(
+                <div key={s.l} style={{background:C.bg,borderRadius:20,padding:14,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:12,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{s.l}</div>
+                  <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{s.v}</div>
+                </div>
+              ))}
+            </div>
+            <Btn onClick={()=>setStep(1)}>검사 시작 →</Btn>
+          </div>
+        ):(
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>
+            <div style={{fontSize:48,marginBottom:16}}>📝</div><div>좌측에서 검사를 선택하세요</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ComparisonPage({tab}){
+  if(tab===1) return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>그룹 간 t-test / ANOVA 분석</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div style={{padding:16,background:C.bg,borderRadius:16,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,color:C.textLight}}>대응표본 t-test (BDI-II 사전-사후)</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:12}}>
+              {[{l:'t값',v:'4.82'},{l:'p값',v:'0.001'},{l:"Cohen's d",v:'0.95'}].map(s=>(
+                <div key={s.l}><div style={{fontSize:11,color:C.textLight}}>{s.l}</div><div style={{fontSize:18,fontWeight:700}}>{s.v}</div></div>
+              ))}
+            </div>
+          </div>
+          <div style={{padding:16,background:C.bg,borderRadius:16,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,color:C.textLight}}>ANOVA (연령대 3그룹 BDI-II)</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginTop:12}}>
+              {[{l:'F값',v:'5.23'},{l:'p값',v:'0.008'},{l:'η²',v:'0.12'}].map(s=>(
+                <div key={s.l}><div style={{fontSize:11,color:C.textLight}}>{s.l}</div><div style={{fontSize:18,fontWeight:700}}>{s.v}</div></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{padding:'14px 16px',background:`${C.primary}06`,borderRadius:12,borderLeft:`3px solid ${C.primary}`}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.primary}}>Tukey HSD 사후검정: 20대 vs 40대 간 유의한 차이 (p=0.003)</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:20}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight}}>사전-사후 검사 비교 추이</div>
+          <div style={{display:'flex',gap:12}}>
+            {[{l:'BDI-II',c:C.primary},{l:'BAI',c:C.accent},{l:'PSS',c:C.warning}].map(x=>(
+              <span key={x.l} style={{display:'flex',alignItems:'center',gap:4,fontSize:12}}><span style={{width:10,height:10,borderRadius:3,background:x.c}}/>{x.l}</span>
+            ))}
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={COMPARISON_DATA}>
+            <XAxis dataKey="time" tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:12,fill:C.textLight}} axisLine={false} tickLine={false} domain={[0,40]}/>
+            <Tooltip contentStyle={{borderRadius:16,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+            <Line type="monotone" dataKey="bdi" stroke={C.primary} strokeWidth={2} dot={{r:4,fill:C.primary}} name="BDI-II"/>
+            <Line type="monotone" dataKey="bai" stroke={C.accent} strokeWidth={2} dot={{r:4,fill:C.accent}} name="BAI"/>
+            <Line type="monotone" dataKey="pss" stroke={C.warning} strokeWidth={2} dot={{r:4,fill:C.warning}} name="PSS"/>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+        {[{test:'BDI-II',pre:28,post:12,change:-57},{test:'BAI',pre:32,post:11,change:-66},{test:'PSS',pre:30,post:15,change:-50}].map((d,i)=>(
+          <div key={d.test} style={{background:C.surface,borderRadius:20,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>{d.test}</div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+              <div><div style={{fontSize:11,color:C.textLight}}>사전</div><div style={{fontSize:20,fontWeight:700}}>{d.pre}</div></div>
+              <div style={{fontSize:20,color:C.textLight}}>→</div>
+              <div><div style={{fontSize:11,color:C.textLight}}>사후</div><div style={{fontSize:20,fontWeight:700,color:C.success}}>{d.post}</div></div>
+            </div>
+            <div style={{textAlign:'center',fontSize:14,fontWeight:700,color:C.success}}>{d.change}%</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <Btn size="sm" variant="outline">📥 CSV 내보내기</Btn>
+        <Btn size="sm" variant="outline">📥 Excel 내보내기</Btn>
+      </div>
+    </div>
+  );
+}
+
+function CounselorPage({tab,setToast}){
+  if(tab===1) return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight}}>주간 상담 스케줄 · 박상담</div>
+          <select style={{padding:'6px 12px',borderRadius:12,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}>
+            <option>박상담</option><option>이심리</option><option>김전문</option>
+          </select>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'60px repeat(5,1fr)',gap:0,border:`1px solid ${C.border}`,borderRadius:16,overflow:'hidden'}}>
+          <div style={{padding:8,fontSize:12,fontWeight:700,background:C.bg,textAlign:'center',borderBottom:`1px solid ${C.border}`}}>시간</div>
+          {SCHEDULE.map(d=><div key={d.day} style={{padding:8,fontSize:12,fontWeight:700,background:C.bg,textAlign:'center',borderBottom:`1px solid ${C.border}`,borderLeft:`1px solid ${C.border}`}}>{d.day}</div>)}
+          {['10:00','11:00','14:00','15:00','16:00'].map((time,ti)=>(
+            <React.Fragment key={time}>
+              <div style={{padding:8,fontSize:12,color:C.textLight,textAlign:'center',borderBottom:ti<4?`1px solid ${C.border}`:'none'}}>{time}</div>
+              {SCHEDULE.map(d=>{
+                const slot=d.slots[ti];
+                return(
+                  <div key={`${d.day}-${time}`}
+                    style={{padding:6,borderLeft:`1px solid ${C.border}`,borderBottom:ti<4?`1px solid ${C.border}`:'none',cursor:'pointer',transition:'all 150ms'}}
+                    onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                    onClick={()=>{if(!slot.client)setToast('상담 시간이 등록되었습니다.')}}>
+                    {slot.client?(
+                      <div style={{background:`${C.primary}10`,borderRadius:8,padding:'4px 8px',fontSize:12,fontWeight:600,color:C.primary,textAlign:'center'}}>{slot.client}</div>
+                    ):(
+                      <div style={{height:24}}/>
+                    )}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {COUNSELORS.map((c,i)=>(
+          <div key={c.id} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',animation:`slideUp 300ms ease ${i*60}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:40,height:40,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:C.primary}}>{c.name[0]}</div>
+              <div>
+                <div style={{fontSize:14,fontWeight:600}}>{c.name} <span style={{fontSize:12,color:C.textLight,fontWeight:400}}>{c.title}</span></div>
+                <div style={{fontSize:12,color:C.textLight}}>담당 {c.clients}/{c.max}명 · 주간 {c.weekly}회기</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        <div style={{animation:'fadeIn 200ms ease'}}>
+          <div style={{fontSize:22,fontWeight:700,marginBottom:4}}>{COUNSELORS[0].name}</div>
+          <div style={{fontSize:13,color:C.textLight,marginBottom:20}}>{COUNSELORS[0].title} · {COUNSELORS[0].license} · {COUNSELORS[0].specialty}</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:24}}>
+            {[{l:'담당 내담자',v:`${COUNSELORS[0].clients}/${COUNSELORS[0].max}명`},{l:'주간 상담',v:`${COUNSELORS[0].weekly}회기`},{l:'전문 영역',v:COUNSELORS[0].specialty}].map(s=>(
+              <div key={s.l} style={{background:C.bg,borderRadius:20,padding:14,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{s.l}</div>
+                <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>담당 내담자</div>
+          {CLIENTS.filter(c=>c.counselor===COUNSELORS[0].name).map(c=>(
+            <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:12,border:`1px solid ${C.border}`,marginBottom:8,cursor:'pointer',transition:'all 150ms'}}
+              onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+              onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+              <div style={{width:32,height:32,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:C.primary}}>{c.name[0]}</div>
+              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{c.name}</div><div style={{fontSize:12,color:C.textLight}}>{c.concern}</div></div>
+              <Badge text={c.status} size="xs"/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportCenterPage({tab,setToast}){
+  if(tab===1) return(
+    <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {[{client:'김서연',test:'BDI-II',date:'2024.03.12',status:'완료'},{client:'이준호',test:'BAI',date:'2024.03.10',status:'완료'},
+          {client:'강유진',test:'BDI-II',date:'2024.03.11',status:'생성중'},{client:'박하나',test:'PSS',date:'2024.03.13',status:'대기'}].map((r,i)=>(
+          <div key={i} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <div><div style={{fontSize:14,fontWeight:600}}>{r.client}</div><div style={{fontSize:12,color:C.textLight}}>{r.test} · {r.date}</div></div>
+              <Badge text={r.status} size="xs"/>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:C.textLight}}>
+        <div style={{textAlign:'center'}}><div style={{fontSize:48,marginBottom:16}}>📄</div><div>좌측에서 리포트를 선택하세요</div></div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>리포트 생성</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+          <div>
+            <label style={{display:'block',fontSize:13,fontWeight:700,marginBottom:6}}>내담자</label>
+            <select style={{width:'100%',padding:'10px 14px',borderRadius:16,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}>
+              {CLIENTS.map(c=><option key={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{display:'block',fontSize:13,fontWeight:700,marginBottom:6}}>검사 유형</label>
+            <select style={{width:'100%',padding:'10px 14px',borderRadius:16,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}>
+              {ASSESSMENTS.map(a=><option key={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+          {['상세 심리검사 리포트','요약 리포트','사전-사후 비교 리포트'].map((t,i)=>(
+            <div key={t} style={{padding:16,border:`2px solid ${i===0?C.primary:C.border}`,borderRadius:16,cursor:'pointer',textAlign:'center',transition:'all 200ms'}}
+              onMouseEnter={e=>e.currentTarget.style.borderColor=C.primary} onMouseLeave={e=>{if(i!==0)e.currentTarget.style.borderColor=C.border}}>
+              <div style={{fontSize:24,marginBottom:6}}>📋</div>
+              <div style={{fontSize:13,fontWeight:700}}>{t}</div>
+              {i===0&&<div style={{fontSize:11,color:C.primary,marginTop:4,fontWeight:600}}>기본</div>}
+            </div>
+          ))}
+        </div>
+        <Btn onClick={()=>setToast('리포트가 생성되었습니다. PDF 다운로드 가능합니다.')}>리포트 생성</Btn>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPage({tab}){
+  if(tab===1) return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+        <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>채점 기준 관리</div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['검사','척도','채점 방식','역채점','비고'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,color:C.textLight,fontWeight:700}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {[{test:'BDI-II',scale:'우울',scoring:'0-3점 합산',reverse:'없음',note:'21문항 총점 0-63'},
+              {test:'BAI',scale:'불안',scoring:'0-3점 합산',reverse:'없음',note:'21문항 총점 0-63'},
+              {test:'PSS',scale:'스트레스',scoring:'0-4점 합산',reverse:'4,5,7,8번',note:'10문항 총점 0-40'},
+              {test:'RSES',scale:'자존감',scoring:'1-4점 합산',reverse:'3,5,8,9,10번',note:'10문항 총점 10-40'}].map(r=>(
+              <tr key={r.test} style={{borderBottom:`1px solid ${C.border}`}}>
+                <td style={{padding:'12px',fontSize:14,fontWeight:600}}>{r.test}</td>
+                <td style={{padding:'12px',fontSize:14}}>{r.scale}</td>
+                <td style={{padding:'12px',fontSize:13}}>{r.scoring}</td>
+                <td style={{padding:'12px',fontSize:13,color:r.reverse==='없음'?C.textLight:C.primary}}>{r.reverse}</td>
+                <td style={{padding:'12px',fontSize:12,color:C.textLight}}>{r.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  if(tab===2) return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+        <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>권한 관리</div>
+        {COUNSELORS.map(c=>(
+          <div key={c.id} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',border:`1px solid ${C.border}`,borderRadius:16,marginBottom:8}}>
+            <div style={{width:40,height:40,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:C.primary}}>{c.name[0]}</div>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{c.name}</div><div style={{fontSize:12,color:C.textLight}}>{c.title}</div></div>
+            <div style={{display:'flex',gap:6}}>
+              {['검사실시','결과조회','리포트생성','내담자관리'].map(p=>(
+                <span key={p} style={{padding:'4px 8px',borderRadius:8,fontSize:11,fontWeight:600,background:`${C.primary}10`,color:C.primary}}>{p}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{flex:1,overflowY:'auto',padding:24,animation:'fadeIn 300ms ease'}}>
+      <div style={{background:C.surface,borderRadius:20,padding:24,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+        <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:16}}>검사 유형 관리</div>
+        {ASSESSMENTS.map((a,i)=>(
+          <div key={a.id} style={{display:'flex',alignItems:'center',gap:16,padding:'14px 16px',border:`1px solid ${C.border}`,borderRadius:16,marginBottom:8,animation:`slideUp 300ms ease ${i*60}ms both`}}>
+            <div style={{width:40,height:40,borderRadius:12,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📝</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700}}>{a.fullName}</div>
+              <div style={{fontSize:12,color:C.textLight}}>{a.questions}문항 · {a.type} · {a.time}</div>
+            </div>
+            <Badge text="활성" size="xs"/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ───
+function App(){
+  const [section,setSection]=useState('workspace');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setTab(0);setSelected(null)},[section]);
+
+  if(loading) return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`}}/>
+      <div style={{flex:1,padding:20,display:'flex',flexDirection:'column',gap:12}}>
+        {[40,38,null].map((h,i)=>h?<div key={i} style={{height:h,background:C.surface}}/>:
+          <div key={i} style={{flex:1,display:'flex',gap:12}}>
+            <div style={{width:'42%',background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',borderRadius:8}}/>
+            <div style={{flex:1,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',borderRadius:8}}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const tabs=SECTION_TABS[section]||[];
+
+  const renderContent=()=>{
+    switch(section){
+      case 'workspace': return <WorkspacePage selected={selected} setSelected={setSelected} tab={tab}/>;
+      case 'assessment': return <AssessmentPage tab={tab} setToast={setToast}/>;
+      case 'comparison': return <ComparisonPage tab={tab}/>;
+      case 'counselor': return <CounselorPage tab={tab} setToast={setToast}/>;
+      case 'report-center': return <ReportCenterPage tab={tab} setToast={setToast}/>;
+      case 'settings': return <SettingsPage tab={tab}/>;
+      default: return <WorkspacePage selected={selected} setSelected={setSelected} tab={tab}/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'sticky',top:0,height:'100vh'}}>
+        <div style={{padding:'0 16px 16px',display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>🧠</div>
+          <span style={{fontWeight:700,fontSize:15}}>MindCare</span>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV_ITEMS.filter(n=>n.id!=='settings').map(item=>(
+            <SideNavItem key={item.id} icon={item.icon} label={item.label} active={section===item.id} onClick={()=>setSection(item.id)}/>
+          ))}
+        </div>
+        <div style={{padding:'0 8px 12px'}}>
+          <SideNavItem icon="⚙️" label="시스템 설정" active={section==='settings'} onClick={()=>setSection('settings')}/>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+        {/* App Bar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>MindCare</span>
+          <span style={{fontSize:12,color:C.textLight}}>{'>'}</span>
+          <span style={{fontSize:12,fontWeight:600}}>{NAV_ITEMS.find(n=>n.id===section)?.label}</span>
+          {tabs[tab]&&<><span style={{fontSize:12,color:C.textLight}}>{'>'}</span><span style={{fontSize:12,color:C.primary,fontWeight:600}}>{tabs[tab].label}</span></>}
+          <div style={{flex:1}}/>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'5px 10px 5px 28px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:12,width:160,fontFamily:'inherit',outline:'none'}}/>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:12}}>🔍</span>
+          </div>
+          <div style={{width:28,height:28,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,cursor:'pointer'}}>👤</div>
+        </header>
+
+        {/* Tab Strip */}
+        <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+          {tabs.map((t,i)=><TabUnderline key={t.id} label={t.label} active={tab===i} onClick={()=>{setTab(i);setSelected(null)}}/>)}
+          <div style={{flex:1}}/>
+        </div>
+
+        {/* Content */}
+        {renderContent()}
+      </div>
+
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
