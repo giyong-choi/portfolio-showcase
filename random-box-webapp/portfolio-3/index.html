@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ItemBox — 게임 아이템 랜덤박스 & 트레이딩</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Pretendard',sans-serif; background:#F8FAFC; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:3px; }
+    @keyframes fadeIn { from{opacity:0}to{opacity:1} }
+    @keyframes fadeInScale { from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)} }
+    @keyframes countUp { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+    @keyframes shimmer { 0%{background-position:-200% 0}100%{background-position:200% 0} }
+    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.5} }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
+
+const C = {
+  primary:'#06B6D4', secondary:'#0F172A', accent:'#334155',
+  bg:'#F8FAFC', surface:'#FFFFFF', border:'#E2E8F0',
+  text:'#0F172A', textLight:'#64748B', textMid:'#374151',
+  success:'#10B981', warning:'#F59E0B', danger:'#EF4444',
+};
+
+const BOXES = [
+  { id:1, name:'RPG 레전드 박스', game:'판타지 월드', price:25000, emoji:'⚔️', grade:{legendary:5,rare:18,normal:77}, fever:true, category:'RPG' },
+  { id:2, name:'FPS 프로 박스', game:'배틀그라운드', price:19000, emoji:'🔫', grade:{legendary:4,rare:15,normal:81}, fever:false, category:'FPS' },
+  { id:3, name:'카드 갓 박스', game:'하스스톤류', price:32000, emoji:'🃏', grade:{legendary:8,rare:22,normal:70}, fever:false, category:'카드' },
+  { id:4, name:'스킨 전설 박스', game:'멀티게임', price:15000, emoji:'🎮', grade:{legendary:3,rare:12,normal:85}, fever:true, category:'스킨' },
+];
+
+const ITEMS = [
+  { id:1, name:'전설의 검 +9', game:'판타지 월드', grade:'레전더리', myPrice:280000, lastPrice:265000, change:+15000, seller:'익명', status:'판매중', emoji:'⚔️', vol:12 },
+  { id:2, name:'저격 스킨 블랙', game:'배틀그라운드', grade:'레어', myPrice:45000, lastPrice:48000, change:-3000, seller:'게이머킹', status:'판매중', emoji:'🔫', vol:34 },
+  { id:3, name:'신화 카드팩', game:'하스스톤류', grade:'레전더리', myPrice:190000, lastPrice:180000, change:+10000, seller:'카드마스터', status:'판매중', emoji:'🃏', vol:7 },
+  { id:4, name:'레인보우 스킨', game:'멀티게임', grade:'레어', myPrice:68000, lastPrice:65000, change:+3000, seller:'스킨콜렉터', status:'판매중', emoji:'🌈', vol:19 },
+  { id:5, name:'드래곤 갑옷 세트', game:'판타지 월드', grade:'레전더리', myPrice:520000, lastPrice:510000, change:+10000, seller:'드래곤헌터', status:'판매중', emoji:'🐉', vol:3 },
+  { id:6, name:'돌격 소총 카모', game:'배틀그라운드', grade:'노멀', myPrice:12000, lastPrice:11500, change:+500, seller:'익명', status:'판매중', emoji:'🎯', vol:88 },
+];
+
+const AUCTIONS = [
+  { id:1, name:'홀로그램 드래곤', game:'판타지 월드', grade:'레전더리', current:850000, bids:23, ends:847, minBid:870000, emoji:'🐲', topBidder:'드래곤킹' },
+  { id:2, name:'프리즘 스나이퍼', game:'배틀그라운드', grade:'레어', current:95000, bids:8, ends:3214, minBid:98000, emoji:'🔭', topBidder:'저격수1' },
+  { id:3, name:'신화 전설 카드', game:'하스스톤류', grade:'레전더리', current:320000, bids:15, ends:7621, minBid:325000, emoji:'🃏', topBidder:'카드신' },
+];
+
+const PRICE_HISTORY = [
+  {date:'4/22',price:255000},{date:'4/23',price:260000},{date:'4/24',price:258000},
+  {date:'4/25',price:268000},{date:'4/26',price:272000},{date:'4/27',price:275000},{date:'4/28',price:280000},
+];
+
+const TRADE_VOL = [
+  {time:'09시',vol:28},{time:'10시',vol:45},{time:'11시',vol:62},{time:'12시',vol:89},
+  {time:'13시',vol:74},{time:'14시',vol:98},{time:'15시',vol:112},{time:'16시',vol:87},
+];
+
+const GRADE_DIST = [
+  {name:'레전더리',value:8,color:'#F59E0B'},{name:'레어',value:22,color:'#06B6D4'},
+  {name:'노멀',value:70,color:'#94A3B8'},
+];
+
+const SUSPICIOUS = [
+  { id:1, user:'user_4821', item:'전설의 검 +9', count:4, window:'9분', flag:'반복 거래' },
+  { id:2, user:'user_2934', item:'홀로그램 드래곤', count:3, window:'7분', flag:'가격 조작 의심' },
+];
+
+function CountUp({ end, suffix='' }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    let s=0; const step=end/75;
+    const t=setInterval(()=>{ s+=step; if(s>=end){setVal(end);clearInterval(t);}else setVal(Math.floor(s)); },16);
+    return ()=>clearInterval(t);
+  },[end]);
+  return <span style={{animation:'countUp 300ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({ message, onClose }) {
+  useEffect(()=>{ const t=setTimeout(onClose,3000); return()=>clearTimeout(t); },[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 20px rgba(0,0,0,0.3)',fontSize:14,fontWeight:500}}>{message}</div>;
+}
+
+function Modal({ title, onClose, children, width=520 }) {
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.45)',animation:'fadeIn 200ms ease'}} />
+      <div style={{position:'relative',width,maxHeight:'85vh',background:C.surface,borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.2)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:17,fontWeight:700,color:C.text}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function GradeBadge({ grade }) {
+  const MAP = {'레전더리':{bg:'#FEF3C7',c:'#D97706'},'레어':{bg:'#CFFAFE',c:'#0E7490'},'노멀':{bg:'#F1F5F9',c:'#64748B'}};
+  const s=MAP[grade]||MAP['노멀'];
+  return <span style={{background:s.bg,color:s.c,fontSize:11,fontWeight:700,padding:'3px 8px',borderRadius:6}}>{grade}</span>;
+}
+
+function formatSec(s) {
+  if(s<60) return `${s}초`;
+  if(s<3600) return `${Math.floor(s/60)}분 ${s%60}초`;
+  return `${Math.floor(s/3600)}시간 ${Math.floor((s%3600)/60)}분`;
+}
+
+// ── NAV ──
+const NAV_ITEMS = [
+  {id:'home',icon:'🏠',label:'홈'},
+  {id:'market',icon:'💱',label:'트레이딩'},
+  {id:'auction',icon:'🔨',label:'경매'},
+  {id:'dashboard',icon:'📊',label:'관리자'},
+];
+
+const SECTION_TABS = {
+  home:['박스 목록','인기 아이템'],
+  market:['전체','레전더리','레어','노멀'],
+  auction:['진행중','종료예정','낙찰완료'],
+  dashboard:['실시간 현황','거래량 차트','의심 거래'],
+};
+
+// ── PAGES (Master-Detail) ──
+
+function HomePage({ onToast }) {
+  const [tab, setTab] = useState(0);
+  const [selBox, setSelBox] = useState(null);
+  const [feverSec, setFeverSec] = useState(2183);
+  useEffect(()=>{const t=setInterval(()=>setFeverSec(s=>s>0?s-1:0),1000);return()=>clearInterval(t);},[]);
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      {/* Tabs */}
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {SECTION_TABS.home.map((t,i)=>(
+          <button key={i} onClick={()=>setTab(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:tab===i?C.primary:C.textLight,fontWeight:tab===i?700:400,borderBottom:tab===i?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1}}>{t}</button>
+        ))}
+        {/* Fever indicator */}
+        <div style={{marginLeft:'auto',marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:12,color:'#F59E0B',fontWeight:700,animation:'blink 1.5s infinite'}}>🔥 FEVER</span>
+          <span style={{fontSize:13,fontWeight:800,color:'#F59E0B',fontVariantNumeric:'tabular-nums'}}>{fmt(feverSec)}</span>
+        </div>
+      </div>
+
+      {/* Master-Detail */}
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        {/* Master List */}
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto',background:C.surface}}>
+          {tab===0&&BOXES.map((box,i)=>(
+            <div key={box.id} onClick={()=>setSelBox(box)} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selBox?.id===box.id?`${C.primary}08`:'transparent',borderLeft:selBox?.id===box.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:44,height:44,borderRadius:10,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{box.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                    <span style={{fontWeight:600,color:C.text,fontSize:14}}>{box.name}</span>
+                    {box.fever&&<span style={{background:'#FEF3C7',color:'#D97706',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:6}}>FEVER</span>}
+                  </div>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:2}}>{box.game}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.primary}}>{box.price.toLocaleString()}원</div>
+                </div>
+                <span style={{fontSize:11,color:C.textLight,background:C.bg,padding:'3px 8px',borderRadius:6,flexShrink:0}}>{box.category}</span>
+              </div>
+            </div>
+          ))}
+          {tab===1&&ITEMS.slice(0,5).map((item,i)=>(
+            <div key={item.id} onClick={()=>setSelBox(item)} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selBox?.id===item.id?`${C.primary}08`:'transparent',borderLeft:selBox?.id===item.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:40,height:40,borderRadius:8,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{item.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,color:C.text,fontSize:14,marginBottom:2}}>{item.name}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <GradeBadge grade={item.grade} />
+                    <span style={{fontSize:12,color:item.change>0?C.success:C.danger,fontWeight:600}}>{item.change>0?'+':''}{item.change.toLocaleString()}원</span>
+                  </div>
+                </div>
+                <div style={{fontWeight:700,fontSize:14,color:C.text}}>{item.myPrice.toLocaleString()}원</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Detail Panel */}
+        <div style={{flex:1,overflowY:'auto',padding:20,background:C.bg}}>
+          {!selBox&&(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+              <div style={{fontSize:48,marginBottom:12}}>📦</div>
+              <div>항목을 선택하면 상세 정보를 확인할 수 있습니다</div>
+            </div>
+          )}
+          {selBox&&tab===0&&(
+            <div style={{animation:'fadeIn 250ms ease'}}>
+              <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
+                <div style={{width:64,height:64,borderRadius:12,background:`${C.primary}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>{selBox.emoji}</div>
+                <div>
+                  <div style={{fontSize:18,fontWeight:800,color:C.text,marginBottom:4}}>{selBox.name}</div>
+                  <div style={{fontSize:13,color:C.textLight}}>{selBox.game}</div>
+                </div>
+              </div>
+              <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.textLight,marginBottom:10,textTransform:'uppercase',letterSpacing:'0.06em'}}>확률 공개</div>
+                {Object.entries(selBox.grade).map(([g,p])=>(
+                  <div key={g} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+                    <GradeBadge grade={g==='legendary'?'레전더리':g==='rare'?'레어':'노멀'} />
+                    <div style={{flex:1,margin:'0 12px'}}>
+                      <div style={{height:6,borderRadius:3,background:C.border,overflow:'hidden'}}>
+                        <div style={{height:'100%',borderRadius:3,background:g==='legendary'?'#F59E0B':g==='rare'?C.primary:'#94A3B8',width:`${p}%`,animation:'slideUp 600ms ease'}} />
+                      </div>
+                    </div>
+                    <span style={{fontWeight:700,color:C.text,fontSize:13}}>{p}%</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>onToast(`${selBox.name} 구매가 완료되었습니다!`)} style={{width:'100%',background:C.primary,color:'#fff',border:'none',padding:'13px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>🎲 박스 구매 ({selBox.price.toLocaleString()}원)</button>
+            </div>
+          )}
+          {selBox&&tab===1&&(
+            <div style={{animation:'fadeIn 250ms ease'}}>
+              <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
+                <div style={{width:56,height:56,borderRadius:12,background:`${C.primary}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>{selBox.emoji}</div>
+                <div>
+                  <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:4}}>{selBox.name}</div>
+                  <div style={{display:'flex',gap:8}}><GradeBadge grade={selBox.grade} /><span style={{fontSize:12,color:C.textLight}}>{selBox.game}</span></div>
+                </div>
+              </div>
+              <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>시세 히스토리 (최근 7일)</div>
+                <ResponsiveContainer width="100%" height={130}>
+                  <LineChart data={PRICE_HISTORY}>
+                    <XAxis dataKey="date" tick={{fontSize:10,fill:C.textLight}} />
+                    <YAxis tick={{fontSize:10,fill:C.textLight}} tickFormatter={v=>`${(v/10000).toFixed(0)}만`} />
+                    <Tooltip formatter={v=>[`${v.toLocaleString()}원`,'시세']} />
+                    <Line type="monotone" dataKey="price" stroke={C.primary} strokeWidth={2} dot={{r:3,fill:C.primary}} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                <div style={{background:C.surface,borderRadius:8,padding:12,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:11,color:C.textLight}}>현재 시세</div>
+                  <div style={{fontSize:18,fontWeight:800,color:C.text}}>{selBox.myPrice?.toLocaleString()}원</div>
+                </div>
+                <div style={{background:C.surface,borderRadius:8,padding:12,border:`1px solid ${C.border}`}}>
+                  <div style={{fontSize:11,color:C.textLight}}>전일 대비</div>
+                  <div style={{fontSize:18,fontWeight:800,color:selBox.change>0?C.success:C.danger}}>{selBox.change>0?'+':''}{selBox.change?.toLocaleString()}원</div>
+                </div>
+              </div>
+              <button onClick={()=>onToast('즉시 구매가 완료되었습니다!')} style={{width:'100%',background:C.primary,color:'#fff',border:'none',padding:'12px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer',marginBottom:8}}>즉시 구매 ({selBox.myPrice?.toLocaleString()}원)</button>
+              <button onClick={()=>onToast('구매 제안이 전송되었습니다')} style={{width:'100%',background:'none',border:`2px solid ${C.primary}`,color:C.primary,padding:'12px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>가격 제안</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarketPage({ onToast }) {
+  const [tabIdx, setTabIdx] = useState(0);
+  const [sel, setSel] = useState(null);
+  const [sellModal, setSellModal] = useState(false);
+  const tabs = SECTION_TABS.market;
+  const grades = ['전체','레전더리','레어','노멀'];
+  const filtered = tabIdx===0?ITEMS:ITEMS.filter(i=>i.grade===grades[tabIdx]);
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {tabs.map((t,i)=>(
+          <button key={i} onClick={()=>setTabIdx(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:tabIdx===i?C.primary:C.textLight,fontWeight:tabIdx===i?700:400,borderBottom:tabIdx===i?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1}}>{t}</button>
+        ))}
+        <div style={{flex:1}} />
+        <button onClick={()=>setSellModal(true)} style={{marginBottom:6,background:C.primary,color:'#fff',border:'none',padding:'6px 14px',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer'}}>+ 판매 등록</button>
+      </div>
+
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        {/* List */}
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto',background:C.surface}}>
+          {filtered.map(item=>(
+            <div key={item.id} onClick={()=>setSel(item)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:sel?.id===item.id?`${C.primary}08`:'transparent',borderLeft:sel?.id===item.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:40,height:40,borderRadius:8,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{item.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,color:C.text,fontSize:13,marginBottom:3}}>{item.name}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:6}}><GradeBadge grade={item.grade} /><span style={{fontSize:11,color:C.textLight}}>{item.game}</span></div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontWeight:700,fontSize:13,color:C.text}}>{item.myPrice.toLocaleString()}원</div>
+                  <div style={{fontSize:11,color:item.change>0?C.success:C.danger,fontWeight:600}}>{item.change>0?'▲':'▼'}{Math.abs(item.change).toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Detail */}
+        <div style={{flex:1,overflowY:'auto',padding:20,background:C.bg}}>
+          {!sel&&(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+              <div style={{fontSize:48,marginBottom:12}}>💱</div>
+              <div>아이템을 선택하면 상세 정보를 확인할 수 있습니다</div>
+            </div>
+          )}
+          {sel&&(
+            <div style={{animation:'fadeIn 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+                <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                  <div style={{fontSize:36}}>{sel.emoji}</div>
+                  <div>
+                    <div style={{fontSize:17,fontWeight:800,color:C.text}}>{sel.name}</div>
+                    <div style={{display:'flex',gap:8,marginTop:4}}><GradeBadge grade={sel.grade} /><span style={{fontSize:12,color:C.textLight}}>{sel.game}</span></div>
+                  </div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:22,fontWeight:900,color:C.text}}>{sel.myPrice.toLocaleString()}원</div>
+                  <div style={{fontSize:13,color:sel.change>0?C.success:C.danger,fontWeight:600}}>{sel.change>0?'▲':'▼'} {Math.abs(sel.change).toLocaleString()}원</div>
+                </div>
+              </div>
+
+              <div style={{background:C.surface,borderRadius:12,padding:16,marginBottom:14,border:`1px solid ${C.border}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>시세 차트 (7일)</div>
+                <ResponsiveContainer width="100%" height={120}>
+                  <LineChart data={PRICE_HISTORY}>
+                    <XAxis dataKey="date" tick={{fontSize:10,fill:C.textLight}} />
+                    <YAxis tick={{fontSize:10,fill:C.textLight}} tickFormatter={v=>`${(v/10000).toFixed(0)}만`} />
+                    <Tooltip formatter={v=>[`${v.toLocaleString()}원`,'시세']} />
+                    <Line type="monotone" dataKey="price" stroke={C.primary} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+                {[{l:'거래량',v:`${sel.vol}건`},{l:'판매자',v:sel.seller},{l:'전일 시세',v:`${sel.lastPrice.toLocaleString()}원`}].map(k=>(
+                  <div key={k.l} style={{background:C.surface,borderRadius:8,padding:'10px 12px',border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:11,color:C.textLight}}>{k.l}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:C.text,marginTop:2}}>{k.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>onToast('즉시 구매가 완료되었습니다!')} style={{flex:2,background:C.primary,color:'#fff',border:'none',padding:'12px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>즉시 구매</button>
+                <button onClick={()=>onToast('구매 제안이 전송되었습니다')} style={{flex:1,background:'none',border:`2px solid ${C.primary}`,color:C.primary,padding:'12px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>제안</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {sellModal&&(
+        <Modal title="아이템 판매 등록" onClose={()=>setSellModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:C.textMid,marginBottom:6}}>아이템명</div>
+              <input defaultValue="전설의 검 +9" style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none'}} />
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:C.textMid,marginBottom:6}}>판매 방식</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                {['즉시 판매','경매로 전환'].map(o=>(
+                  <div key={o} style={{padding:'10px 14px',border:`2px solid ${o==='즉시 판매'?C.primary:C.border}`,borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,color:o==='즉시 판매'?C.primary:C.textLight,textAlign:'center'}}>{o}</div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:C.textMid,marginBottom:6}}>판매 희망가</div>
+              <div style={{position:'relative'}}>
+                <input defaultValue="280000" style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none'}} />
+                <span style={{position:'absolute',right:14,top:'50%',transform:'translateY(-50%)',fontSize:13,color:C.textLight}}>원</span>
+              </div>
+              <div style={{fontSize:11,color:C.textLight,marginTop:4}}>현재 시세: 265,000원 ~ 285,000원</div>
+            </div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>{setSellModal(false);onToast('아이템 판매 등록이 완료되었습니다');}} style={{flex:2,background:C.primary,color:'#fff',border:'none',padding:'12px',borderRadius:10,fontSize:14,fontWeight:700,cursor:'pointer'}}>등록하기</button>
+              <button onClick={()=>setSellModal(false)} style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,color:C.textLight,padding:'12px',borderRadius:10,fontSize:14,cursor:'pointer'}}>취소</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function AuctionPage({ onToast }) {
+  const [tabIdx, setTabIdx] = useState(0);
+  const [sel, setSel] = useState(null);
+  const [bidModal, setBidModal] = useState(false);
+  const [timers, setTimers] = useState(AUCTIONS.map(a=>a.ends));
+  useEffect(()=>{
+    const t=setInterval(()=>setTimers(ts=>ts.map(s=>s>0?s-1:0)),1000);
+    return()=>clearInterval(t);
+  },[]);
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {SECTION_TABS.auction.map((t,i)=>(
+          <button key={i} onClick={()=>setTabIdx(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:tabIdx===i?C.primary:C.textLight,fontWeight:tabIdx===i?700:400,borderBottom:tabIdx===i?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1}}>{t}</button>
+        ))}
+      </div>
+
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        {/* Auction List */}
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto',background:C.surface}}>
+          {AUCTIONS.map((auc,i)=>(
+            <div key={auc.id} onClick={()=>setSel({...auc,remaining:timers[i]})} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:sel?.id===auc.id?`${C.primary}08`:'transparent',borderLeft:sel?.id===auc.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}}>
+              <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+                <div style={{width:44,height:44,borderRadius:10,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{auc.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,color:C.text,fontSize:14,marginBottom:3}}>{auc.name}</div>
+                  <div style={{display:'flex',gap:6,marginBottom:4}}><GradeBadge grade={auc.grade} /><span style={{fontSize:11,color:C.textLight}}>{auc.game}</span></div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:14,fontWeight:800,color:C.text}}>{auc.current.toLocaleString()}원</span>
+                    <span style={{fontSize:12,color:timers[i]<300?C.danger:C.textLight,fontWeight:timers[i]<300?700:400,animation:timers[i]<300?'blink 1s infinite':'none'}}>{formatSec(timers[i])}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Detail */}
+        <div style={{flex:1,overflowY:'auto',padding:20,background:C.bg}}>
+          {!sel&&(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+              <div style={{fontSize:48,marginBottom:12}}>🔨</div>
+              <div>경매를 선택하면 상세 정보를 확인할 수 있습니다</div>
+            </div>
+          )}
+          {sel&&(
+            <div style={{animation:'fadeIn 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+                <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                  <div style={{fontSize:36}}>{sel.emoji}</div>
+                  <div>
+                    <div style={{fontSize:17,fontWeight:800,color:C.text}}>{sel.name}</div>
+                    <div style={{display:'flex',gap:8,marginTop:4}}><GradeBadge grade={sel.grade} /></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timer */}
+              <div style={{background:timers[AUCTIONS.findIndex(a=>a.id===sel.id)]<300?'#FEF2F2':'#F0F9FF',borderRadius:12,padding:'16px 20px',marginBottom:16,border:`1px solid ${timers[AUCTIONS.findIndex(a=>a.id===sel.id)]<300?'#FECACA':'#BAE6FD'}`}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.textLight,marginBottom:6}}>종료까지</div>
+                <div style={{fontSize:32,fontWeight:900,color:timers[AUCTIONS.findIndex(a=>a.id===sel.id)]<300?C.danger:C.primary,fontVariantNumeric:'tabular-nums',animation:timers[AUCTIONS.findIndex(a=>a.id===sel.id)]<300?'blink 1s infinite':'none'}}>
+                  {formatSec(timers[AUCTIONS.findIndex(a=>a.id===sel.id)])}
+                </div>
+                {timers[AUCTIONS.findIndex(a=>a.id===sel.id)]<300&&<div style={{fontSize:12,color:C.danger,marginTop:4,fontWeight:600}}>⚠️ 낙찰 임박! 30초 내 입찰 시 자동 연장됩니다</div>}
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                {[{l:'현재 최고가',v:`${sel.current.toLocaleString()}원`},{l:'입찰 건수',v:`${sel.bids}건`},{l:'최고 입찰자',v:sel.topBidder},{l:'최소 입찰가',v:`${sel.minBid.toLocaleString()}원`}].map(k=>(
+                  <div key={k.l} style={{background:C.surface,borderRadius:8,padding:'10px 14px',border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:11,color:C.textLight}}>{k.l}</div>
+                    <div style={{fontSize:14,fontWeight:700,color:C.text,marginTop:2}}>{k.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={()=>setBidModal(true)} style={{width:'100%',background:C.primary,color:'#fff',border:'none',padding:'13px',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>🔨 입찰하기</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {bidModal&&sel&&(
+        <Modal title={`입찰 — ${sel.name}`} onClose={()=>setBidModal(false)}>
+          <div>
+            <div style={{background:C.bg,borderRadius:10,padding:14,marginBottom:16,display:'flex',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,color:C.textLight}}>현재 최고가</span>
+              <span style={{fontWeight:700,color:C.text}}>{sel.current.toLocaleString()}원</span>
+            </div>
+            <div style={{background:C.bg,borderRadius:10,padding:14,marginBottom:16,display:'flex',justifyContent:'space-between'}}>
+              <span style={{fontSize:13,color:C.textLight}}>최소 입찰가</span>
+              <span style={{fontWeight:700,color:C.danger}}>{sel.minBid.toLocaleString()}원</span>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.textMid,marginBottom:6}}>입찰 금액 (원)</div>
+              <input defaultValue={sel.minBid} type="number" style={{width:'100%',padding:'12px 14px',border:`2px solid ${C.primary}`,borderRadius:8,fontSize:16,fontFamily:'inherit',outline:'none',fontWeight:700}} />
+            </div>
+            <div style={{background:'#F0F9FF',borderRadius:8,padding:12,marginBottom:16,fontSize:13,color:'#0E7490',lineHeight:1.6}}>
+              💡 종료 30초 이내 입찰 시 경매 시간이 30초 자동 연장됩니다
+            </div>
+            <button onClick={()=>{setBidModal(false);onToast('입찰이 완료되었습니다! 최고가 입찰자가 되었습니다.');}} style={{width:'100%',background:C.primary,color:'#fff',border:'none',padding:'13px',borderRadius:10,fontSize:15,fontWeight:700,cursor:'pointer'}}>입찰 확정</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function DashboardPage({ onToast }) {
+  const [tabIdx, setTabIdx] = useState(0);
+  const [feverOn, setFeverOn] = useState(true);
+  const [sel, setSel] = useState(null);
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {SECTION_TABS.dashboard.map((t,i)=>(
+          <button key={i} onClick={()=>setTabIdx(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:tabIdx===i?C.primary:C.textLight,fontWeight:tabIdx===i?700:400,borderBottom:tabIdx===i?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1}}>{t}</button>
+        ))}
+      </div>
+
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        {/* Left content */}
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto',background:C.surface}}>
+          {tabIdx===0&&(
+            <div style={{padding:16}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                {[{l:'실시간 거래',v:98,icon:'💱'},{l:'진행 경매',v:3,icon:'🔨'},{l:'신규 등록',v:24,icon:'📦'},{l:'활성 사용자',v:847,icon:'👥'}].map((k,i)=>(
+                  <div key={k.l} style={{background:C.bg,borderRadius:10,padding:'12px 14px',animation:`slideUp 300ms ease ${i*60}ms both`}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                      <div>
+                        <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>{k.l}</div>
+                        <div style={{fontSize:22,fontWeight:800,color:C.text}}><CountUp end={k.v} /></div>
+                      </div>
+                      <span style={{fontSize:20}}>{k.icon}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{background:feverOn?'#FEF3C7':'#F1F5F9',borderRadius:10,padding:'14px 16px',border:`1px solid ${feverOn?'#FDE68A':C.border}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                  <div style={{fontWeight:700,color:feverOn?'#D97706':C.textLight,fontSize:14}}>🔥 피버 이벤트 {feverOn?'활성':'비활성'}</div>
+                  <button onClick={()=>{setFeverOn(!feverOn);onToast(feverOn?'피버 이벤트가 종료되었습니다':'피버 이벤트가 발동되었습니다!');}} style={{background:feverOn?'#F59E0B':C.primary,color:'#fff',border:'none',padding:'6px 14px',borderRadius:8,fontSize:12,fontWeight:700,cursor:'pointer'}}>{feverOn?'종료':'발동'}</button>
+                </div>
+                <div style={{fontSize:12,color:feverOn?'#92400E':C.textLight}}>피버 활성 중: 구매 시 보너스 아이템 지급 · 전체 사용자 화면에 실시간 반영</div>
+              </div>
+            </div>
+          )}
+
+          {tabIdx===1&&(
+            <div style={{padding:16}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>시간대별 거래량</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={TRADE_VOL}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                  <XAxis dataKey="time" tick={{fontSize:10,fill:C.textLight}} />
+                  <YAxis tick={{fontSize:10,fill:C.textLight}} />
+                  <Tooltip formatter={v=>[`${v}건`,'거래량']} />
+                  <Bar dataKey="vol" fill={C.primary} radius={[3,3,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div style={{marginTop:16,fontSize:13,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>등급별 유통 비율</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={GRADE_DIST} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
+                    {GRADE_DIST.map((e,i)=><Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip formatter={v=>[`${v}%`,'비율']} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {tabIdx===2&&(
+            <div>
+              {SUSPICIOUS.map((s,i)=>(
+                <div key={s.id} onClick={()=>setSel(s)} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:sel?.id===s.id?'#FEF2F2':'transparent',borderLeft:sel?.id===s.id?'3px solid #EF4444':'3px solid transparent',transition:'all 150ms'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{fontWeight:600,color:C.text,fontSize:14}}>{s.user}</span>
+                    <span style={{background:'#FEF2F2',color:'#EF4444',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:6}}>{s.flag}</span>
+                  </div>
+                  <div style={{fontSize:12,color:C.textLight}}>{s.item} · {s.window} 내 {s.count}회</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Detail */}
+        <div style={{flex:1,overflowY:'auto',padding:20,background:C.bg}}>
+          {tabIdx===0&&(
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.textLight,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.06em'}}>아이템 등급별 유통 현황</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={GRADE_DIST} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name,value})=>`${name} ${value}%`}>
+                    {GRADE_DIST.map((e,i)=><Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip formatter={v=>[`${v}%`,'비율']} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginTop:16}}>
+                {GRADE_DIST.map(g=>(
+                  <div key={g.name} style={{background:C.surface,borderRadius:8,padding:'10px 14px',border:`1px solid ${C.border}`}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:g.color,marginBottom:6}} />
+                    <div style={{fontSize:12,color:C.textLight}}>{g.name}</div>
+                    <div style={{fontSize:18,fontWeight:800,color:C.text}}>{g.value}%</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tabIdx===2&&sel&&(
+            <div style={{animation:'fadeIn 250ms ease'}}>
+              <div style={{background:'#FEF2F2',borderRadius:12,padding:16,marginBottom:16,border:'1px solid #FECACA'}}>
+                <div style={{fontWeight:700,color:C.danger,marginBottom:4}}>{sel.flag}</div>
+                <div style={{fontSize:14,color:C.text}}>{sel.user}</div>
+              </div>
+              {[['감지 아이템',sel.item],['발생 횟수',`${sel.count}회`],['감지 시간창',sel.window],['위반 유형',sel.flag]].map(([k,v])=>(
+                <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+                  <span style={{color:C.textLight}}>{k}</span><span style={{fontWeight:600,color:C.text}}>{v}</span>
+                </div>
+              ))}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:16}}>
+                <button onClick={()=>onToast('해당 거래가 정지되었습니다')} style={{background:'#FEF2F2',color:C.danger,border:'1px solid #FECACA',padding:'12px',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>거래 정지</button>
+                <button onClick={()=>onToast('계정이 검토 처리되었습니다')} style={{background:C.primary,color:'#fff',border:'none',padding:'12px',borderRadius:8,fontSize:13,fontWeight:700,cursor:'pointer'}}>계정 검토</button>
+              </div>
+            </div>
+          )}
+          {tabIdx!==0&&tabIdx!==2&&(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+              <div style={{fontSize:40,marginBottom:12}}>📊</div>
+              <div>좌측에서 데이터를 선택하세요</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── APP ──
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState('home');
+  const [toast, setToast] = useState(null);
+  useEffect(()=>{ setTimeout(()=>setLoading(false),1500); },[]);
+
+  const BREADCRUMBS = {home:'홈 · 박스 쇼핑',market:'트레이딩 마켓',auction:'실시간 경매',dashboard:'관리자 모니터링'};
+
+  if(loading) return (
+    <div style={{display:'flex',height:'100vh'}}>
+      <div style={{width:240,background:C.surface,borderRight:`1px solid ${C.border}`}} />
+      <div style={{flex:1,padding:20,background:C.bg}}>
+        {[140,100,180,110].map((h,i)=>(
+          <div key={i} style={{height:h,borderRadius:12,marginBottom:16,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}} />
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* White Sidebar */}
+      <nav style={{width:240,background:C.surface,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'sticky',top:0,height:'100vh'}}>
+        <div style={{padding:'0 16px 16px',borderBottom:`1px solid ${C.border}`,marginBottom:8}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},#0E7490)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🎮</div>
+            <div style={{fontWeight:800,fontSize:15,color:C.text}}>ItemBox</div>
+          </div>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV_ITEMS.map(item=>(
+            <button key={item.id} onClick={()=>setSection(item.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',background:section===item.id?`${C.primary}10`:'transparent',color:section===item.id?C.primary:C.textLight,borderLeft:section===item.id?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:section===item.id?700:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}
+              onMouseEnter={e=>section!==item.id&&(e.currentTarget.style.background=`${C.primary}06`)}
+              onMouseLeave={e=>section!==item.id&&(e.currentTarget.style.background='transparent')}>
+              <span style={{fontSize:18}}>{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:30,height:30,borderRadius:'50%',background:`linear-gradient(135deg,${C.primary},#0E7490)`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:13}}>김</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:C.text}}>김운영자</div>
+            <div style={{fontSize:11,color:C.textLight}}>admin@itembox.gg</div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:13,color:C.textLight}}>ItemBox</span>
+          <span style={{fontSize:13,color:C.border}}>›</span>
+          <span style={{fontSize:13,color:C.text,fontWeight:600}}>{BREADCRUMBS[section]}</span>
+          <div style={{flex:1}} />
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.bg,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 12px',fontSize:12,color:C.textLight}}>
+            🔍<input placeholder="아이템 검색..." style={{border:'none',background:'transparent',outline:'none',fontSize:12,width:120,fontFamily:'inherit'}} />
+          </div>
+          <div style={{width:28,height:28,borderRadius:'50%',background:`${C.primary}12`,display:'flex',alignItems:'center',justifyContent:'center',color:C.primary,fontWeight:800,fontSize:12}}>김</div>
+        </header>
+
+        {/* Content */}
+        {section==='home'&&<HomePage onToast={setToast} />}
+        {section==='market'&&<MarketPage onToast={setToast} />}
+        {section==='auction'&&<AuctionPage onToast={setToast} />}
+        {section==='dashboard'&&<DashboardPage onToast={setToast} />}
+      </div>
+
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
