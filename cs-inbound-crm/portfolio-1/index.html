@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이커머스 CS 통합 관리 CRM</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Pretendard',-apple-system,sans-serif;background:#F1F5F9;color:#0F172A;overflow:hidden;}
+    ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:#f1f5f9;}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,AreaChart,Area,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ResponsiveContainer}=Recharts;
+
+const PRIMARY='#2563EB',PRIMARY_L='#EFF6FF',SIDEBAR_W=260;
+
+const COLORS_DELIVERY=['#2563EB','#16A34A','#F59E0B','#EF4444','#8B5CF6'];
+
+const weeklyData=[
+  {day:'월',상담:42,처리:38,주문:120},{day:'화',상담:55,처리:49,주문:143},
+  {day:'수',상담:38,처리:35,주문:98},{day:'목',상담:61,처리:54,주문:167},
+  {day:'금',상담:73,처리:65,주문:189},{day:'토',상담:48,처리:44,주문:134},
+  {day:'일',상담:31,처리:28,주문:87},
+];
+const deliveryData=[
+  {name:'배송 완료',value:58},{name:'배송 중',value:22},{name:'배송 준비',value:12},
+  {name:'반품 접수',value:5},{name:'배송 지연',value:3},
+];
+const orders=[
+  {id:'ORD-20240301',customer:'김민준',product:'캐시미어 니트 (네이비 L)',status:'배송 완료',delivery:'CJ대한통운',amount:'89,000',cs:'처리완료',date:'2026.03.08'},
+  {id:'ORD-20240302',customer:'이서연',product:'울 코트 (베이지 M)',status:'배송 중',delivery:'롯데택배',amount:'245,000',cs:'상담중',date:'2026.03.09'},
+  {id:'ORD-20240303',customer:'박도현',product:'청바지 스트레이트 (32)',status:'배송 준비',delivery:'한진택배',amount:'68,000',cs:'대기중',date:'2026.03.09'},
+  {id:'ORD-20240304',customer:'최수아',product:'패딩 점퍼 (블랙 S)',status:'반품 접수',delivery:'CJ대한통운',amount:'178,000',cs:'처리완료',date:'2026.03.07'},
+  {id:'ORD-20240305',customer:'정우진',product:'트렌치코트 (카멜 L)',status:'배송 중',delivery:'롯데택배',amount:'312,000',cs:'대기중',date:'2026.03.10'},
+  {id:'ORD-20240306',customer:'한예진',product:'슬랙스 와이드 (화이트 M)',status:'배송 완료',delivery:'CJ대한통운',amount:'54,000',cs:'처리완료',date:'2026.03.06'},
+  {id:'ORD-20240307',customer:'오민혁',product:'가죽 자켓 (브라운 XL)',status:'배송 지연',delivery:'한진택배',amount:'289,000',cs:'상담중',date:'2026.03.08'},
+  {id:'ORD-20240308',customer:'신지은',product:'원피스 플로럴 (S)',status:'배송 준비',delivery:'CJ대한통운',amount:'72,000',cs:'대기중',date:'2026.03.10'},
+];
+const consultations=[
+  {id:'CS-2026001',customer:'이서연',channel:'채널톡',type:'배송문의',status:'상담중',agent:'김상담',date:'2026.03.09 14:23',content:'주문한 울 코트가 배송 중이라고 나오는데 언제 도착하나요? 주말에 꼭 필요해서요.'},
+  {id:'CS-2026002',customer:'오민혁',channel:'채널톡',type:'배송지연',status:'상담중',agent:'박지원',date:'2026.03.08 11:05',content:'가죽 자켓 배송이 3일째 지연되고 있습니다. 이유를 알 수 있을까요?'},
+  {id:'CS-2026003',customer:'최수아',channel:'채널톡',type:'반품신청',status:'처리완료',agent:'김상담',date:'2026.03.07 16:42',content:'패딩 점퍼 사이즈가 너무 커서 반품하고 싶습니다. 어떻게 해야 하나요?'},
+  {id:'CS-2026004',customer:'정우진',channel:'채널톡',type:'상품문의',status:'대기중',agent:'미배정',date:'2026.03.10 09:15',content:'트렌치코트 컬러 옵션이 더 있나요? 다크 베이지도 있으면 좋겠는데요.'},
+  {id:'CS-2026005',customer:'강하은',channel:'채널톡',type:'교환신청',status:'처리완료',agent:'이민호',date:'2026.03.06 13:30',content:'구매한 스니커즈가 한 쪽이 불량입니다. 교환 가능할까요?'},
+  {id:'CS-2026006',customer:'윤재원',channel:'채널톡',type:'결제문의',status:'처리완료',agent:'박지원',date:'2026.03.05 10:20',content:'카드 결제가 두 번 된 것 같아요. 확인해 주실 수 있나요?'},
+];
+const users=[
+  {id:1,name:'김상담',email:'kim@brightcommerce.co.kr',role:'상담원',team:'CS 1팀',lastLogin:'2026.03.11 08:45',status:'활성',count:48},
+  {id:2,name:'박지원',email:'park@brightcommerce.co.kr',role:'상담원',team:'CS 1팀',lastLogin:'2026.03.11 09:10',status:'활성',count:52},
+  {id:3,name:'이민호',email:'lee@brightcommerce.co.kr',role:'상담원',team:'CS 2팀',lastLogin:'2026.03.10 17:30',status:'활성',count:39},
+  {id:4,name:'최팀장',email:'choi@brightcommerce.co.kr',role:'팀장',team:'CS 1팀',lastLogin:'2026.03.11 08:00',status:'활성',count:15},
+  {id:5,name:'정매니저',email:'jung@brightcommerce.co.kr',role:'팀장',team:'CS 2팀',lastLogin:'2026.03.10 18:00',status:'활성',count:11},
+  {id:6,name:'관리자',email:'admin@brightcommerce.co.kr',role:'어드민',team:'-',lastLogin:'2026.03.09 12:00',status:'활성',count:0},
+];
+
+const statusColor={
+  '배송 완료':'#16A34A','배송 중':'#2563EB','배송 준비':'#F59E0B',
+  '반품 접수':'#EF4444','배송 지연':'#DC2626',
+  '처리완료':'#16A34A','상담중':'#2563EB','대기중':'#F59E0B',
+  '상담원':'#2563EB','팀장':'#7C3AED','어드민':'#EF4444',
+};
+const statusBg={
+  '배송 완료':'#DCFCE7','배송 중':'#DBEAFE','배송 준비':'#FEF3C7',
+  '반품 접수':'#FEE2E2','배송 지연':'#FEE2E2',
+  '처리완료':'#DCFCE7','상담중':'#DBEAFE','대기중':'#FEF3C7',
+  '상담원':'#DBEAFE','팀장':'#EDE9FE','어드민':'#FEE2E2',
+};
+
+function Badge({text}){
+  return(
+    <span style={{background:statusBg[text]||'#F1F5F9',color:statusColor[text]||'#64748B',
+      padding:'2px 10px',borderRadius:20,fontSize:12,fontWeight:600,whiteSpace:'nowrap'}}>
+      {text}
+    </span>
+  );
+}
+
+function KpiCard({label,value,sub,color,icon}){
+  return(
+    <div style={{background:'#fff',borderRadius:12,padding:'20px 24px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',flex:1,minWidth:0}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div>
+          <div style={{fontSize:13,color:'#64748B',fontWeight:500,marginBottom:8}}>{label}</div>
+          <div style={{fontSize:28,fontWeight:700,color:'#0F172A'}}>{value}</div>
+          {sub&&<div style={{fontSize:12,color:'#64748B',marginTop:4}}>{sub}</div>}
+        </div>
+        <div style={{width:44,height:44,borderRadius:10,background:color+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard(){
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <div style={{marginBottom:24}}>
+        <h1 style={{fontSize:22,fontWeight:700,color:'#0F172A'}}>CS 대시보드</h1>
+        <p style={{fontSize:13,color:'#64748B',marginTop:4}}>2026년 3월 11일 화요일 · 오늘 상담 현황</p>
+      </div>
+      <div style={{display:'flex',gap:16,marginBottom:24,flexWrap:'wrap'}}>
+        <KpiCard label="미처리 상담" value="8건" sub="전일 대비 +2" color="#EF4444" icon="🔔"/>
+        <KpiCard label="오늘 신규 주문" value="67건" sub="평균 응답 12분" color="#2563EB" icon="📦"/>
+        <KpiCard label="처리 완료" value="54건" sub="오늘 처리율 87%" color="#16A34A" icon="✅"/>
+        <KpiCard label="진행 중 반품" value="5건" sub="평균 처리 1.8일" color="#F59E0B" icon="↩️"/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,marginBottom:16}}>
+        <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:16,color:'#0F172A'}}>주간 상담 & 주문 추이</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9"/>
+              <XAxis dataKey="day" tick={{fontSize:12,fill:'#64748B'}}/>
+              <YAxis tick={{fontSize:12,fill:'#64748B'}}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Legend iconType="circle" iconSize={8}/>
+              <Line type="monotone" dataKey="상담" stroke="#2563EB" strokeWidth={2.5} dot={{r:4,fill:'#2563EB'}}/>
+              <Line type="monotone" dataKey="처리" stroke="#16A34A" strokeWidth={2.5} dot={{r:4,fill:'#16A34A'}}/>
+              <Line type="monotone" dataKey="주문" stroke="#F59E0B" strokeWidth={2} strokeDasharray="4 2" dot={false}/>
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:4,color:'#0F172A'}}>배송 상태 현황</div>
+          <PieChart width={280} height={200}>
+            <Pie data={deliveryData} cx={130} cy={95} innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
+              {deliveryData.map((_,i)=><Cell key={i} fill={COLORS_DELIVERY[i]}/>)}
+            </Pie>
+            <Tooltip formatter={(v,n)=>[`${v}%`,n]}/>
+          </PieChart>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
+            {deliveryData.map((d,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:12}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:COLORS_DELIVERY[i],flexShrink:0}}/>
+                <span style={{color:'#64748B',flex:1}}>{d.name}</span>
+                <span style={{fontWeight:600,color:'#0F172A'}}>{d.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700,color:'#0F172A'}}>최근 상담 내역</div>
+          <span style={{fontSize:12,color:PRIMARY,fontWeight:600,cursor:'pointer'}}>전체 보기 →</span>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{borderBottom:'2px solid #F1F5F9'}}>
+            {['상담번호','고객명','채널','유형','상태','담당자','접수일시'].map(h=>(
+              <th key={h} style={{padding:'8px 12px',fontSize:12,fontWeight:600,color:'#64748B',textAlign:'left',whiteSpace:'nowrap'}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {consultations.slice(0,4).map(c=>(
+              <tr key={c.id} style={{borderBottom:'1px solid #F8FAFC',cursor:'pointer'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'10px 12px',fontSize:13,color:PRIMARY,fontWeight:600}}>{c.id}</td>
+                <td style={{padding:'10px 12px',fontSize:13,fontWeight:600}}>{c.customer}</td>
+                <td style={{padding:'10px 12px',fontSize:12}}><Badge text={c.channel}/></td>
+                <td style={{padding:'10px 12px',fontSize:13,color:'#475569'}}>{c.type}</td>
+                <td style={{padding:'10px 12px'}}><Badge text={c.status}/></td>
+                <td style={{padding:'10px 12px',fontSize:13,color:'#475569'}}>{c.agent}</td>
+                <td style={{padding:'10px 12px',fontSize:12,color:'#64748B'}}>{c.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Orders(){
+  const [search,setSearch]=useState('');
+  const [filter,setFilter]=useState('전체');
+  const [selected,setSelected]=useState(null);
+  const filtered=orders.filter(o=>{
+    const q=o.customer+o.id+o.product;
+    return q.toLowerCase().includes(search.toLowerCase())&&(filter==='전체'||o.status===filter);
+  });
+  return(
+    <div style={{display:'flex',height:'100%',gap:0}}>
+      <div style={{flex:1,padding:28,overflowY:'auto'}}>
+        <h1 style={{fontSize:22,fontWeight:700,marginBottom:20}}>주문 관리</h1>
+        <div style={{display:'flex',gap:12,marginBottom:20,alignItems:'center',flexWrap:'wrap'}}>
+          <div style={{position:'relative',flex:1,minWidth:220}}>
+            <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'#94A3B8',fontSize:16}}>🔍</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="주문번호, 고객명, 상품명 검색"
+              style={{width:'100%',padding:'10px 12px 10px 36px',borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,outline:'none',background:'#fff'}}/>
+          </div>
+          {['전체','배송 완료','배송 중','배송 준비','반품 접수','배송 지연'].map(f=>(
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{padding:'8px 14px',borderRadius:8,border:'1.5px solid '+(filter===f?PRIMARY:'#E2E8F0'),
+                background:filter===f?PRIMARY_L:'#fff',color:filter===f?PRIMARY:'#64748B',
+                fontSize:13,fontWeight:filter===f?600:400,cursor:'pointer'}}>
+              {f}
+            </button>
+          ))}
+        </div>
+        <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{background:'#F8FAFC',borderBottom:'2px solid #E2E8F0'}}>
+              {['주문번호','고객명','상품','배송사','배송상태','금액','CS상태','주문일','메모'].map(h=>(
+                <th key={h} style={{padding:'12px 14px',fontSize:12,fontWeight:700,color:'#475569',textAlign:'left',whiteSpace:'nowrap'}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {filtered.map(o=>(
+                <tr key={o.id} onClick={()=>setSelected(selected?.id===o.id?null:o)}
+                  style={{borderBottom:'1px solid #F1F5F9',cursor:'pointer',background:selected?.id===o.id?PRIMARY_L:'transparent'}}
+                  onMouseEnter={e=>{if(selected?.id!==o.id)e.currentTarget.style.background='#F8FAFC';}}
+                  onMouseLeave={e=>{if(selected?.id!==o.id)e.currentTarget.style.background='transparent';}}>
+                  <td style={{padding:'12px 14px',fontSize:13,color:PRIMARY,fontWeight:600}}>{o.id}</td>
+                  <td style={{padding:'12px 14px',fontSize:13,fontWeight:600}}>{o.customer}</td>
+                  <td style={{padding:'12px 14px',fontSize:13,color:'#475569',maxWidth:160}}><span style={{display:'block',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.product}</span></td>
+                  <td style={{padding:'12px 14px',fontSize:12,color:'#64748B'}}>{o.delivery}</td>
+                  <td style={{padding:'12px 14px'}}><Badge text={o.status}/></td>
+                  <td style={{padding:'12px 14px',fontSize:13,fontWeight:600}}>{o.amount}원</td>
+                  <td style={{padding:'12px 14px'}}><Badge text={o.cs}/></td>
+                  <td style={{padding:'12px 14px',fontSize:12,color:'#64748B'}}>{o.date}</td>
+                  <td style={{padding:'12px 14px'}}>
+                    <button style={{padding:'4px 10px',borderRadius:6,border:'1.5px solid #E2E8F0',background:'#fff',fontSize:12,cursor:'pointer',color:'#475569'}}>메모</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {selected&&(
+        <div style={{width:340,borderLeft:'1px solid #E2E8F0',background:'#fff',padding:24,overflowY:'auto',height:'100%'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <span style={{fontSize:15,fontWeight:700}}>주문 상세</span>
+            <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#94A3B8'}}>✕</button>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {[['주문번호',selected.id],['고객명',selected.customer],['상품',selected.product],
+              ['배송사',selected.delivery],['배송상태',null],['금액',selected.amount+'원'],
+              ['주문일',selected.date]].map(([k,v])=>(
+              <div key={k} style={{borderBottom:'1px solid #F1F5F9',paddingBottom:10}}>
+                <div style={{fontSize:11,color:'#94A3B8',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:0.5}}>{k}</div>
+                {k==='배송상태'?<Badge text={selected.status}/>:<div style={{fontSize:14,fontWeight:600,color:'#0F172A'}}>{v}</div>}
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:16}}>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>CS 메모 작성</div>
+            <textarea rows={4} placeholder="상담 내용 또는 처리 사항을 입력하세요" style={{width:'100%',padding:10,borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,resize:'none',outline:'none',fontFamily:'Pretendard'}}/>
+            <button style={{marginTop:8,width:'100%',padding:'10px',borderRadius:8,background:PRIMARY,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>메모 저장</button>
+          </div>
+          <div style={{marginTop:16,padding:16,background:'#F8FAFC',borderRadius:8}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#475569',marginBottom:8}}>배송 추적 타임라인</div>
+            {[['03.08 14:30','배송 완료 · CJ대한통운 · 도착'],
+              ['03.08 08:12','배송 출발 · 강남 배송센터 출고'],
+              ['03.07 16:45','상품 픽업 완료 · 물류 센터 입고'],
+              ['03.07 10:00','주문 확인 · 출고 준비 중']].slice(0,selected.status==='배송 완료'?4:selected.status==='배송 중'?3:2).map(([t,d],i)=>(
+              <div key={i} style={{display:'flex',gap:10,marginBottom:6,fontSize:12}}>
+                <span style={{color:'#94A3B8',whiteSpace:'nowrap'}}>{t}</span>
+                <span style={{color:i===0?'#16A34A':'#64748B'}}>{d}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Consultation(){
+  const [selected,setSelected]=useState(null);
+  const [tab,setTab]=useState('전체');
+  const tabs=['전체','상담중','대기중','처리완료'];
+  const filtered=tab==='전체'?consultations:consultations.filter(c=>c.status===tab);
+  return(
+    <div style={{display:'flex',height:'100%'}}>
+      <div style={{flex:1,padding:28,overflowY:'auto'}}>
+        <h1 style={{fontSize:22,fontWeight:700,marginBottom:20}}>상담 이력</h1>
+        <div style={{display:'flex',gap:8,marginBottom:20}}>
+          {tabs.map(t=>(
+            <button key={t} onClick={()=>setTab(t)}
+              style={{padding:'8px 18px',borderRadius:8,border:'1.5px solid '+(tab===t?PRIMARY:'#E2E8F0'),
+                background:tab===t?PRIMARY:'#fff',color:tab===t?'#fff':'#64748B',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              {t} {tab===t&&`(${filtered.length})`}
+            </button>
+          ))}
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {filtered.map(c=>(
+            <div key={c.id} onClick={()=>setSelected(selected?.id===c.id?null:c)}
+              style={{background:'#fff',borderRadius:12,padding:'16px 20px',boxShadow:'0 1px 4px rgba(0,0,0,0.05)',cursor:'pointer',
+                border:'2px solid '+(selected?.id===c.id?PRIMARY:'transparent'),transition:'border-color 0.15s'}}
+              onMouseEnter={e=>e.currentTarget.style.boxShadow='0 2px 12px rgba(37,99,235,0.1)'}
+              onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,0.05)'}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <span style={{fontSize:13,fontWeight:700,color:'#0F172A'}}>{c.customer}</span>
+                  <Badge text={c.channel}/>
+                  <span style={{fontSize:12,color:'#94A3B8'}}>·</span>
+                  <span style={{fontSize:12,color:'#64748B'}}>{c.type}</span>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <Badge text={c.status}/>
+                  <span style={{fontSize:12,color:'#94A3B8'}}>{c.date}</span>
+                </div>
+              </div>
+              <div style={{fontSize:13,color:'#475569',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingRight:8}}>{c.content}</div>
+              <div style={{marginTop:8,fontSize:12,color:'#94A3B8'}}>담당: {c.agent} · {c.id}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {selected&&(
+        <div style={{width:380,borderLeft:'1px solid #E2E8F0',background:'#fff',padding:24,overflowY:'auto',height:'100%'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <div>
+              <div style={{fontSize:15,fontWeight:700}}>{selected.customer}</div>
+              <div style={{fontSize:12,color:'#64748B',marginTop:2}}>{selected.id} · {selected.type}</div>
+            </div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <Badge text={selected.status}/>
+              <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#94A3B8'}}>✕</button>
+            </div>
+          </div>
+          <div style={{borderRadius:10,background:'#F8FAFC',padding:14,marginBottom:16,fontSize:13,lineHeight:1.7,color:'#475569'}}>
+            💬 {selected.content}
+          </div>
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#475569',marginBottom:8}}>채널톡 대화 이력</div>
+            {[{who:'고객',msg:selected.content,time:selected.date.split(' ')[1]},
+              {who:'상담원',msg:'안녕하세요, 고객님. 문의 주신 내용 확인했습니다. 빠르게 처리해 드리겠습니다.',time:'14:25'},
+              {who:'고객',msg:'감사합니다. 빠른 처리 부탁드려요.',time:'14:26'},
+            ].map((m,i)=>(
+              <div key={i} style={{display:'flex',gap:8,marginBottom:8,flexDirection:m.who==='상담원'?'row-reverse':'row'}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:m.who==='상담원'?PRIMARY:'#E2E8F0',
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,color:m.who==='상담원'?'#fff':'#475569',flexShrink:0}}>
+                  {m.who==='상담원'?'상':'고'}
+                </div>
+                <div style={{maxWidth:'75%'}}>
+                  <div style={{fontSize:11,color:'#94A3B8',marginBottom:2,textAlign:m.who==='상담원'?'right':'left'}}>{m.time}</div>
+                  <div style={{padding:'8px 12px',borderRadius:10,background:m.who==='상담원'?PRIMARY_L:'#fff',
+                    border:'1px solid '+(m.who==='상담원'?'#BFDBFE':'#E2E8F0'),fontSize:13,color:'#0F172A',lineHeight:1.5}}>
+                    {m.msg}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{borderTop:'1px solid #E2E8F0',paddingTop:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#475569',marginBottom:8}}>추가 메모</div>
+            <textarea rows={3} placeholder="처리 사항 또는 인계 메모를 입력하세요" style={{width:'100%',padding:10,borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,resize:'none',outline:'none',fontFamily:'Pretendard'}}/>
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button style={{flex:1,padding:'8px',borderRadius:8,border:'1.5px solid #E2E8F0',background:'#fff',fontSize:13,cursor:'pointer',color:'#475569'}}>보류</button>
+              <button style={{flex:2,padding:'8px',borderRadius:8,background:PRIMARY,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>처리 완료</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Users(){
+  const [showModal,setShowModal]=useState(false);
+  const roleCount={상담원:0,팀장:0,어드민:0};
+  users.forEach(u=>{if(roleCount[u.role]!==undefined)roleCount[u.role]++;});
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div>
+          <h1 style={{fontSize:22,fontWeight:700}}>사용자 관리</h1>
+          <p style={{fontSize:13,color:'#64748B',marginTop:4}}>총 {users.length}명 · 활성 {users.filter(u=>u.status==='활성').length}명</p>
+        </div>
+        <button onClick={()=>setShowModal(true)} style={{padding:'10px 18px',background:PRIMARY,color:'#fff',border:'none',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 계정 추가</button>
+      </div>
+      <div style={{display:'flex',gap:16,marginBottom:24}}>
+        {Object.entries(roleCount).map(([role,cnt])=>(
+          <div key={role} style={{background:'#fff',borderRadius:12,padding:'16px 20px',flex:1,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:12,color:'#64748B',marginBottom:4}}>{role}</div>
+                <div style={{fontSize:24,fontWeight:700}}>{cnt}명</div>
+              </div>
+              <Badge text={role}/>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:12,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:'#F8FAFC',borderBottom:'2px solid #E2E8F0'}}>
+            {['이름','이메일','역할','팀','처리 건수','최근 로그인','상태','관리'].map(h=>(
+              <th key={h} style={{padding:'12px 16px',fontSize:12,fontWeight:700,color:'#475569',textAlign:'left'}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {users.map(u=>(
+              <tr key={u.id} style={{borderBottom:'1px solid #F1F5F9'}}
+                onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'14px 16px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{width:32,height:32,borderRadius:'50%',background:PRIMARY,color:'#fff',
+                      display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}}>
+                      {u.name[0]}
+                    </div>
+                    <span style={{fontSize:14,fontWeight:600}}>{u.name}</span>
+                  </div>
+                </td>
+                <td style={{padding:'14px 16px',fontSize:13,color:'#64748B'}}>{u.email}</td>
+                <td style={{padding:'14px 16px'}}><Badge text={u.role}/></td>
+                <td style={{padding:'14px 16px',fontSize:13,color:'#475569'}}>{u.team}</td>
+                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600,color:PRIMARY}}>{u.count>0?`${u.count}건`:'-'}</td>
+                <td style={{padding:'14px 16px',fontSize:12,color:'#64748B'}}>{u.lastLogin}</td>
+                <td style={{padding:'14px 16px'}}>
+                  <span style={{background:'#DCFCE7',color:'#16A34A',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600}}>{u.status}</span>
+                </td>
+                <td style={{padding:'14px 16px'}}>
+                  <div style={{display:'flex',gap:6}}>
+                    <button style={{padding:'4px 10px',borderRadius:6,border:'1.5px solid #E2E8F0',background:'#fff',fontSize:12,cursor:'pointer',color:'#475569'}}>수정</button>
+                    {u.role!=='어드민'&&<button style={{padding:'4px 10px',borderRadius:6,border:'1.5px solid #FEE2E2',background:'#fff',fontSize:12,cursor:'pointer',color:'#EF4444'}}>비활성</button>}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {showModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:16,padding:28,width:420,boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:20}}>
+              <span style={{fontSize:17,fontWeight:700}}>새 계정 추가</span>
+              <button onClick={()=>setShowModal(false)} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:'#94A3B8'}}>✕</button>
+            </div>
+            {[['이름','홍길동'],['이메일','hong@example.com']].map(([l,p])=>(
+              <div key={l} style={{marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>{l}</div>
+                <input placeholder={p} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,outline:'none'}}/>
+              </div>
+            ))}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>역할</div>
+              <select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,outline:'none',background:'#fff'}}>
+                <option>상담원</option><option>팀장</option><option>어드민</option>
+              </select>
+            </div>
+            <div style={{display:'flex',gap:10,marginTop:20}}>
+              <button onClick={()=>setShowModal(false)} style={{flex:1,padding:11,borderRadius:8,border:'1.5px solid #E2E8F0',background:'#fff',fontSize:13,cursor:'pointer'}}>취소</button>
+              <button style={{flex:2,padding:11,borderRadius:8,background:PRIMARY,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>계정 생성</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Settings(){
+  const [ch,setCh]=useState(true);
+  const [del,setDel]=useState(true);
+  const Toggle=({val,onChange})=>(
+    <div onClick={()=>onChange(!val)} style={{width:44,height:24,borderRadius:12,background:val?PRIMARY:'#CBD5E1',cursor:'pointer',position:'relative',transition:'background 0.2s'}}>
+      <div style={{position:'absolute',top:2,left:val?20:2,width:20,height:20,borderRadius:10,background:'#fff',transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}/>
+    </div>
+  );
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <h1 style={{fontSize:22,fontWeight:700,marginBottom:8}}>설정</h1>
+      <p style={{fontSize:13,color:'#64748B',marginBottom:24}}>외부 시스템 연동 및 시스템 환경 설정</p>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        {[
+          {title:'채널톡 API 연동',icon:'💬',color:'#2563EB',connected:ch,setConn:setCh,
+            fields:[['Workspace ID','BRIGHTCOMMERCE_PROD'],['API Secret Key','ch_live_••••••••••••'],['Webhook URL','https://api.brightcrm.co.kr/webhook/channeltalk']]},
+          {title:'배송사 API 연동',icon:'📦',color:'#16A34A',connected:del,setConn:setDel,
+            fields:[['CJ대한통운 API Key','CJ_••••••••••••'],['롯데택배 API Key','LT_••••••••••••'],['동기화 주기','5분마다']]},
+        ].map(s=>(
+          <div key={s.title} style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:40,height:40,borderRadius:10,background:s.color+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{s.icon}</div>
+                <div>
+                  <div style={{fontSize:15,fontWeight:700}}>{s.title}</div>
+                  <div style={{fontSize:12,color:s.connected?'#16A34A':'#94A3B8',marginTop:2}}>{s.connected?'✓ 연결됨':'연결 안됨'}</div>
+                </div>
+              </div>
+              <Toggle val={s.connected} onChange={s.setConn}/>
+            </div>
+            {s.fields.map(([k,v])=>(
+              <div key={k} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                <div style={{width:140,fontSize:13,color:'#64748B',fontWeight:500}}>{k}</div>
+                <input defaultValue={v} style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1.5px solid #E2E8F0',fontSize:13,outline:'none',background:s.connected?'#fff':'#F8FAFC',color:s.connected?'#0F172A':'#94A3B8'}} readOnly={!s.connected}/>
+              </div>
+            ))}
+            <div style={{display:'flex',gap:8,marginTop:8}}>
+              <button style={{padding:'8px 16px',borderRadius:8,border:'1.5px solid #E2E8F0',background:'#fff',fontSize:13,cursor:'pointer',color:'#475569'}}>연결 테스트</button>
+              <button style={{padding:'8px 16px',borderRadius:8,background:s.color,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>설정 저장</button>
+            </div>
+          </div>
+        ))}
+        <div style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>알림 설정</div>
+          {[['미처리 상담 알림','20분 초과 미처리 상담 발생 시 담당자에게 알림',true],
+            ['배송 지연 알림','예상 배송일 초과 주문 발생 시 CS팀 전체 알림',true],
+            ['신규 반품 접수 알림','반품 접수 시 담당 팀장에게 즉시 알림',false]].map(([t,d,v])=>(
+            <div key={t} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:'1px solid #F1F5F9'}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600}}>{t}</div>
+                <div style={{fontSize:12,color:'#64748B',marginTop:2}}>{d}</div>
+              </div>
+              <Toggle val={v} onChange={()=>{}}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const navItems=[
+  {id:'dashboard',label:'CS 대시보드',icon:'📊'},
+  {id:'orders',label:'주문 관리',icon:'📦'},
+  {id:'consultation',label:'상담 이력',icon:'💬'},
+  {id:'users',label:'사용자 관리',icon:'👥'},
+  {id:'settings',label:'설정',icon:'⚙️'},
+];
+
+function App(){
+  const [active,setActive]=useState('dashboard');
+  const screens={dashboard:<Dashboard/>,orders:<Orders/>,consultation:<Consultation/>,users:<Users/>,settings:<Settings/>};
+  return(
+    <div style={{display:'flex',height:'100vh',overflow:'hidden'}}>
+      {/* Sidebar */}
+      <div style={{width:SIDEBAR_W,background:'#1E3A5F',display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'20px 20px 0'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,paddingBottom:20,borderBottom:'1px solid rgba(255,255,255,0.1)'}}>
+            <div style={{width:36,height:36,borderRadius:8,background:'#2563EB',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🎯</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:'#fff'}}>BrightCS</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.5)'}}>CS 통합 관리 시스템</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:'16px 12px'}}>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.4)',fontWeight:700,padding:'8px 8px 4px',letterSpacing:1,textTransform:'uppercase'}}>메인 메뉴</div>
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setActive(n.id)}
+              style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:8,border:'none',
+                background:active===n.id?'rgba(37,99,235,0.3)':'transparent',
+                color:active===n.id?'#fff':'rgba(255,255,255,0.6)',
+                fontSize:14,fontWeight:active===n.id?600:400,cursor:'pointer',marginBottom:2,textAlign:'left',transition:'all 0.15s'}}>
+              <span style={{fontSize:16,flexShrink:0}}>{n.icon}</span>
+              {n.label}
+              {active===n.id&&<div style={{marginLeft:'auto',width:4,height:4,borderRadius:2,background:'#2563EB'}}/>}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'12px 12px 20px',borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px'}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:'#2563EB',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:'#fff',fontWeight:700}}>관</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:'#fff'}}>관리자</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>admin@brightcommerce.co.kr</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Topbar */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{height:56,background:'#fff',borderBottom:'1px solid #E2E8F0',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:14,fontWeight:600,color:'#0F172A'}}>{navItems.find(n=>n.id===active)?.label}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{position:'relative'}}>
+              <button style={{width:36,height:36,borderRadius:8,border:'1.5px solid #E2E8F0',background:'#fff',cursor:'pointer',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}}>🔔</button>
+              <span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:8,background:'#EF4444',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>8</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'4px 12px 4px 4px',borderRadius:8,border:'1.5px solid #E2E8F0',cursor:'pointer',background:'#F8FAFC'}}>
+              <div style={{width:28,height:28,borderRadius:'50%',background:PRIMARY,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700}}>관</div>
+              <span style={{fontSize:13,fontWeight:600}}>관리자</span>
+              <span style={{fontSize:11,color:'#94A3B8'}}>▼</span>
+            </div>
+          </div>
+        </div>
+        <div style={{flex:1,overflow:'hidden'}}>
+          {screens[active]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>멀티채널 CS 통합 인박스 플랫폼</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Pretendard',-apple-system,sans-serif;background:#FAFAFA;color:#1E1B4B;overflow:hidden;}
+    ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:#f5f3ff;}::-webkit-scrollbar-thumb{background:#DDD6FE;border-radius:3px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {AreaChart,Area,BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ResponsiveContainer}=Recharts;
+
+const PRIMARY='#7C3AED',PRIMARY_L='#F5F3FF',SIDEBAR_W=240;
+const CHANNEL_COLORS={'채널톡':'#2563EB','카카오톡':'#FBBF24','이메일':'#10B981'};
+const CHANNEL_BG={'채널톡':'#DBEAFE','카카오톡':'#FEF3C7','이메일':'#D1FAE5'};
+const TAG_COLORS={'배송문의':'#2563EB','환불요청':'#EF4444','상품문의':'#7C3AED','불만접수':'#DC2626','교환신청':'#F59E0B','결제문의':'#10B981','기타':'#94A3B8'};
+const TAG_BG={'배송문의':'#DBEAFE','환불요청':'#FEE2E2','상품문의':'#EDE9FE','불만접수':'#FEE2E2','교환신청':'#FEF3C7','결제문의':'#D1FAE5','기타':'#F1F5F9'};
+
+const inboxItems=[
+  {id:'INB-001',customer:'이서연',channel:'채널톡',tag:'배송문의',status:'대기중',agent:'미배정',preview:'주문한 울 코트가 배송 중이라고 나오는데 언제쯤 도착할까요?',time:'14:23',unread:true},
+  {id:'INB-002',customer:'오민혁',channel:'채널톡',tag:'불만접수',status:'상담중',agent:'김상담',preview:'3일째 배송이 지연되고 있는데 아무 연락이 없어요. 너무 불편합니다.',time:'13:45',unread:true},
+  {id:'INB-003',customer:'최수아',channel:'카카오톡',tag:'환불요청',status:'처리완료',agent:'박지원',preview:'패딩 사이즈가 커서 반품 및 환불을 원합니다.',time:'11:20',unread:false},
+  {id:'INB-004',customer:'정우진',channel:'이메일',tag:'상품문의',status:'대기중',agent:'미배정',preview:'트렌치코트 다크 베이지 색상이 있는지 확인 부탁드립니다.',time:'10:55',unread:true},
+  {id:'INB-005',customer:'강하은',channel:'채널톡',tag:'교환신청',status:'처리완료',agent:'이민호',preview:'구매한 스니커즈 한쪽이 불량입니다. 교환 신청드립니다.',time:'09:30',unread:false},
+  {id:'INB-006',customer:'윤재원',channel:'카카오톡',tag:'결제문의',status:'처리완료',agent:'박지원',preview:'카드 결제가 중복으로 된 것 같습니다. 확인 부탁드려요.',time:'어제'},
+  {id:'INB-007',customer:'한예진',channel:'이메일',tag:'상품문의',status:'상담중',agent:'김상담',preview:'시즌 오프 세일 예정 상품 목록을 미리 알 수 있을까요?',time:'어제'},
+  {id:'INB-008',customer:'신지은',channel:'채널톡',tag:'배송문의',status:'대기중',agent:'미배정',preview:'배송 주소를 변경하고 싶은데 아직 가능한가요?',time:'어제'},
+];
+const agents=[
+  {id:1,name:'김상담',email:'kim@omnisupport.co.kr',role:'상담원',channels:['채널톡','이메일'],tags:['배송문의','상품문의'],today:18,total:847,sla:97.2,status:'온라인'},
+  {id:2,name:'박지원',email:'park@omnisupport.co.kr',role:'상담원',channels:['채널톡','카카오톡'],tags:['환불요청','결제문의','교환신청'],today:22,total:912,sla:96.8,status:'온라인'},
+  {id:3,name:'이민호',email:'lee@omnisupport.co.kr',role:'상담원',channels:['이메일','카카오톡'],tags:['교환신청','불만접수'],today:15,total:634,sla:95.4,status:'자리비움'},
+  {id:4,name:'최팀장',email:'choi@omnisupport.co.kr',role:'슈퍼바이저',channels:['채널톡','카카오톡','이메일'],tags:['전체'],today:8,total:1203,sla:98.1,status:'온라인'},
+];
+const hourlyData=[
+  {t:'09',채널톡:12,카카오톡:5,이메일:3},{t:'10',채널톡:18,카카오톡:8,이메일:6},
+  {t:'11',채널톡:24,카카오톡:12,이메일:8},{t:'12',채널톡:31,카카오톡:18,이메일:4},
+  {t:'13',채널톡:28,카카오톡:14,이메일:7},{t:'14',채널톡:22,카카오톡:10,이메일:9},
+];
+const tagDist=[{name:'배송문의',value:32},{name:'환불요청',value:21},{name:'상품문의',value:19},{name:'불만접수',value:12},{name:'교환신청',value:9},{name:'결제문의',value:5},{name:'기타',value:2}];
+const taggingCategories=[
+  {id:1,name:'배송문의',keywords:['배송','도착','언제','추적','주소변경'],model:'claude-3-haiku',accuracy:94.2,count:1248,active:true},
+  {id:2,name:'환불요청',keywords:['환불','돌려','반납','취소'],model:'claude-3-haiku',accuracy:97.8,count:821,active:true},
+  {id:3,name:'상품문의',keywords:['재고','색상','사이즈','소재','출시'],model:'claude-3-haiku',accuracy:91.5,count:742,active:true},
+  {id:4,name:'불만접수',keywords:['불편','화남','실망','최악','신고'],model:'claude-3-haiku',accuracy:88.9,count:468,active:true},
+  {id:5,name:'교환신청',keywords:['교환','바꿔','다른','불량'],model:'claude-3-haiku',accuracy:95.3,count:351,active:true},
+  {id:6,name:'결제문의',keywords:['결제','오류','중복','청구'],model:'claude-3-haiku',accuracy:96.7,count:195,active:false},
+];
+
+function Badge({text,type='status'}){
+  const bg=type==='channel'?CHANNEL_BG[text]:type==='tag'?TAG_BG[text]:
+    text==='대기중'?'#FEF3C7':text==='상담중'?'#DBEAFE':text==='처리완료'?'#DCFCE7':
+    text==='온라인'?'#DCFCE7':text==='자리비움'?'#FEF3C7':'#F1F5F9';
+  const color=type==='channel'?CHANNEL_COLORS[text]:type==='tag'?(TAG_COLORS[text]||'#64748B'):
+    text==='대기중'?'#D97706':text==='상담중'?'#2563EB':text==='처리완료'?'#16A34A':
+    text==='온라인'?'#16A34A':text==='자리비움'?'#D97706':'#64748B';
+  return(<span style={{background:bg,color,padding:'3px 9px',borderRadius:20,fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>{text}</span>);
+}
+
+function Dashboard(){
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <div style={{marginBottom:24}}>
+        <h1 style={{fontSize:22,fontWeight:800,color:'#1E1B4B'}}>퍼포먼스 대시보드</h1>
+        <p style={{fontSize:13,color:'#6B7280',marginTop:4}}>2026년 3월 11일 · 전체 채널 통합 현황</p>
+      </div>
+      <div style={{display:'flex',gap:14,marginBottom:22,flexWrap:'wrap'}}>
+        {[{l:'오늘 인입 상담',v:'127건',s:'전일 대비 +12',c:PRIMARY,i:'💬'},
+          {l:'처리 완료',v:'89건',s:'처리율 70.1%',c:'#10B981',i:'✅'},
+          {l:'미처리 대기',v:'11건',s:'평균 대기 18분',c:'#EF4444',i:'⏳'},
+          {l:'AI 태깅 적용',v:'124건',s:'자동 분류율 97.6%',c:'#F59E0B',i:'🤖'}].map(({l,v,s,c,i})=>(
+          <div key={l} style={{flex:1,minWidth:160,background:'#fff',borderRadius:14,padding:'18px 20px',boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:12,color:'#6B7280',marginBottom:6}}>{l}</div>
+                <div style={{fontSize:28,fontWeight:800,color:'#1E1B4B'}}>{v}</div>
+                <div style={{fontSize:11,color:'#9CA3AF',marginTop:3}}>{s}</div>
+              </div>
+              <div style={{width:44,height:44,borderRadius:12,background:c+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{i}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,marginBottom:16}}>
+        <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:16,color:'#1E1B4B'}}>채널별 시간대 인입 현황</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={hourlyData} barSize={12}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F5F3FF"/>
+              <XAxis dataKey="t" tick={{fontSize:11,fill:'#9CA3AF'}} tickFormatter={v=>v+'시'}/>
+              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Legend iconType="circle" iconSize={8}/>
+              <Bar dataKey="채널톡" fill="#2563EB" stackId="a" radius={[0,0,0,0]}/>
+              <Bar dataKey="카카오톡" fill="#FBBF24" stackId="a" radius={[0,0,0,0]}/>
+              <Bar dataKey="이메일" fill="#10B981" stackId="a" radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:8,color:'#1E1B4B'}}>AI 태그 분류 현황</div>
+          <PieChart width={280} height={170}>
+            <Pie data={tagDist} cx={130} cy={80} innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="value">
+              {tagDist.map((d,i)=><Cell key={i} fill={TAG_COLORS[d.name]||'#94A3B8'}/>)}
+            </Pie>
+            <Tooltip formatter={(v,n)=>[`${v}건`,n]}/>
+          </PieChart>
+          <div style={{display:'flex',flexDirection:'column',gap:3}}>
+            {tagDist.slice(0,4).map(d=>(
+              <div key={d.name} style={{display:'flex',alignItems:'center',gap:6,fontSize:12}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:TAG_COLORS[d.name]||'#94A3B8',flexShrink:0}}/>
+                <span style={{flex:1,color:'#6B7280'}}>{d.name}</span>
+                <span style={{fontWeight:700,color:'#1E1B4B'}}>{d.value}건</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14,color:'#1E1B4B'}}>상담사 퍼포먼스 리더보드</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+          {agents.map((a,i)=>(
+            <div key={a.id} style={{background:'#FAFAFA',borderRadius:10,padding:14,border:'1px solid #F3F4F6',position:'relative'}}>
+              {i===0&&<div style={{position:'absolute',top:-8,left:'50%',transform:'translateX(-50%)',background:PRIMARY,color:'#fff',fontSize:10,padding:'2px 8px',borderRadius:10,fontWeight:700,whiteSpace:'nowrap'}}>🏆 1위</div>}
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,marginTop:i===0?6:0}}>
+                <div style={{width:32,height:32,borderRadius:'50%',background:PRIMARY,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700}}>{a.name[0]}</div>
+                <div><div style={{fontSize:13,fontWeight:700}}>{a.name}</div><Badge text={a.status}/></div>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:11,color:'#6B7280'}}>오늘 처리</span>
+                <span style={{fontSize:13,fontWeight:700,color:PRIMARY}}>{a.today}건</span>
+              </div>
+              <div style={{display:'flex',justifyContent:'space-between'}}>
+                <span style={{fontSize:11,color:'#6B7280'}}>SLA 준수</span>
+                <span style={{fontSize:12,fontWeight:700,color:'#10B981'}}>{a.sla}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Inbox(){
+  const [selected,setSelected]=useState(inboxItems[0]);
+  const [tab,setTab]=useState('전체');
+  const tabs=['전체','대기중','상담중','처리완료'];
+  const filtered=tab==='전체'?inboxItems:inboxItems.filter(i=>i.status===tab);
+  return(
+    <div style={{display:'flex',height:'100%'}}>
+      {/* Inbox List */}
+      <div style={{width:340,borderRight:'1px solid #E5E7EB',background:'#fff',display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'16px 16px 12px',borderBottom:'1px solid #E5E7EB'}}>
+          <div style={{fontSize:15,fontWeight:800,marginBottom:10,color:'#1E1B4B'}}>통합 인박스</div>
+          <div style={{display:'flex',gap:4}}>
+            {tabs.map(t=>(
+              <button key={t} onClick={()=>setTab(t)}
+                style={{flex:1,padding:'5px 0',borderRadius:7,border:'none',
+                  background:tab===t?PRIMARY:'transparent',
+                  color:tab===t?'#fff':'#6B7280',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:'auto'}}>
+          {filtered.map(item=>(
+            <div key={item.id} onClick={()=>setSelected(item)}
+              style={{padding:'14px 16px',borderBottom:'1px solid #F5F3FF',cursor:'pointer',
+                background:selected?.id===item.id?PRIMARY_L:'#fff',
+                borderLeft:`3px solid ${selected?.id===item.id?PRIMARY:'transparent'}`}}
+              onMouseEnter={e=>{if(selected?.id!==item.id)e.currentTarget.style.background='#FAFAFA';}}
+              onMouseLeave={e=>{if(selected?.id!==item.id)e.currentTarget.style.background='#fff';}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4,alignItems:'flex-start'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:28,height:28,borderRadius:'50%',background:PRIMARY+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:PRIMARY,flexShrink:0}}>{item.customer[0]}</div>
+                  <div>
+                    <div style={{display:'flex',alignItems:'center',gap:5}}>
+                      <span style={{fontSize:13,fontWeight:700,color:'#1E1B4B'}}>{item.customer}</span>
+                      {item.unread&&<div style={{width:6,height:6,borderRadius:3,background:'#EF4444'}}/>}
+                    </div>
+                    <div style={{display:'flex',gap:4,marginTop:2}}>
+                      <Badge text={item.channel} type="channel"/>
+                      <Badge text={item.tag} type="tag"/>
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                  <span style={{fontSize:11,color:'#9CA3AF'}}>{item.time}</span>
+                  <Badge text={item.status}/>
+                </div>
+              </div>
+              <div style={{fontSize:12,color:'#6B7280',marginTop:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingLeft:34}}>{item.preview}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Conversation Detail */}
+      {selected?(
+        <div style={{flex:1,display:'flex',flexDirection:'column',background:'#FAFAFA'}}>
+          <div style={{background:'#fff',padding:'14px 20px',borderBottom:'1px solid #E5E7EB',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:PRIMARY,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700}}>{selected.customer[0]}</div>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:'#1E1B4B'}}>{selected.customer}</div>
+                <div style={{display:'flex',gap:6,marginTop:3}}><Badge text={selected.channel} type="channel"/><Badge text={selected.tag} type="tag"/><Badge text={selected.status}/></div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <select defaultValue={selected.agent} style={{padding:'6px 10px',borderRadius:8,border:'1.5px solid #E5E7EB',fontSize:12,outline:'none',color:selected.agent==='미배정'?'#9CA3AF':'#1E1B4B',fontWeight:600}}>
+                <option>미배정</option>{agents.map(a=><option key={a.id}>{a.name}</option>)}
+              </select>
+              <button style={{padding:'6px 12px',borderRadius:8,background:'#DCFCE7',color:'#16A34A',border:'none',fontSize:12,fontWeight:700,cursor:'pointer'}}>처리 완료</button>
+            </div>
+          </div>
+          <div style={{flex:1,overflowY:'auto',padding:20}}>
+            <div style={{maxWidth:560,margin:'0 auto',display:'flex',flexDirection:'column',gap:12}}>
+              {[{who:'고객',msg:selected.preview,time:selected.time,channel:selected.channel},
+                {who:'상담원',msg:'안녕하세요, 문의해 주셔서 감사합니다. 내용 확인하고 빠르게 처리해 드리겠습니다.',time:'직후'},
+              ].map((m,i)=>(
+                <div key={i} style={{display:'flex',flexDirection:m.who==='상담원'?'row-reverse':'row',gap:8,alignItems:'flex-end'}}>
+                  <div style={{width:30,height:30,borderRadius:'50%',background:m.who==='상담원'?PRIMARY:'#E5E7EB',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:m.who==='상담원'?'#fff':'#475569',flexShrink:0}}>{m.who==='상담원'?'상':'고'}</div>
+                  <div style={{maxWidth:'72%'}}>
+                    <div style={{padding:'10px 14px',borderRadius:12,background:m.who==='상담원'?PRIMARY_L:'#fff',border:'1px solid '+(m.who==='상담원'?'#DDD6FE':'#E5E7EB'),fontSize:13,lineHeight:1.6,color:'#1E1B4B'}}>{m.msg}</div>
+                    <div style={{fontSize:11,color:'#9CA3AF',marginTop:3,textAlign:m.who==='상담원'?'right':'left'}}>{m.time} · {m.channel||'내부'}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'center'}}>
+                <div style={{background:'#F5F3FF',borderRadius:20,padding:'6px 14px',fontSize:11,color:'#7C3AED',fontWeight:600}}>🤖 AI 자동 분류: {selected.tag} (신뢰도 94.2%)</div>
+              </div>
+            </div>
+          </div>
+          <div style={{background:'#fff',padding:'14px 20px',borderTop:'1px solid #E5E7EB',flexShrink:0}}>
+            <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
+              <textarea rows={2} placeholder={`${selected.customer}님께 답장...`} style={{flex:1,padding:'10px 14px',borderRadius:10,border:'1.5px solid #E5E7EB',fontSize:13,resize:'none',outline:'none',fontFamily:'Pretendard',lineHeight:1.5}}/>
+              <button style={{padding:'10px 20px',borderRadius:10,background:PRIMARY,color:'#fff',border:'none',fontSize:13,fontWeight:700,cursor:'pointer',height:54}}>전송</button>
+            </div>
+          </div>
+        </div>
+      ):(
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#9CA3AF',fontSize:14}}>상담 항목을 선택하세요</div>
+      )}
+    </div>
+  );
+}
+
+function AiTagging(){
+  const [selected,setSelected]=useState(null);
+  const [test,setTest]=useState('');
+  const [testResult,setTestResult]=useState(null);
+  const testTag=()=>{
+    if(!test.trim())return;
+    const found=taggingCategories.find(c=>c.keywords.some(k=>test.includes(k)));
+    setTestResult(found?{tag:found.name,confidence:(found.accuracy-Math.random()*5).toFixed(1)}:{tag:'기타',confidence:'61.2'});
+  };
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <div style={{marginBottom:24}}>
+        <h1 style={{fontSize:22,fontWeight:800,color:'#1E1B4B'}}>AI 태깅 관리</h1>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:'#10B981'}}/>
+          <span style={{fontSize:13,color:'#6B7280'}}>Claude API 연결 정상 · claude-3-haiku-20240307</span>
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 360px',gap:20,marginBottom:20}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:12,color:'#1E1B4B'}}>분류 카테고리 설정</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {taggingCategories.map(cat=>(
+              <div key={cat.id} onClick={()=>setSelected(selected?.id===cat.id?null:cat)}
+                style={{background:'#fff',borderRadius:12,padding:'14px 18px',border:'2px solid '+(selected?.id===cat.id?PRIMARY:'#E5E7EB'),cursor:'pointer',boxShadow:'0 1px 4px rgba(0,0,0,0.04)',transition:'border-color 0.15s'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <Badge text={cat.name} type="tag"/>
+                    <span style={{fontSize:12,color:'#6B7280'}}>{cat.count.toLocaleString()}건 분류</span>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:13,fontWeight:700,color:cat.accuracy>=95?'#10B981':cat.accuracy>=90?'#F59E0B':'#EF4444'}}>{cat.accuracy}%</span>
+                    <div style={{width:36,height:20,borderRadius:10,background:cat.active?PRIMARY:'#CBD5E1',cursor:'pointer',position:'relative'}}>
+                      <div style={{position:'absolute',top:2,left:cat.active?16:2,width:16,height:16,borderRadius:8,background:'#fff',transition:'left 0.15s'}}/>
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {cat.keywords.map(k=>(
+                    <span key={k} style={{background:'#F5F3FF',color:PRIMARY,padding:'2px 8px',borderRadius:5,fontSize:11,fontWeight:600}}>"{k}"</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button style={{marginTop:12,width:'100%',padding:'10px',borderRadius:10,border:'2px dashed #DDD6FE',background:'#FAFAFA',color:PRIMARY,fontSize:13,fontWeight:700,cursor:'pointer'}}>+ 새 분류 카테고리 추가</button>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #E5E7EB'}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:12,color:'#1E1B4B'}}>🧪 AI 분류 테스트</div>
+            <textarea rows={4} value={test} onChange={e=>setTest(e.target.value)}
+              placeholder="고객 메시지를 입력하여 AI 분류 결과를 테스트해 보세요."
+              style={{width:'100%',padding:'10px 12px',borderRadius:8,border:'1.5px solid #E5E7EB',fontSize:13,resize:'none',outline:'none',fontFamily:'Pretendard',marginBottom:10}}/>
+            <button onClick={testTag} style={{width:'100%',padding:'9px',borderRadius:8,background:PRIMARY,color:'#fff',border:'none',fontSize:13,fontWeight:700,cursor:'pointer'}}>분류 테스트 실행</button>
+            {testResult&&(
+              <div style={{marginTop:12,padding:12,background:'#F5F3FF',borderRadius:8,border:'1px solid #DDD6FE'}}>
+                <div style={{fontSize:12,color:'#6B7280',marginBottom:4}}>분류 결과</div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <Badge text={testResult.tag} type="tag"/>
+                  <span style={{fontSize:13,fontWeight:700,color:PRIMARY}}>신뢰도 {testResult.confidence}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{background:'#fff',borderRadius:12,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #E5E7EB'}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:12,color:'#1E1B4B'}}>분류 정확도 추이</div>
+            <ResponsiveContainer width="100%" height={150}>
+              <LineChart data={[{m:'12월',정확도:91.2},{m:'1월',정확도:93.5},{m:'2월',정확도:94.8},{m:'3월',정확도:95.1}]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F5F3FF"/>
+                <XAxis dataKey="m" tick={{fontSize:11}}/>
+                <YAxis domain={[88,100]} tick={{fontSize:11}}/>
+                <Tooltip/>
+                <Line type="monotone" dataKey="정확도" stroke={PRIMARY} strokeWidth={2.5} dot={{r:4,fill:PRIMARY}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentManagement(){
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+        <div>
+          <h1 style={{fontSize:22,fontWeight:800,color:'#1E1B4B'}}>상담사 관리</h1>
+          <p style={{fontSize:13,color:'#6B7280',marginTop:4}}>총 {agents.length}명 · 온라인 {agents.filter(a=>a.status==='온라인').length}명</p>
+        </div>
+        <button style={{padding:'10px 18px',background:PRIMARY,color:'#fff',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer'}}>+ 상담사 추가</button>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16,marginBottom:24}}>
+        {agents.map(a=>(
+          <div key={a.id} style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:44,height:44,borderRadius:'50%',background:PRIMARY,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,position:'relative'}}>
+                  {a.name[0]}
+                  <div style={{position:'absolute',bottom:0,right:0,width:12,height:12,borderRadius:6,background:a.status==='온라인'?'#10B981':'#F59E0B',border:'2px solid #fff'}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:15,fontWeight:700,color:'#1E1B4B'}}>{a.name}</div>
+                  <div style={{fontSize:12,color:'#6B7280'}}>{a.email}</div>
+                </div>
+              </div>
+              <span style={{background:a.role==='슈퍼바이저'?'#EDE9FE':'#F0FDF4',color:a.role==='슈퍼바이저'?PRIMARY:'#16A34A',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700}}>{a.role}</span>
+            </div>
+            <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+              <span style={{fontSize:11,color:'#6B7280',fontWeight:600}}>담당 채널:</span>
+              {a.channels.map(c=><Badge key={c} text={c} type="channel"/>)}
+            </div>
+            <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+              <span style={{fontSize:11,color:'#6B7280',fontWeight:600}}>담당 태그:</span>
+              {a.tags.map(t=><Badge key={t} text={t} type="tag"/>)}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+              {[['오늘 처리',`${a.today}건`,PRIMARY],['누적 처리',`${a.total}건`,'#475569'],['SLA',`${a.sla}%`,'#10B981']].map(([k,v,c])=>(
+                <div key={k} style={{textAlign:'center',padding:'8px',background:'#FAFAFA',borderRadius:8}}>
+                  <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
+                  <div style={{fontSize:10,color:'#9CA3AF'}}>{k}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button style={{flex:1,padding:'7px',borderRadius:8,border:'1.5px solid #E5E7EB',background:'#fff',fontSize:12,cursor:'pointer',color:'#475569',fontWeight:600}}>채널 편집</button>
+              <button style={{flex:1,padding:'7px',borderRadius:8,background:PRIMARY_L,color:PRIMARY,border:'1.5px solid #DDD6FE',fontSize:12,cursor:'pointer',fontWeight:700}}>퍼포먼스</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:'#fff',borderRadius:14,padding:20,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #F3F4F6'}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16,color:'#1E1B4B'}}>이번 주 상담사별 처리량</div>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={agents.map(a=>({name:a.name,처리:a.today*5+Math.floor(Math.random()*20),목표:100}))}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F5F3FF"/>
+            <XAxis dataKey="name" tick={{fontSize:12}}/>
+            <YAxis tick={{fontSize:11}}/>
+            <Tooltip/>
+            <Legend iconType="circle" iconSize={8}/>
+            <Bar dataKey="처리" fill={PRIMARY} radius={[4,4,0,0]} barSize={28}/>
+            <Bar dataKey="목표" fill="#E5E7EB" radius={[4,4,0,0]} barSize={28}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function Settings(){
+  const [notify,setNotify]=useState({a:true,b:true,c:false,d:true});
+  const Toggle=({k})=>(<div onClick={()=>setNotify(p=>({...p,[k]:!p[k]}))} style={{width:44,height:24,borderRadius:12,background:notify[k]?PRIMARY:'#CBD5E1',cursor:'pointer',position:'relative'}}><div style={{position:'absolute',top:2,left:notify[k]?20:2,width:20,height:20,borderRadius:10,background:'#fff',transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}/></div>);
+  return(
+    <div style={{padding:28,height:'100%',overflowY:'auto'}}>
+      <h1 style={{fontSize:22,fontWeight:800,color:'#1E1B4B',marginBottom:6}}>설정</h1>
+      <p style={{fontSize:13,color:'#6B7280',marginBottom:24}}>채널 연동 및 AI 태깅 환경 설정</p>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        {[{title:'채널톡 연동',icon:'💬',status:'정상',color:'#2563EB',fields:[['Workspace ID','OMNISUPPORT_PROD'],['Webhook URL','https://api.omnisupport.co.kr/webhook/channeltalk'],['이벤트 수신','message.created, message.closed']]},
+          {title:'카카오톡 비즈메시지 연동',icon:'💛',status:'정상',color:'#FBBF24',fields:[['채널 ID','@omnisupport'],['API Key','kk_live_••••••••••••'],['Webhook URL','https://api.omnisupport.co.kr/webhook/kakao']]},
+          {title:'이메일 연동',icon:'📧',status:'정상',color:'#10B981',fields:[['IMAP 서버','imap.gmail.com'],['계정','cs@omnisupport.co.kr'],['폴링 주기','1분마다']]},
+        ].map(s=>(
+          <div key={s.title} style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #E5E7EB'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:40,height:40,borderRadius:10,background:s.color+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{s.icon}</div>
+                <div><div style={{fontSize:15,fontWeight:700,color:'#1E1B4B'}}>{s.title}</div><div style={{fontSize:12,color:'#10B981',marginTop:1}}>✓ {s.status}</div></div>
+              </div>
+              <button style={{padding:'6px 14px',borderRadius:8,border:'1.5px solid #E5E7EB',background:'#fff',fontSize:12,cursor:'pointer',color:'#475569',fontWeight:600}}>연결 테스트</button>
+            </div>
+            {s.fields.map(([k,v])=>(
+              <div key={k} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                <div style={{width:160,fontSize:13,color:'#6B7280',fontWeight:500}}>{k}</div>
+                <input defaultValue={v} style={{flex:1,padding:'8px 12px',borderRadius:8,border:'1.5px solid #E5E7EB',fontSize:13,outline:'none'}}/>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 1px 6px rgba(0,0,0,0.06)',border:'1px solid #E5E7EB'}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:14,color:'#1E1B4B'}}>알림 설정</div>
+          {[['a','미처리 상담 알림','20분 초과 미처리 시 담당 상담사 자동 알림'],
+            ['b','AI 분류 오류 감지','신뢰도 60% 미만 태그 발생 시 슈퍼바이저 알림'],
+            ['c','채널 연동 장애 알림','Webhook 수신 오류 발생 시 즉시 알림'],
+            ['d','일일 퍼포먼스 리포트','매일 오전 8시 팀장에게 전일 통계 자동 발송']].map(([k,t,d])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:'1px solid #F5F3FF'}}>
+              <div><div style={{fontSize:14,fontWeight:600,color:'#1E1B4B'}}>{t}</div><div style={{fontSize:12,color:'#6B7280',marginTop:2}}>{d}</div></div>
+              <Toggle k={k}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const navItems=[
+  {id:'dashboard',label:'퍼포먼스 대시보드',icon:'📊'},
+  {id:'inbox',label:'통합 인박스',icon:'💬',badge:3},
+  {id:'aiTagging',label:'AI 태깅 관리',icon:'🤖'},
+  {id:'agents',label:'상담사 관리',icon:'👥'},
+  {id:'settings',label:'설정',icon:'⚙️'},
+];
+
+function App(){
+  const [active,setActive]=useState('dashboard');
+  const screens={dashboard:<Dashboard/>,inbox:<Inbox/>,aiTagging:<AiTagging/>,agents:<AgentManagement/>,settings:<Settings/>};
+  return(
+    <div style={{display:'flex',height:'100vh',overflow:'hidden'}}>
+      {/* Bright Sidebar */}
+      <div style={{width:SIDEBAR_W,background:'#fff',borderRight:'1px solid #E5E7EB',display:'flex',flexDirection:'column',flexShrink:0,boxShadow:'0 0 20px rgba(0,0,0,0.04)'}}>
+        <div style={{padding:'18px 16px',borderBottom:'1px solid #F3F4F6'}}>
+          <div style={{display:'flex',alignItems:'center',gap:9}}>
+            <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,#4C1D95,${PRIMARY})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🎯</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:800,color:'#1E1B4B'}}>OmniSupport</div>
+              <div style={{fontSize:11,color:'#9CA3AF'}}>멀티채널 CS 플랫폼</div>
+            </div>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:'12px 10px'}}>
+          <div style={{fontSize:10,color:'#9CA3AF',fontWeight:700,padding:'6px 6px 4px',letterSpacing:1,textTransform:'uppercase'}}>메뉴</div>
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setActive(n.id)}
+              style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'9px 10px',borderRadius:10,border:'none',
+                background:active===n.id?PRIMARY_L:'transparent',
+                color:active===n.id?PRIMARY:'#6B7280',
+                fontSize:13,fontWeight:active===n.id?700:500,cursor:'pointer',marginBottom:2,textAlign:'left',transition:'all 0.12s'}}>
+              <span style={{fontSize:16,flexShrink:0}}>{n.icon}</span>
+              <span style={{flex:1}}>{n.label}</span>
+              {n.badge&&<span style={{background:'#EF4444',color:'#fff',borderRadius:10,fontSize:10,padding:'1px 6px',fontWeight:700}}>{n.badge}</span>}
+              {active===n.id&&<div style={{width:3,height:16,borderRadius:2,background:PRIMARY}}/>}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'12px 16px',borderTop:'1px solid #F3F4F6'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:10,cursor:'pointer',background:'#FAFAFA'}}>
+            <div style={{width:30,height:30,borderRadius:'50%',background:PRIMARY,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,position:'relative'}}>
+              관
+              <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:4,background:'#10B981',border:'1.5px solid #fff'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:'#1E1B4B'}}>최어드민</div>
+              <div style={{fontSize:10,color:'#9CA3AF'}}>어드민</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Main Content */}
+      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+        <div style={{height:52,background:'#fff',borderBottom:'1px solid #E5E7EB',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:15,fontWeight:700,color:'#1E1B4B'}}>{navItems.find(n=>n.id===active)?.label}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{display:'flex',gap:6}}>
+              {['채널톡','카카오톡','이메일'].map(ch=>(
+                <div key={ch} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:20,background:CHANNEL_BG[ch],border:'1px solid '+CHANNEL_COLORS[ch]+'40'}}>
+                  <div style={{width:6,height:6,borderRadius:3,background:'#10B981'}}/>
+                  <span style={{fontSize:11,fontWeight:600,color:CHANNEL_COLORS[ch]}}>{ch}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{width:36,height:36,borderRadius:8,border:'1.5px solid #E5E7EB',background:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,position:'relative'}}>
+              🔔
+              <span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:8,background:'#EF4444',color:'#fff',fontSize:10,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>3</span>
+            </div>
+          </div>
+        </div>
+        <div style={{flex:1,overflow:'hidden'}}>
+          {screens[active]}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
