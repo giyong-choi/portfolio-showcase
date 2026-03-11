@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>인슈어핏 — 실손보험·자동차보험 비교 및 환급 중개 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-family: 'Pretendard', -apple-system, sans-serif; background: #F0FDF4; color: #064E3B; }
+body { min-height: 100vh; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1FAE5; border-radius: 3px; }
+
+/* Topnav */
+.topnav { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #FFFFFF; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.topnav-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; color: #059669; }
+.topnav-brand svg { width: 32px; height: 32px; }
+.topnav-links { display: flex; gap: 4px; }
+.topnav-link { padding: 8px 18px; border-radius: 24px; font-size: 14px; font-weight: 600; color: #6B7280; cursor: pointer; transition: all 0.2s; border: none; background: none; }
+.topnav-link:hover { background: #ECFDF5; color: #059669; }
+.topnav-link.active { background: #059669; color: #FFFFFF; }
+.topnav-right { display: flex; align-items: center; gap: 16px; }
+.topnav-bell { width: 36px; height: 36px; border-radius: 50%; background: #F0FDF4; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; border: none; }
+.topnav-bell-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background: #EF4444; border-radius: 50%; border: 2px solid #FFF; }
+.topnav-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #059669, #34D399); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 700; font-size: 14px; cursor: pointer; }
+
+/* Main */
+.main { margin-top: 64px; min-height: calc(100vh - 64px); }
+
+/* Hero */
+.hero { background: linear-gradient(135deg, #064E3B 0%, #059669 60%, #34D399 100%); padding: 60px 40px; color: #FFFFFF; position: relative; overflow: hidden; }
+.hero::after { content: ''; position: absolute; top: -50%; right: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%); border-radius: 50%; }
+.hero-content { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+.hero h1 { font-size: 36px; font-weight: 800; margin-bottom: 12px; line-height: 1.3; }
+.hero p { font-size: 16px; opacity: 0.85; max-width: 600px; line-height: 1.6; }
+.hero-stats { display: flex; gap: 40px; margin-top: 32px; }
+.hero-stat { text-align: center; }
+.hero-stat-val { font-size: 28px; font-weight: 800; }
+.hero-stat-label { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+
+/* Content */
+.content { max-width: 1200px; margin: 0 auto; padding: 32px 40px; }
+
+/* Cards */
+.card { background: #FFFFFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.2s, box-shadow 0.2s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 16px; font-weight: 700; color: #064E3B; }
+.card-subtitle { font-size: 13px; color: #6B7280; }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+
+/* KPI */
+.kpi-card { background: #FFFFFF; border-radius: 16px; padding: 20px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.kpi-label { font-size: 13px; color: #6B7280; margin-bottom: 4px; }
+.kpi-value { font-size: 24px; font-weight: 800; color: #064E3B; }
+.kpi-change { font-size: 12px; margin-top: 4px; }
+.kpi-change.up { color: #059669; }
+.kpi-change.down { color: #EF4444; }
+
+/* Badge */
+.badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-green { background: #D1FAE5; color: #059669; }
+.badge-yellow { background: #FEF3C7; color: #D97706; }
+.badge-blue { background: #DBEAFE; color: #2563EB; }
+.badge-red { background: #FEE2E2; color: #DC2626; }
+.badge-gray { background: #F3F4F6; color: #6B7280; }
+
+/* Button */
+.btn { padding: 10px 20px; border-radius: 24px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: #059669; color: #FFF; }
+.btn-primary:hover { background: #047857; }
+.btn-outline { background: transparent; border: 1.5px solid #059669; color: #059669; }
+.btn-outline:hover { background: #ECFDF5; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 12px 16px; font-size: 13px; font-weight: 600; color: #6B7280; border-bottom: 2px solid #E5E7EB; background: #F9FAFB; }
+td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #F3F4F6; }
+tr:hover td { background: #F0FDF4; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #E5E7EB; padding-bottom: 0; }
+.tab { padding: 10px 20px; font-size: 14px; font-weight: 600; color: #6B7280; cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.tab:hover { color: #059669; }
+.tab.active { color: #059669; border-bottom-color: #059669; }
+
+/* Category pills */
+.category-pills { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+.pill { padding: 8px 20px; border-radius: 24px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1.5px solid #E5E7EB; background: #FFF; color: #6B7280; transition: all 0.2s; }
+.pill:hover { border-color: #059669; color: #059669; }
+.pill.active { background: #059669; color: #FFF; border-color: #059669; }
+
+/* Insurance card */
+.ins-card { background: #FFF; border-radius: 16px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1.5px solid transparent; transition: all 0.2s; cursor: pointer; }
+.ins-card:hover { border-color: #059669; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+.ins-logo { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #FFF; }
+.ins-name { font-size: 16px; font-weight: 700; color: #064E3B; margin-top: 12px; }
+.ins-type { font-size: 13px; color: #6B7280; margin-top: 2px; }
+.ins-price { font-size: 22px; font-weight: 800; color: #059669; margin-top: 12px; }
+.ins-price span { font-size: 14px; font-weight: 500; color: #6B7280; }
+.ins-features { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ins-feature { font-size: 13px; color: #6B7280; display: flex; align-items: center; gap: 6px; }
+.ins-feature::before { content: '✓'; color: #059669; font-weight: 700; }
+.ins-cashback { margin-top: 16px; padding: 10px 16px; background: #ECFDF5; border-radius: 10px; font-size: 13px; font-weight: 600; color: #059669; text-align: center; }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before { content: ''; position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: #D1FAE5; }
+.timeline-item { position: relative; padding-bottom: 24px; }
+.timeline-dot { position: absolute; left: -24px; top: 4px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #059669; background: #FFF; }
+.timeline-dot.filled { background: #059669; }
+.timeline-date { font-size: 12px; color: #6B7280; margin-bottom: 4px; }
+.timeline-title { font-size: 14px; font-weight: 600; color: #064E3B; }
+.timeline-desc { font-size: 13px; color: #6B7280; margin-top: 2px; }
+
+/* Stat bar */
+.stat-bar-wrap { margin-top: 8px; }
+.stat-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.stat-bar { height: 8px; background: #E5E7EB; border-radius: 4px; overflow: hidden; }
+.stat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s; }
+
+/* Partner card */
+.partner-card { background: #FFF; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; gap: 16px; align-items: center; }
+.partner-avatar { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.partner-info { flex: 1; }
+.partner-name { font-size: 15px; font-weight: 700; color: #064E3B; }
+.partner-meta { font-size: 13px; color: #6B7280; }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 13px; font-weight: 600; color: #064E3B; margin-bottom: 6px; }
+.form-input { width: 100%; padding: 10px 16px; border: 1.5px solid #E5E7EB; border-radius: 12px; font-size: 14px; font-family: inherit; transition: border-color 0.2s; outline: none; }
+.form-input:focus { border-color: #059669; }
+.form-select { width: 100%; padding: 10px 16px; border: 1.5px solid #E5E7EB; border-radius: 12px; font-size: 14px; font-family: inherit; background: #FFF; cursor: pointer; outline: none; }
+
+/* Section title */
+.section-title { font-size: 20px; font-weight: 800; color: #064E3B; margin-bottom: 20px; }
+.section-desc { font-size: 14px; color: #6B7280; margin-top: -16px; margin-bottom: 20px; }
+
+/* Empty state */
+.filter-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+
+/* Settings sections */
+.settings-section { margin-bottom: 32px; }
+.settings-section-title { font-size: 16px; font-weight: 700; color: #064E3B; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #E5E7EB; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #F3F4F6; }
+.settings-row:last-child { border: none; }
+.settings-label { font-size: 14px; font-weight: 500; color: #064E3B; }
+.settings-value { font-size: 14px; color: #6B7280; }
+.toggle { width: 44px; height: 24px; border-radius: 12px; background: #E5E7EB; position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle.on { background: #059669; }
+.toggle-knob { width: 20px; height: 20px; border-radius: 50%; background: #FFF; position: absolute; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.toggle.on .toggle-knob { left: 22px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+const { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
+// Colors
+const C = { primary: '#059669', secondary: '#064E3B', accent: '#34D399', bg: '#F0FDF4', surface: '#FFF', text1: '#064E3B', text2: '#6B7280' };
+
+// Nav items
+const NAV = [
+  { id: 'main', label: '보험 비교', icon: '🛡️' },
+  { id: 'refund', label: '환급 내역', icon: '💰' },
+  { id: 'referral', label: '레퍼럴', icon: '🔗' },
+  { id: 'admin', label: '관리자', icon: '⚙️' },
+  { id: 'settings', label: '마이페이지', icon: '👤' },
+];
+
+// Insurance companies data
+const COMPANIES = [
+  { name: '삼성화재', abbr: 'SS', color: '#1D4ED8', type: '실손보험', price: '32,400', cashback: '12%', features: ['실손 의료비 보장', '입원·통원 보장', '처방조제비 보장'], rating: 4.5 },
+  { name: '현대해상', abbr: 'HD', color: '#7C3AED', type: '실손보험', price: '29,800', cashback: '15%', features: ['실손 의료비 보장', '3대 질병 보장', '통원비 보장'], rating: 4.3 },
+  { name: 'DB손해보험', abbr: 'DB', color: '#059669', type: '자동차보험', price: '45,600', cashback: '8%', features: ['대인배상 무제한', '자기차량 보장', '긴급출동 포함'], rating: 4.4 },
+  { name: 'KB손해보험', abbr: 'KB', color: '#D97706', type: '자동차보험', price: '42,100', cashback: '10%', features: ['대인·대물 보장', '차량 도난 보장', '렌트카 특약'], rating: 4.2 },
+  { name: '메리츠화재', abbr: 'MZ', color: '#DC2626', type: '여행보험', price: '15,200', cashback: '18%', features: ['해외 의료비 보장', '여행 중 휴대품 보장', '항공 지연 보장'], rating: 4.6 },
+  { name: '한화손해보험', abbr: 'HW', color: '#0891B2', type: '실손보험', price: '31,100', cashback: '13%', features: ['실손 의료비 보장', '비급여 도수치료', '정신질환 보장'], rating: 4.1 },
+];
+
+const CATEGORIES = ['전체', '실손보험', '자동차보험', '여행보험', '건강보험'];
+
+// Refund data
+const REFUND_DATA = [
+  { id: 'RF-2025-001', product: '삼성화재 실손보험', date: '2025.10.28', amount: '45,200', status: '지급완료' },
+  { id: 'RF-2025-002', product: '현대해상 실손보험', date: '2025.10.25', amount: '38,700', status: '지급완료' },
+  { id: 'RF-2025-003', product: 'DB손보 자동차보험', date: '2025.10.22', amount: '52,100', status: '검토중' },
+  { id: 'RF-2025-004', product: 'KB손보 자동차보험', date: '2025.10.18', amount: '31,400', status: '신청완료' },
+  { id: 'RF-2025-005', product: '메리츠 여행보험', date: '2025.10.15', amount: '18,900', status: '지급완료' },
+  { id: 'RF-2025-006', product: '한화손보 실손보험', date: '2025.10.10', amount: '27,600', status: '거절' },
+  { id: 'RF-2025-007', product: '삼성화재 자동차보험', date: '2025.10.05', amount: '63,200', status: '검토중' },
+];
+
+const MONTHLY_REFUND = [
+  { month: '5월', amount: 128000, count: 8 },
+  { month: '6월', amount: 156000, count: 11 },
+  { month: '7월', amount: 189000, count: 14 },
+  { month: '8월', amount: 215000, count: 16 },
+  { month: '9월', amount: 243000, count: 19 },
+  { month: '10월', amount: 277100, count: 22 },
+];
+
+// Partner data
+const PARTNERS = [
+  { name: '김설계사', type: '개인', grade: 'Gold', rate: '12%', conversions: 48, revenue: '2,340,000' },
+  { name: '박보험사무소', type: '법인', grade: 'Platinum', rate: '15%', conversions: 127, revenue: '8,450,000' },
+  { name: '이대리', type: '개인', grade: 'Silver', rate: '8%', conversions: 23, revenue: '890,000' },
+  { name: '최보험', type: '개인', grade: 'Gold', rate: '12%', conversions: 56, revenue: '3,120,000' },
+];
+
+const REFERRAL_MONTHLY = [
+  { month: '5월', clicks: 1240, signups: 186, conversions: 42 },
+  { month: '6월', clicks: 1580, signups: 237, conversions: 58 },
+  { month: '7월', clicks: 1920, signups: 288, conversions: 72 },
+  { month: '8월', clicks: 2340, signups: 351, conversions: 89 },
+  { month: '9월', clicks: 2780, signups: 417, conversions: 105 },
+  { month: '10월', clicks: 3120, signups: 468, conversions: 124 },
+];
+
+// Admin data
+const ADMIN_STATS = [
+  { label: '총 가입자', value: '12,847', change: '+324', up: true },
+  { label: '이번 달 환급', value: '₩28,340,000', change: '+12.4%', up: true },
+  { label: '활성 파트너', value: '156', change: '+8', up: true },
+  { label: '대기 중 환급', value: '47건', change: '-5', up: false },
+];
+
+const ADMIN_MEMBERS = [
+  { name: '김민수', email: 'kim@email.com', joined: '2025.08.12', status: '활성', refunds: 12 },
+  { name: '박서연', email: 'park@email.com', joined: '2025.08.20', status: '활성', refunds: 8 },
+  { name: '이준호', email: 'lee@email.com', joined: '2025.09.01', status: '정지', refunds: 3 },
+  { name: '최유진', email: 'choi@email.com', joined: '2025.09.15', status: '활성', refunds: 15 },
+  { name: '정하은', email: 'jung@email.com', joined: '2025.09.22', status: '활성', refunds: 6 },
+  { name: '한지민', email: 'han@email.com', joined: '2025.10.01', status: '대기', refunds: 0 },
+];
+
+const DAILY_SIGNUPS = [
+  { date: '10/01', signups: 42, refunds: 18 },
+  { date: '10/05', signups: 56, refunds: 24 },
+  { date: '10/10', signups: 48, refunds: 31 },
+  { date: '10/15', signups: 63, refunds: 27 },
+  { date: '10/20', signups: 71, refunds: 35 },
+  { date: '10/25', signups: 59, refunds: 42 },
+  { date: '10/28', signups: 67, refunds: 38 },
+];
+
+const statusBadge = (s) => {
+  const m = { '지급완료': 'badge-green', '검토중': 'badge-yellow', '신청완료': 'badge-blue', '거절': 'badge-red', '활성': 'badge-green', '정지': 'badge-red', '대기': 'badge-gray' };
+  return <span className={`badge ${m[s] || 'badge-gray'}`}>{s}</span>;
+};
+
+const gradeColor = (g) => ({ Platinum: '#7C3AED', Gold: '#D97706', Silver: '#9CA3AF', Bronze: '#92400E' }[g] || '#6B7280');
+
+/* ─── Page: Main (보험 비교 허브) ─── */
+function PageMain() {
+  const [category, setCategory] = useState('전체');
+  const filtered = category === '전체' ? COMPANIES : COMPANIES.filter(c => c.type === category);
+
+  return (
+    <>
+      <div className="hero">
+        <div className="hero-content">
+          <h1>나에게 딱 맞는 보험,<br/>한눈에 비교하세요</h1>
+          <p>실손보험·자동차보험·여행보험까지 — 주요 보험사의 보험료와 환급 혜택을 실시간으로 비교하고, 가입 시 최대 18%까지 캐시백을 받으세요.</p>
+          <div className="hero-stats">
+            <div className="hero-stat"><div className="hero-stat-val">6</div><div className="hero-stat-label">제휴 보험사</div></div>
+            <div className="hero-stat"><div className="hero-stat-val">12,847</div><div className="hero-stat-label">가입 회원</div></div>
+            <div className="hero-stat"><div className="hero-stat-val">₩2.8억</div><div className="hero-stat-label">누적 환급액</div></div>
+            <div className="hero-stat"><div className="hero-stat-val">18%</div><div className="hero-stat-label">최대 캐시백</div></div>
+          </div>
+        </div>
+      </div>
+      <div className="content">
+        <div className="category-pills">
+          {CATEGORIES.map(c => (
+            <button key={c} className={`pill ${category === c ? 'active' : ''}`} onClick={() => setCategory(c)}>{c}</button>
+          ))}
+        </div>
+
+        <div className="grid-3" style={{ marginBottom: 32 }}>
+          {filtered.map((ins, i) => (
+            <div key={i} className="ins-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div className="ins-logo" style={{ background: ins.color }}>{ins.abbr}</div>
+                <span className="badge badge-green">캐시백 {ins.cashback}</span>
+              </div>
+              <div className="ins-name">{ins.name}</div>
+              <div className="ins-type">{ins.type}</div>
+              <div className="ins-price">월 {ins.price}원 <span>부터</span></div>
+              <div className="ins-features">
+                {ins.features.map((f, j) => <div key={j} className="ins-feature">{f}</div>)}
+              </div>
+              <div className="ins-cashback">💰 가입 시 {ins.cashback} 캐시백 적용</div>
+              <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary btn-sm" style={{ flex: 1 }}>상세보기</button>
+                <button className="btn btn-outline btn-sm" style={{ flex: 1 }}>비교담기</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid-2">
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">카테고리별 평균 보험료</div>
+              <span className="badge badge-green">월간</span>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={[
+                { name: '실손보험', avg: 31100, min: 29800, max: 32400 },
+                { name: '자동차보험', avg: 43850, min: 42100, max: 45600 },
+                { name: '여행보험', avg: 15200, min: 12000, max: 18400 },
+                { name: '건강보험', avg: 28500, min: 25000, max: 32000 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="name" fontSize={12} tick={{ fill: '#6B7280' }} />
+                <YAxis fontSize={12} tick={{ fill: '#6B7280' }} tickFormatter={v => `${(v/1000).toFixed(0)}천`} />
+                <Tooltip formatter={(v) => `${v.toLocaleString()}원`} />
+                <Bar dataKey="avg" fill="#059669" radius={[6,6,0,0]} name="평균" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">보험사별 캐시백 비율</div>
+              <span className="badge badge-blue">실시간</span>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={COMPANIES.map(c => ({ name: c.name, rate: parseFloat(c.cashback) }))} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis type="number" fontSize={12} tick={{ fill: '#6B7280' }} tickFormatter={v => `${v}%`} />
+                <YAxis type="category" dataKey="name" fontSize={12} tick={{ fill: '#6B7280' }} width={80} />
+                <Tooltip formatter={(v) => `${v}%`} />
+                <Bar dataKey="rate" fill="#34D399" radius={[0,6,6,0]} name="캐시백" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Page: Refund (환급 내역) ─── */
+function PageRefund() {
+  const [filter, setFilter] = useState('전체');
+  const filtered = filter === '전체' ? REFUND_DATA : REFUND_DATA.filter(r => r.status === filter);
+  const total = REFUND_DATA.reduce((s, r) => s + parseInt(r.amount.replace(/,/g, '')), 0);
+  const paid = REFUND_DATA.filter(r => r.status === '지급완료').reduce((s, r) => s + parseInt(r.amount.replace(/,/g, '')), 0);
+
+  return (
+    <div className="content">
+      <div className="section-title">환급 내역 관리</div>
+      <div className="grid-4" style={{ marginBottom: 24 }}>
+        <div className="kpi-card">
+          <div className="kpi-label">총 환급 신청액</div>
+          <div className="kpi-value">₩{total.toLocaleString()}</div>
+          <div className="kpi-change up">+15.2% vs 지난달</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">지급 완료</div>
+          <div className="kpi-value">₩{paid.toLocaleString()}</div>
+          <div className="kpi-change up">3건 완료</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">검토 중</div>
+          <div className="kpi-value">₩115,300</div>
+          <div className="kpi-change">2건 검토중</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">이번 달 환급률</div>
+          <div className="kpi-value">78.4%</div>
+          <div className="kpi-change up">+5.2%</div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ marginBottom: 24 }}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">월별 환급 추이</div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={MONTHLY_REFUND}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="month" fontSize={12} tick={{ fill: '#6B7280' }} />
+              <YAxis fontSize={12} tick={{ fill: '#6B7280' }} tickFormatter={v => `${(v/10000).toFixed(0)}만`} />
+              <Tooltip formatter={v => `₩${v.toLocaleString()}`} />
+              <Area type="monotone" dataKey="amount" stroke="#059669" fill="#D1FAE5" name="환급액" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">환급 진행 현황</div>
+          </div>
+          <div className="timeline" style={{ marginTop: 8 }}>
+            <div className="timeline-item">
+              <div className="timeline-dot filled" />
+              <div className="timeline-date">2025.10.28</div>
+              <div className="timeline-title">삼성화재 실손보험 환급 지급완료</div>
+              <div className="timeline-desc">₩45,200 — 환급 계좌로 입금 완료</div>
+            </div>
+            <div className="timeline-item">
+              <div className="timeline-dot filled" />
+              <div className="timeline-date">2025.10.25</div>
+              <div className="timeline-title">현대해상 실손보험 환급 지급완료</div>
+              <div className="timeline-desc">₩38,700 — 검토 완료 후 지급 처리</div>
+            </div>
+            <div className="timeline-item">
+              <div className="timeline-dot" />
+              <div className="timeline-date">2025.10.22</div>
+              <div className="timeline-title">DB손보 자동차보험 환급 검토중</div>
+              <div className="timeline-desc">₩52,100 — 서류 확인 진행 중</div>
+            </div>
+            <div className="timeline-item">
+              <div className="timeline-dot" />
+              <div className="timeline-date">2025.10.18</div>
+              <div className="timeline-title">KB손보 자동차보험 환급 신청</div>
+              <div className="timeline-desc">₩31,400 — 신청 접수 완료</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">환급 신청 내역</div>
+          <button className="btn btn-outline btn-sm">📥 CSV 다운로드</button>
+        </div>
+        <div className="filter-row">
+          {['전체', '지급완료', '검토중', '신청완료', '거절'].map(f => (
+            <button key={f} className={`pill ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)} style={{ padding: '6px 16px', fontSize: 13 }}>{f}</button>
+          ))}
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>환급번호</th><th>보험상품</th><th>신청일</th><th>금액</th><th>상태</th><th>액션</th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600 }}>{r.id}</td>
+                  <td>{r.product}</td>
+                  <td>{r.date}</td>
+                  <td style={{ fontWeight: 700, color: C.primary }}>₩{r.amount}</td>
+                  <td>{statusBadge(r.status)}</td>
+                  <td><button className="btn btn-outline btn-sm">상세</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Page: Referral (레퍼럴 관리) ─── */
+function PageReferral() {
+  return (
+    <div className="content">
+      <div className="section-title">레퍼럴 및 파트너 관리</div>
+      <div className="grid-4" style={{ marginBottom: 24 }}>
+        <div className="kpi-card">
+          <div className="kpi-label">총 레퍼럴 클릭</div>
+          <div className="kpi-value">12,980</div>
+          <div className="kpi-change up">+18.3%</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">신규 가입</div>
+          <div className="kpi-value">1,947</div>
+          <div className="kpi-change up">+22.1%</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">전환 완료</div>
+          <div className="kpi-value">490</div>
+          <div className="kpi-change up">+15.7%</div>
+        </div>
+        <div className="kpi-card">
+          <div className="kpi-label">예상 수수료</div>
+          <div className="kpi-value">₩14.8M</div>
+          <div className="kpi-change up">+12.4%</div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ marginBottom: 24 }}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">월별 레퍼럴 전환 추이</div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={REFERRAL_MONTHLY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="month" fontSize={12} tick={{ fill: '#6B7280' }} />
+              <YAxis fontSize={12} tick={{ fill: '#6B7280' }} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="clicks" stroke="#059669" strokeWidth={2} name="클릭" dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="signups" stroke="#34D399" strokeWidth={2} name="가입" dot={{ r: 4 }} />
+              <Line type="monotone" dataKey="conversions" stroke="#064E3B" strokeWidth={2} name="전환" dot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">전환 퍼널</div>
+          </div>
+          <div style={{ padding: '16px 0' }}>
+            {[
+              { label: '레퍼럴 클릭', value: 3120, pct: 100 },
+              { label: '회원 가입', value: 468, pct: 15 },
+              { label: '보험 비교', value: 312, pct: 10 },
+              { label: '가입 전환', value: 124, pct: 4 },
+            ].map((f, i) => (
+              <div key={i} style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{f.label}</span>
+                  <span style={{ fontSize: 14, color: C.text2 }}>{f.value.toLocaleString()} ({f.pct}%)</span>
+                </div>
+                <div className="stat-bar">
+                  <div className="stat-bar-fill" style={{ width: `${f.pct}%`, background: `linear-gradient(90deg, ${C.primary}, ${C.accent})` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <div className="card-header">
+          <div className="card-title">내 레퍼럴 링크</div>
+          <button className="btn btn-primary btn-sm">+ 새 링크 생성</button>
+        </div>
+        <div style={{ padding: '16px', background: '#F9FAFB', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+          <div style={{ flex: 1, fontFamily: 'monospace', fontSize: 14, color: C.text1, padding: '10px 16px', background: '#FFF', borderRadius: 8, border: '1px solid #E5E7EB' }}>
+            https://insurefit.kr/ref/USR-8472-GOLD
+          </div>
+          <button className="btn btn-primary btn-sm">복사</button>
+          <button className="btn btn-outline btn-sm">QR 코드</button>
+        </div>
+        <div className="grid-3">
+          {['실손보험 전용', '자동차보험 전용', '여행보험 전용'].map((label, i) => (
+            <div key={i} style={{ padding: 16, background: '#F0FDF4', borderRadius: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text1, marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 12, color: C.text2, fontFamily: 'monospace' }}>insurefit.kr/ref/USR-8472-{['HEALTH', 'AUTO', 'TRAVEL'][i]}</div>
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }}>복사</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">파트너 현황</div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>파트너명</th><th>유형</th><th>등급</th><th>수수료율</th><th>전환 수</th><th>누적 수수료</th></tr>
+            </thead>
+            <tbody>
+              {PARTNERS.map((p, i) => (
+                <tr key={i}>
+                  <td style={{ fontWeight: 600 }}>{p.name}</td>
+                  <td><span className="badge badge-blue">{p.type}</span></td>
+                  <td><span style={{ fontWeight: 700, color: gradeColor(p.grade) }}>{p.grade}</span></td>
+                  <td style={{ fontWeight: 600, color: C.primary }}>{p.rate}</td>
+                  <td>{p.conversions}건</td>
+                  <td style={{ fontWeight: 700 }}>₩{p.revenue}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Page: Admin (관리자) ─── */
+function PageAdmin() {
+  const [adminTab, setAdminTab] = useState('stats');
+
+  return (
+    <div className="content">
+      <div className="section-title">관리자 운영 패널</div>
+      <div className="tabs">
+        {[
+          { id: 'stats', label: '통계' },
+          { id: 'members', label: '회원 관리' },
+          { id: 'refunds', label: '환급 처리' },
+          { id: 'products', label: '보험 상품 관리' },
+        ].map(t => (
+          <button key={t.id} className={`tab ${adminTab === t.id ? 'active' : ''}`} onClick={() => setAdminTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      {adminTab === 'stats' && (
+        <>
+          <div className="grid-4" style={{ marginBottom: 24 }}>
+            {ADMIN_STATS.map((s, i) => (
+              <div key={i} className="kpi-card">
+                <div className="kpi-label">{s.label}</div>
+                <div className="kpi-value">{s.value}</div>
+                <div className={`kpi-change ${s.up ? 'up' : 'down'}`}>{s.change}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid-2">
+            <div className="card">
+              <div className="card-header"><div className="card-title">일별 가입·환급 현황</div></div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={DAILY_SIGNUPS}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="date" fontSize={12} tick={{ fill: '#6B7280' }} />
+                  <YAxis fontSize={12} tick={{ fill: '#6B7280' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="signups" fill="#059669" radius={[4,4,0,0]} name="가입" />
+                  <Bar dataKey="refunds" fill="#34D399" radius={[4,4,0,0]} name="환급" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="card">
+              <div className="card-header"><div className="card-title">보험 카테고리별 가입 비율</div></div>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={[
+                    { name: '실손보험', value: 42 },
+                    { name: '자동차보험', value: 31 },
+                    { name: '여행보험', value: 15 },
+                    { name: '건강보험', value: 12 },
+                  ]} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                    <Cell fill="#059669" />
+                    <Cell fill="#34D399" />
+                    <Cell fill="#6EE7B7" />
+                    <Cell fill="#A7F3D0" />
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
+
+      {adminTab === 'members' && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">회원 목록</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="form-input" placeholder="검색..." style={{ width: 200 }} />
+              <select className="form-select" style={{ width: 120 }}>
+                <option>전체 상태</option>
+                <option>활성</option>
+                <option>정지</option>
+                <option>대기</option>
+              </select>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>이름</th><th>이메일</th><th>가입일</th><th>상태</th><th>환급 횟수</th><th>액션</th></tr>
+              </thead>
+              <tbody>
+                {ADMIN_MEMBERS.map((m, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>{m.name}</td>
+                    <td style={{ color: '#6B7280' }}>{m.email}</td>
+                    <td>{m.joined}</td>
+                    <td>{statusBadge(m.status)}</td>
+                    <td>{m.refunds}건</td>
+                    <td>
+                      <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }}>상세</button>
+                      <button className="btn btn-sm" style={{ background: '#FEE2E2', color: '#DC2626' }}>정지</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'refunds' && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">환급 검토 및 일괄 처리</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary btn-sm">✓ 선택 승인</button>
+              <button className="btn btn-sm" style={{ background: '#FEE2E2', color: '#DC2626' }}>✕ 선택 거절</button>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th style={{ width: 40 }}><input type="checkbox" /></th><th>환급번호</th><th>회원</th><th>보험상품</th><th>금액</th><th>상태</th><th>액션</th></tr>
+              </thead>
+              <tbody>
+                {REFUND_DATA.map(r => (
+                  <tr key={r.id}>
+                    <td><input type="checkbox" /></td>
+                    <td style={{ fontWeight: 600 }}>{r.id}</td>
+                    <td>회원{r.id.slice(-3)}</td>
+                    <td>{r.product}</td>
+                    <td style={{ fontWeight: 700, color: C.primary }}>₩{r.amount}</td>
+                    <td>{statusBadge(r.status)}</td>
+                    <td>
+                      <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }}>검토</button>
+                      <button className="btn btn-primary btn-sm">승인</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'products' && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">보험 상품 관리</div>
+            <button className="btn btn-primary btn-sm">+ 상품 등록</button>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>보험사</th><th>상품 유형</th><th>월 보험료</th><th>캐시백</th><th>상태</th><th>액션</th></tr>
+              </thead>
+              <tbody>
+                {COMPANIES.map((c, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: c.color, color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>{c.abbr}</div>
+                        {c.name}
+                      </div>
+                    </td>
+                    <td><span className="badge badge-blue">{c.type}</span></td>
+                    <td>₩{c.price}</td>
+                    <td style={{ fontWeight: 700, color: C.primary }}>{c.cashback}</td>
+                    <td>{statusBadge('활성')}</td>
+                    <td>
+                      <button className="btn btn-outline btn-sm" style={{ marginRight: 4 }}>수정</button>
+                      <button className="btn btn-sm" style={{ background: '#FEE2E2', color: '#DC2626' }}>비활성화</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Page: Settings (마이페이지) ─── */
+function PageSettings() {
+  return (
+    <div className="content">
+      <div className="section-title">마이페이지</div>
+      <div className="grid-2">
+        <div>
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-title" style={{ marginBottom: 16 }}>내 정보</div>
+            <div className="form-group">
+              <div className="form-label">이름</div>
+              <input className="form-input" value="김민수" readOnly />
+            </div>
+            <div className="form-group">
+              <div className="form-label">이메일</div>
+              <input className="form-input" value="minsu.kim@email.com" readOnly />
+            </div>
+            <div className="form-group">
+              <div className="form-label">연락처</div>
+              <input className="form-input" value="010-1234-5678" readOnly />
+            </div>
+            <div className="form-group">
+              <div className="form-label">가입일</div>
+              <input className="form-input" value="2025.08.12" readOnly />
+            </div>
+            <button className="btn btn-outline" style={{ marginTop: 8 }}>정보 수정</button>
+          </div>
+
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 16 }}>환급 계좌</div>
+            <div style={{ padding: 16, background: '#F0FDF4', borderRadius: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>국민은행</div>
+                  <div style={{ fontSize: 13, color: C.text2, marginTop: 2 }}>123-456-789012 (김민수)</div>
+                </div>
+                <span className="badge badge-green">기본 계좌</span>
+              </div>
+            </div>
+            <div style={{ padding: 16, background: '#F9FAFB', borderRadius: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>신한은행</div>
+                  <div style={{ fontSize: 13, color: C.text2, marginTop: 2 }}>110-321-654987 (김민수)</div>
+                </div>
+                <button className="btn btn-outline btn-sm">기본 설정</button>
+              </div>
+            </div>
+            <button className="btn btn-primary" style={{ marginTop: 16 }}>+ 계좌 추가</button>
+          </div>
+        </div>
+
+        <div>
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-title" style={{ marginBottom: 16 }}>알림 설정</div>
+            {[
+              { label: '환급 지급 알림', desc: '환급금이 입금되면 알림을 받습니다', on: true },
+              { label: '보험 만기 알림', desc: '가입한 보험 만기 30일 전 알림', on: true },
+              { label: '신규 혜택 알림', desc: '새로운 캐시백 혜택 정보를 받습니다', on: false },
+              { label: '마케팅 수신 동의', desc: '이벤트 및 프로모션 정보를 받습니다', on: false },
+            ].map((item, i) => (
+              <div key={i} className="settings-row">
+                <div>
+                  <div className="settings-label">{item.label}</div>
+                  <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{item.desc}</div>
+                </div>
+                <div className={`toggle ${item.on ? 'on' : ''}`}><div className="toggle-knob" /></div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-title" style={{ marginBottom: 16 }}>가입 보험 현황</div>
+            {[
+              { company: '삼성화재', type: '실손보험', date: '2025.08.20', status: '유지중' },
+              { company: 'DB손해보험', type: '자동차보험', date: '2025.09.10', status: '유지중' },
+              { company: '메리츠화재', type: '여행보험', date: '2025.10.01', status: '만기예정' },
+            ].map((ins, i) => (
+              <div key={i} style={{ padding: 12, background: i % 2 === 0 ? '#F9FAFB' : '#FFF', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{ins.company} — {ins.type}</div>
+                  <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>가입일: {ins.date}</div>
+                </div>
+                {statusBadge(ins.status === '유지중' ? '활성' : '검토중')}
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 16 }}>계정 관리</div>
+            <button className="btn btn-outline" style={{ marginBottom: 8, width: '100%', justifyContent: 'center' }}>비밀번호 변경</button>
+            <button className="btn btn-outline" style={{ marginBottom: 8, width: '100%', justifyContent: 'center' }}>연동 계정 관리</button>
+            <button className="btn btn-sm" style={{ background: '#FEE2E2', color: '#DC2626', width: '100%', justifyContent: 'center' }}>회원 탈퇴</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App ─── */
+function App() {
+  const [page, setPage] = useState('main');
+
+  return (
+    <>
+      <nav className="topnav">
+        <div className="topnav-brand">
+          <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#059669"/><path d="M8 16l4 4 12-12" stroke="#FFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          인슈어핏
+        </div>
+        <div className="topnav-links">
+          {NAV.map(n => (
+            <button key={n.id} className={`topnav-link ${page === n.id ? 'active' : ''}`} onClick={() => setPage(n.id)} title={n.label}>
+              {n.label}
+            </button>
+          ))}
+        </div>
+        <div className="topnav-right">
+          <button className="topnav-bell">
+            🔔<div className="topnav-bell-dot" />
+          </button>
+          <div className="topnav-avatar">김</div>
+        </div>
+      </nav>
+      <div className="main">
+        {page === 'main' && <PageMain />}
+        {page === 'refund' && <PageRefund />}
+        {page === 'referral' && <PageReferral />}
+        {page === 'admin' && <PageAdmin />}
+        {page === 'settings' && <PageSettings />}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>크립토허브 — 가상화폐 포트폴리오 추적 및 자동 환급 통합 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-family: 'Pretendard', -apple-system, sans-serif; background: #FAF5FF; color: #1E1B4B; }
+body { min-height: 100vh; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #E9D5FF; border-radius: 3px; }
+
+/* Layout: bright-workspace */
+.workspace { display: flex; min-height: 100vh; }
+.ws-sidebar { width: 72px; background: #FFFFFF; border-right: 1px solid #F3E8FF; display: flex; flex-direction: column; align-items: center; padding: 16px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+.ws-sidebar-logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #7C3AED, #A78BFA); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 800; font-size: 14px; margin-bottom: 24px; }
+.ws-sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.ws-nav-btn { width: 48px; height: 48px; border-radius: 12px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: all 0.2s; position: relative; }
+.ws-nav-btn:hover { background: #F5F3FF; }
+.ws-nav-btn.active { background: #EDE9FE; }
+.ws-nav-btn.active::before { content: ''; position: absolute; left: -4px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #7C3AED; border-radius: 0 2px 2px 0; }
+.ws-nav-btn span { position: absolute; left: 60px; background: #1E1B4B; color: #FFF; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.ws-nav-btn:hover span { opacity: 1; }
+
+/* Top bar */
+.ws-topbar { position: fixed; top: 0; left: 72px; right: 0; height: 56px; background: #FFFFFF; border-bottom: 1px solid #F3E8FF; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; z-index: 90; }
+.ws-topbar-title { font-size: 16px; font-weight: 700; color: #1E1B4B; display: flex; align-items: center; gap: 8px; }
+.ws-topbar-right { display: flex; align-items: center; gap: 12px; }
+.ws-search { padding: 8px 14px; border: 1px solid #E9D5FF; border-radius: 8px; font-size: 13px; width: 200px; background: #FEFBFF; outline: none; font-family: inherit; }
+.ws-search:focus { border-color: #7C3AED; }
+.ws-avatar { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #7C3AED, #A78BFA); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.ws-bell { width: 32px; height: 32px; border-radius: 8px; background: #F5F3FF; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; position: relative; font-size: 14px; }
+.ws-bell-dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; background: #EF4444; border-radius: 50%; }
+
+/* Main content */
+.ws-main { margin-left: 72px; margin-top: 56px; padding: 24px 28px; min-height: calc(100vh - 56px); }
+
+/* Cards */
+.card { background: #FFFFFF; border-radius: 10px; padding: 20px; border: 1px solid #F3E8FF; transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 2px 12px rgba(124,58,237,0.06); }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.card-title { font-size: 14px; font-weight: 700; color: #1E1B4B; }
+.card-subtitle { font-size: 12px; color: #64748B; }
+
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+
+/* KPI */
+.kpi { background: #FFF; border-radius: 10px; padding: 16px 18px; border: 1px solid #F3E8FF; }
+.kpi-label { font-size: 12px; color: #64748B; margin-bottom: 2px; }
+.kpi-value { font-size: 20px; font-weight: 800; color: #1E1B4B; }
+.kpi-change { font-size: 11px; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+.kpi-change.up { color: #059669; }
+.kpi-change.down { color: #EF4444; }
+
+/* Badge */
+.badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+.badge-purple { background: #EDE9FE; color: #7C3AED; }
+.badge-green { background: #D1FAE5; color: #059669; }
+.badge-yellow { background: #FEF3C7; color: #D97706; }
+.badge-blue { background: #DBEAFE; color: #2563EB; }
+.badge-red { background: #FEE2E2; color: #DC2626; }
+.badge-gray { background: #F3F4F6; color: #6B7280; }
+
+/* Button */
+.btn { padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+.btn-primary { background: #7C3AED; color: #FFF; }
+.btn-primary:hover { background: #6D28D9; }
+.btn-outline { background: transparent; border: 1px solid #7C3AED; color: #7C3AED; }
+.btn-outline:hover { background: #F5F3FF; }
+.btn-ghost { background: transparent; color: #7C3AED; }
+.btn-ghost:hover { background: #F5F3FF; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-danger { background: #FEE2E2; color: #DC2626; }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #64748B; border-bottom: 1px solid #F3E8FF; background: #FEFBFF; }
+td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #F9F5FF; }
+tr:hover td { background: #FEFBFF; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; margin-bottom: 20px; background: #F5F3FF; border-radius: 8px; padding: 3px; width: fit-content; }
+.tab { padding: 7px 16px; font-size: 13px; font-weight: 600; color: #64748B; cursor: pointer; border: none; background: none; border-radius: 6px; transition: all 0.15s; }
+.tab:hover { color: #7C3AED; }
+.tab.active { background: #FFF; color: #7C3AED; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+/* Coin ticker */
+.ticker-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F9F5FF; }
+.ticker-row:last-child { border: none; }
+.ticker-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: #FFF; }
+.ticker-name { font-size: 14px; font-weight: 700; color: #1E1B4B; }
+.ticker-symbol { font-size: 12px; color: #64748B; }
+.ticker-price { font-size: 14px; font-weight: 700; color: #1E1B4B; text-align: right; }
+.ticker-change { font-size: 12px; font-weight: 600; text-align: right; }
+
+/* Form */
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: #1E1B4B; margin-bottom: 4px; }
+.form-input { width: 100%; padding: 8px 14px; border: 1px solid #E9D5FF; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; background: #FEFBFF; }
+.form-input:focus { border-color: #7C3AED; }
+.form-select { width: 100%; padding: 8px 14px; border: 1px solid #E9D5FF; border-radius: 8px; font-size: 13px; font-family: inherit; background: #FEFBFF; cursor: pointer; outline: none; }
+
+/* Toggle */
+.toggle { width: 40px; height: 22px; border-radius: 11px; background: #E5E7EB; position: relative; cursor: pointer; transition: background 0.2s; }
+.toggle.on { background: #7C3AED; }
+.toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #FFF; position: absolute; top: 2px; left: 2px; transition: left 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.toggle.on .toggle-knob { left: 20px; }
+
+/* Progress bar */
+.progress-bar { height: 6px; background: #F3E8FF; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+
+/* Exchange card */
+.exchange-card { background: #FFF; border: 1px solid #F3E8FF; border-radius: 10px; padding: 16px; }
+.exchange-logo { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #FFF; }
+
+/* Settings */
+.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F9F5FF; }
+.settings-row:last-child { border: none; }
+
+/* Scheduler status */
+.scheduler-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #FEFBFF; border-radius: 8px; margin-bottom: 8px; border: 1px solid #F3E8FF; }
+.scheduler-dot { width: 8px; height: 8px; border-radius: 50%; }
+.scheduler-dot.running { background: #059669; animation: pulse 1.5s infinite; }
+.scheduler-dot.idle { background: #D97706; }
+.scheduler-dot.error { background: #EF4444; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Section */
+.section-title { font-size: 16px; font-weight: 800; color: #1E1B4B; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+const { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
+const C = { primary: '#7C3AED', secondary: '#1E1B4B', accent: '#A78BFA', bg: '#FAF5FF', surface: '#FFF', text1: '#1E1B4B', text2: '#64748B' };
+
+const NAV = [
+  { id: 'main', icon: '📊', label: '대시보드' },
+  { id: 'refund', icon: '💎', label: '자동 환급' },
+  { id: 'compare', icon: '🔄', label: '거래소 비교' },
+  { id: 'admin', icon: '⚙️', label: '관리자' },
+  { id: 'settings', icon: '👤', label: '설정' },
+];
+
+// Coin data
+const COINS = [
+  { name: 'Bitcoin', symbol: 'BTC', color: '#F7931A', price: '127,450,000', change: '+2.34', amount: '0.4521', value: '57,615,345' },
+  { name: 'Ethereum', symbol: 'ETH', color: '#627EEA', price: '5,234,000', change: '+1.87', amount: '8.2300', value: '43,075,820' },
+  { name: 'Solana', symbol: 'SOL', color: '#00FFA3', price: '245,600', change: '-0.54', amount: '124.5', value: '30,577,200' },
+  { name: 'XRP', symbol: 'XRP', color: '#0085FF', price: '3,420', change: '+5.12', amount: '15,200', value: '51,984,000' },
+  { name: 'BNB', symbol: 'BNB', color: '#F3BA2F', price: '892,000', change: '+0.78', amount: '12.8', value: '11,417,600' },
+];
+
+const PORTFOLIO_HISTORY = [
+  { date: '10/01', value: 172000000, profit: 8500000 },
+  { date: '10/05', value: 178000000, profit: 12000000 },
+  { date: '10/10', value: 168000000, profit: 5200000 },
+  { date: '10/15', value: 185000000, profit: 16800000 },
+  { date: '10/20', value: 192000000, profit: 21500000 },
+  { date: '10/25', value: 188000000, profit: 18400000 },
+  { date: '10/28', value: 194670000, profit: 22100000 },
+];
+
+// Refund data
+const AUTO_REFUND_SETTINGS = { threshold: 50000, period: 'weekly', mode: 'auto', nextRun: '2025.10.30 09:00' };
+const REFUND_HISTORY = [
+  { id: 'AR-001', exchange: 'Bitget', date: '2025.10.28', fee: '234,500', refund: '46,900', status: '자동신청', mode: '자동' },
+  { id: 'AR-002', exchange: 'OKX', date: '2025.10.25', fee: '189,200', refund: '37,840', status: '정산완료', mode: '자동' },
+  { id: 'AR-003', exchange: 'Bybit', date: '2025.10.22', fee: '312,800', refund: '62,560', status: '정산완료', mode: '수동' },
+  { id: 'AR-004', exchange: 'Bitget', date: '2025.10.18', fee: '156,400', refund: '31,280', status: '검토중', mode: '자동' },
+  { id: 'AR-005', exchange: 'OKX', date: '2025.10.15', fee: '278,900', refund: '55,780', status: '정산완료', mode: '자동' },
+  { id: 'AR-006', exchange: 'Bybit', date: '2025.10.10', fee: '198,600', refund: '39,720', status: '정산완료', mode: '수동' },
+];
+
+const MONTHLY_REFUND = [
+  { month: '5월', fee: 890000, refund: 178000 },
+  { month: '6월', fee: 1120000, refund: 224000 },
+  { month: '7월', fee: 1340000, refund: 268000 },
+  { month: '8월', fee: 1580000, refund: 316000 },
+  { month: '9월', fee: 1760000, refund: 352000 },
+  { month: '10월', fee: 1370400, refund: 274080 },
+];
+
+// Exchange data
+const EXCHANGES = [
+  { name: 'Bitget', abbr: 'BG', color: '#00CED1', fee: '0.10%', payback: '20%', vip: 'VIP3', score: { fee: 85, payback: 90, event: 75, vip: 80, speed: 88 } },
+  { name: 'OKX', abbr: 'OK', color: '#2563EB', fee: '0.08%', payback: '18%', vip: 'VIP2', score: { fee: 90, payback: 80, event: 85, vip: 75, speed: 92 } },
+  { name: 'Bybit', abbr: 'BY', color: '#F7931A', fee: '0.10%', payback: '22%', vip: 'VIP4', score: { fee: 85, payback: 95, event: 70, vip: 90, speed: 85 } },
+  { name: 'MEXC', abbr: 'MX', color: '#00B897', fee: '0.05%', payback: '15%', vip: 'VIP1', score: { fee: 95, payback: 70, event: 80, vip: 60, speed: 78 } },
+];
+
+const REFERRAL_STATS = [
+  { month: '5월', clicks: 2100, signups: 420, refunds: 84000 },
+  { month: '6월', clicks: 2800, signups: 560, refunds: 112000 },
+  { month: '7월', clicks: 3400, signups: 680, refunds: 136000 },
+  { month: '8월', clicks: 4200, signups: 840, refunds: 168000 },
+  { month: '9월', clicks: 5100, signups: 1020, refunds: 204000 },
+  { month: '10월', clicks: 5800, signups: 1160, refunds: 232000 },
+];
+
+// Admin data
+const ADMIN_KPI = [
+  { label: '총 회원 수', value: '8,432', change: '+156' },
+  { label: '총 수수료 수집', value: '₩89.4M', change: '+12.3%' },
+  { label: '자동 환급 설정', value: '3,210', change: '+89' },
+  { label: 'API 키 연동', value: '5,847', change: '+234' },
+  { label: '대기 환급', value: '32건', change: '-5' },
+];
+
+const SCHEDULER_STATUS = [
+  { name: 'Bitget 거래 내역 수집', status: 'running', lastRun: '2분 전', nextRun: '58분 후' },
+  { name: 'OKX 거래 내역 수집', status: 'idle', lastRun: '28분 전', nextRun: '32분 후' },
+  { name: 'Bybit 거래 내역 수집', status: 'running', lastRun: '5분 전', nextRun: '55분 후' },
+  { name: '환급 임계값 점검', status: 'idle', lastRun: '1시간 전', nextRun: '15분 후' },
+  { name: '시세 데이터 캐시 워밍', status: 'error', lastRun: '실패', nextRun: '재시도 대기' },
+];
+
+const ADMIN_MEMBERS = [
+  { name: '김영호', email: 'yh.kim@email.com', apiKeys: 3, autoRefund: true, totalRefund: '₩1,240,000', status: '활성' },
+  { name: '박수진', email: 'sj.park@email.com', apiKeys: 2, autoRefund: true, totalRefund: '₩890,000', status: '활성' },
+  { name: '이태준', email: 'tj.lee@email.com', apiKeys: 1, autoRefund: false, totalRefund: '₩340,000', status: '활성' },
+  { name: '최민정', email: 'mj.choi@email.com', apiKeys: 3, autoRefund: true, totalRefund: '₩2,100,000', status: '정지' },
+  { name: '정하윤', email: 'hy.jung@email.com', apiKeys: 2, autoRefund: true, totalRefund: '₩670,000', status: '활성' },
+];
+
+const statusBadge = (s) => {
+  const m = { '정산완료': 'badge-green', '자동신청': 'badge-purple', '검토중': 'badge-yellow', '수동': 'badge-blue', '자동': 'badge-purple', '활성': 'badge-green', '정지': 'badge-red' };
+  return <span className={`badge ${m[s] || 'badge-gray'}`}>{s}</span>;
+};
+
+/* ─── Page: Main (실시간 대시보드) ─── */
+function PageMain() {
+  const totalValue = COINS.reduce((s, c) => s + parseInt(c.value.replace(/,/g, '')), 0);
+
+  return (
+    <>
+      <div className="grid-5" style={{ marginBottom: 16 }}>
+        <div className="kpi" style={{ gridColumn: 'span 2', background: 'linear-gradient(135deg, #7C3AED, #A78BFA)', color: '#FFF', border: 'none' }}>
+          <div className="kpi-label" style={{ color: 'rgba(255,255,255,0.7)' }}>총 포트폴리오 평가액</div>
+          <div className="kpi-value" style={{ fontSize: 26, color: '#FFF' }}>₩{totalValue.toLocaleString()}</div>
+          <div className="kpi-change" style={{ color: '#D1FAE5' }}>▲ +₩22,100,000 (+12.8%)</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">당일 수수료</div>
+          <div className="kpi-value">₩48,200</div>
+          <div className="kpi-change up">예상 환급 ₩9,640</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">누적 환급액</div>
+          <div className="kpi-value">₩1.61M</div>
+          <div className="kpi-change up">+₩274,080 이번달</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">연동 거래소</div>
+          <div className="kpi-value">3개소</div>
+          <div className="kpi-change">Bitget · OKX · Bybit</div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">포트폴리오 추이</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['1주', '1달', '3달'].map(p => (
+                <button key={p} className="btn btn-sm" style={{ background: p === '1달' ? '#EDE9FE' : 'transparent', color: p === '1달' ? '#7C3AED' : '#64748B' }}>{p}</button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={PORTFOLIO_HISTORY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" />
+              <XAxis dataKey="date" fontSize={11} tick={{ fill: '#64748B' }} />
+              <YAxis fontSize={11} tick={{ fill: '#64748B' }} tickFormatter={v => `${(v/100000000).toFixed(1)}억`} />
+              <Tooltip formatter={v => `₩${v.toLocaleString()}`} />
+              <Area type="monotone" dataKey="value" stroke="#7C3AED" fill="url(#purpleGrad)" strokeWidth={2} name="평가액" />
+              <defs>
+                <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#7C3AED" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">자산 분포</div>
+            <span className="badge badge-purple">실시간</span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={COINS.map(c => ({ name: c.symbol, value: parseInt(c.value.replace(/,/g, '')) }))} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                {COINS.map((c, i) => <Cell key={i} fill={c.color} />)}
+              </Pie>
+              <Tooltip formatter={v => `₩${v.toLocaleString()}`} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">실시간 시세 · 보유 자산</div>
+          <span className="badge badge-green">● LIVE</span>
+        </div>
+        {COINS.map((coin, i) => (
+          <div key={i} className="ticker-row">
+            <div className="ticker-icon" style={{ background: coin.color }}>{coin.symbol.charAt(0)}</div>
+            <div style={{ flex: 1 }}>
+              <div className="ticker-name">{coin.name}</div>
+              <div className="ticker-symbol">{coin.symbol}</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div className="ticker-price">₩{coin.price}</div>
+              <div className="ticker-change" style={{ color: coin.change.startsWith('+') ? '#059669' : '#EF4444' }}>{coin.change}%</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'right' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text1 }}>{coin.amount} {coin.symbol}</div>
+              <div style={{ fontSize: 12, color: C.text2 }}>₩{coin.value}</div>
+            </div>
+            <div style={{ width: 80, textAlign: 'right' }}>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${parseInt(coin.value.replace(/,/g, '')) / totalValue * 100}%`, background: coin.color }} />
+              </div>
+              <div style={{ fontSize: 11, color: C.text2, marginTop: 2 }}>{(parseInt(coin.value.replace(/,/g, '')) / totalValue * 100).toFixed(1)}%</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ─── Page: Refund (자동 환급) ─── */
+function PageRefund() {
+  const [mode, setMode] = useState('auto');
+
+  return (
+    <>
+      <div className="section-title">자동 환급 관리</div>
+      <div className="grid-4" style={{ marginBottom: 16 }}>
+        <div className="kpi">
+          <div className="kpi-label">환급 누적 금액</div>
+          <div className="kpi-value">₩274,080</div>
+          <div className="kpi-change up">이번 달 누적</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">다음 자동 실행</div>
+          <div className="kpi-value" style={{ fontSize: 16 }}>10.30 09:00</div>
+          <div className="kpi-change">2일 후</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">자동 신청 임계값</div>
+          <div className="kpi-value">₩50,000</div>
+          <div className="kpi-change">초과 시 자동 신청</div>
+        </div>
+        <div className="kpi">
+          <div className="kpi-label">환급 모드</div>
+          <div className="kpi-value" style={{ color: '#7C3AED' }}>자동</div>
+          <div className="kpi-change">주 1회 실행</div>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">자동 환급 설정</div>
+            <span className="badge badge-purple">활성화</span>
+          </div>
+          <div className="form-group">
+            <div className="form-label">환급 모드</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className={`btn btn-sm ${mode === 'auto' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setMode('auto')}>🤖 자동</button>
+              <button className={`btn btn-sm ${mode === 'manual' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setMode('manual')}>✋ 수동</button>
+            </div>
+          </div>
+          <div className="form-group">
+            <div className="form-label">자동 신청 임계값</div>
+            <input className="form-input" value="50,000" readOnly />
+          </div>
+          <div className="form-group">
+            <div className="form-label">실행 주기</div>
+            <select className="form-select"><option>매주 월요일 09:00</option><option>매일 09:00</option><option>매월 1일 09:00</option></select>
+          </div>
+          <div className="form-group">
+            <div className="form-label">대상 거래소</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['Bitget', 'OKX', 'Bybit'].map(ex => (
+                <span key={ex} className="badge badge-purple" style={{ padding: '6px 12px', fontSize: 13 }}>✓ {ex}</span>
+              ))}
+              <button className="btn btn-ghost btn-sm">+ 추가</button>
+            </div>
+          </div>
+          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}>설정 저장</button>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">월별 수수료 · 환급 추이</div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={MONTHLY_REFUND}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" />
+              <XAxis dataKey="month" fontSize={11} tick={{ fill: '#64748B' }} />
+              <YAxis fontSize={11} tick={{ fill: '#64748B' }} tickFormatter={v => `${(v/10000).toFixed(0)}만`} />
+              <Tooltip formatter={v => `₩${v.toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="fee" fill="#A78BFA" radius={[4,4,0,0]} name="수수료" />
+              <Bar dataKey="refund" fill="#7C3AED" radius={[4,4,0,0]} name="환급" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">환급 신청 이력</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select className="form-select" style={{ width: 120 }}><option>전체 거래소</option><option>Bitget</option><option>OKX</option><option>Bybit</option></select>
+            <button className="btn btn-outline btn-sm">📥 내보내기</button>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>거래소</th><th>신청일</th><th>거래 수수료</th><th>환급액</th><th>모드</th><th>상태</th></tr>
+            </thead>
+            <tbody>
+              {REFUND_HISTORY.map(r => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 600, color: C.primary }}>{r.id}</td>
+                  <td>{r.exchange}</td>
+                  <td>{r.date}</td>
+                  <td>₩{r.fee}</td>
+                  <td style={{ fontWeight: 700, color: C.primary }}>₩{r.refund}</td>
+                  <td>{statusBadge(r.mode)}</td>
+                  <td>{statusBadge(r.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Page: Compare (거래소 비교) ─── */
+function PageCompare() {
+  const [selected, setSelected] = useState('Bitget');
+  const radarData = [
+    { subject: '수수료', ...Object.fromEntries(EXCHANGES.map(e => [e.name, e.score.fee])) },
+    { subject: '페이백', ...Object.fromEntries(EXCHANGES.map(e => [e.name, e.score.payback])) },
+    { subject: '이벤트', ...Object.fromEntries(EXCHANGES.map(e => [e.name, e.score.event])) },
+    { subject: 'VIP', ...Object.fromEntries(EXCHANGES.map(e => [e.name, e.score.vip])) },
+    { subject: '속도', ...Object.fromEntries(EXCHANGES.map(e => [e.name, e.score.speed])) },
+  ];
+
+  return (
+    <>
+      <div className="section-title">거래소 비교 및 레퍼럴</div>
+      <div className="grid-4" style={{ marginBottom: 16 }}>
+        {EXCHANGES.map((ex, i) => (
+          <div key={i} className="exchange-card" style={{ cursor: 'pointer', borderColor: selected === ex.name ? C.primary : '#F3E8FF' }} onClick={() => setSelected(ex.name)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div className="exchange-logo" style={{ background: ex.color }}>{ex.abbr}</div>
+              <span className="badge badge-purple">{ex.vip}</span>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>{ex.name}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <div><div style={{ fontSize: 11, color: C.text2 }}>수수료</div><div style={{ fontSize: 14, fontWeight: 700 }}>{ex.fee}</div></div>
+              <div><div style={{ fontSize: 11, color: C.text2 }}>페이백</div><div style={{ fontSize: 14, fontWeight: 700, color: C.primary }}>{ex.payback}</div></div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">거래소 종합 비교 (방사형)</div>
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <RadarChart data={radarData}>
+              <PolarGrid stroke="#F3E8FF" />
+              <PolarAngleAxis dataKey="subject" fontSize={12} tick={{ fill: '#64748B' }} />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} fontSize={10} tick={{ fill: '#64748B' }} />
+              <Radar name="Bitget" dataKey="Bitget" stroke="#00CED1" fill="#00CED1" fillOpacity={0.15} />
+              <Radar name="OKX" dataKey="OKX" stroke="#2563EB" fill="#2563EB" fillOpacity={0.15} />
+              <Radar name="Bybit" dataKey="Bybit" stroke="#F7931A" fill="#F7931A" fillOpacity={0.15} />
+              <Radar name="MEXC" dataKey="MEXC" stroke="#00B897" fill="#00B897" fillOpacity={0.15} />
+              <Legend />
+              <Tooltip />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">거래소 수수료 비교</div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>거래소</th><th>현물 수수료</th><th>선물 수수료</th><th>페이백</th><th>VIP 등급</th></tr>
+              </thead>
+              <tbody>
+                {EXCHANGES.map((ex, i) => (
+                  <tr key={i} style={{ background: selected === ex.name ? '#FAF5FF' : 'transparent' }}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="exchange-logo" style={{ background: ex.color, width: 28, height: 28, fontSize: 10, borderRadius: 6 }}>{ex.abbr}</div>
+                        <span style={{ fontWeight: 600 }}>{ex.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{ex.fee}</td>
+                    <td style={{ fontWeight: 600 }}>0.02%</td>
+                    <td style={{ fontWeight: 700, color: C.primary }}>{ex.payback}</td>
+                    <td><span className="badge badge-purple">{ex.vip}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">내 레퍼럴 링크</div>
+            <button className="btn btn-primary btn-sm">+ 링크 생성</button>
+          </div>
+          {EXCHANGES.slice(0, 3).map((ex, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: '#FEFBFF', borderRadius: 8, marginBottom: 8, border: '1px solid #F3E8FF' }}>
+              <div className="exchange-logo" style={{ background: ex.color, width: 28, height: 28, fontSize: 10, borderRadius: 6 }}>{ex.abbr}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text1 }}>{ex.name}</div>
+                <div style={{ fontSize: 11, color: C.text2, fontFamily: 'monospace' }}>cryptohub.kr/ref/{ex.name.toLowerCase()}-USR8472</div>
+              </div>
+              <button className="btn btn-outline btn-sm">복사</button>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">레퍼럴 월별 현황</div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={REFERRAL_STATS}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" />
+              <XAxis dataKey="month" fontSize={11} tick={{ fill: '#64748B' }} />
+              <YAxis fontSize={11} tick={{ fill: '#64748B' }} />
+              <Tooltip />
+              <Legend />
+              <Line type="monotone" dataKey="clicks" stroke="#A78BFA" strokeWidth={2} name="클릭" dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="signups" stroke="#7C3AED" strokeWidth={2} name="가입" dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Page: Admin (관리자) ─── */
+function PageAdmin() {
+  const [adminTab, setAdminTab] = useState('overview');
+
+  return (
+    <>
+      <div className="section-title">프리미엄 관리자 대시보드</div>
+      <div className="tabs">
+        {[
+          { id: 'overview', label: '통계 개요' },
+          { id: 'members', label: '회원·API키' },
+          { id: 'scheduler', label: '스케줄러' },
+          { id: 'cache', label: '캐시 관리' },
+        ].map(t => (
+          <button key={t.id} className={`tab ${adminTab === t.id ? 'active' : ''}`} onClick={() => setAdminTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      {adminTab === 'overview' && (
+        <>
+          <div className="grid-5" style={{ marginBottom: 16 }}>
+            {ADMIN_KPI.map((k, i) => (
+              <div key={i} className="kpi">
+                <div className="kpi-label">{k.label}</div>
+                <div className="kpi-value" style={{ fontSize: 18 }}>{k.value}</div>
+                <div className={`kpi-change ${k.change.startsWith('-') ? 'down' : 'up'}`}>{k.change}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid-2">
+            <div className="card">
+              <div className="card-header"><div className="card-title">일별 가입·환급 추이</div></div>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={PORTFOLIO_HISTORY.map(d => ({ date: d.date, signups: Math.floor(Math.random()*50+30), refunds: Math.floor(Math.random()*30+10) }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" />
+                  <XAxis dataKey="date" fontSize={11} tick={{ fill: '#64748B' }} />
+                  <YAxis fontSize={11} tick={{ fill: '#64748B' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="signups" stroke="#7C3AED" fill="#EDE9FE" name="가입" />
+                  <Area type="monotone" dataKey="refunds" stroke="#A78BFA" fill="#F5F3FF" name="환급" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="card">
+              <div className="card-header"><div className="card-title">거래소별 환급 비율</div></div>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={[
+                    { name: 'Bitget', value: 38 },
+                    { name: 'OKX', value: 32 },
+                    { name: 'Bybit', value: 22 },
+                    { name: 'MEXC', value: 8 },
+                  ]} cx="50%" cy="50%" outerRadius={75} innerRadius={40} dataKey="value" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                    <Cell fill="#00CED1" />
+                    <Cell fill="#2563EB" />
+                    <Cell fill="#F7931A" />
+                    <Cell fill="#00B897" />
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      )}
+
+      {adminTab === 'members' && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">회원 · API 키 관리</div>
+            <input className="form-input" placeholder="회원 검색..." style={{ width: 200 }} />
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>이름</th><th>이메일</th><th>API 키</th><th>자동환급</th><th>누적 환급</th><th>상태</th><th>액션</th></tr>
+              </thead>
+              <tbody>
+                {ADMIN_MEMBERS.map((m, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>{m.name}</td>
+                    <td style={{ color: C.text2, fontSize: 12 }}>{m.email}</td>
+                    <td><span className="badge badge-blue">{m.apiKeys}개</span></td>
+                    <td>{m.autoRefund ? <span className="badge badge-green">활성</span> : <span className="badge badge-gray">비활성</span>}</td>
+                    <td style={{ fontWeight: 600 }}>{m.totalRefund}</td>
+                    <td>{statusBadge(m.status)}</td>
+                    <td><button className="btn btn-outline btn-sm">상세</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'scheduler' && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">스케줄러 실시간 모니터링</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span className="badge badge-green">● 정상 4</span>
+              <span className="badge badge-red">● 에러 1</span>
+            </div>
+          </div>
+          {SCHEDULER_STATUS.map((s, i) => (
+            <div key={i} className="scheduler-item">
+              <div className={`scheduler-dot ${s.status}`} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{s.name}</div>
+                <div style={{ fontSize: 12, color: C.text2 }}>마지막 실행: {s.lastRun}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: C.text2 }}>다음 실행: {s.nextRun}</div>
+                <span className={`badge ${s.status === 'running' ? 'badge-green' : s.status === 'error' ? 'badge-red' : 'badge-yellow'}`}>
+                  {s.status === 'running' ? '실행중' : s.status === 'error' ? '에러' : '대기'}
+                </span>
+              </div>
+              <button className="btn btn-outline btn-sm">{s.status === 'error' ? '재시도' : '로그'}</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {adminTab === 'cache' && (
+        <div className="grid-2">
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 16 }}>Redis 캐시 현황</div>
+            {[
+              { key: 'exchange:bitget:*', count: 124, ttl: '5분', size: '2.3MB' },
+              { key: 'exchange:okx:*', count: 98, ttl: '5분', size: '1.8MB' },
+              { key: 'exchange:bybit:*', count: 112, ttl: '5분', size: '2.1MB' },
+              { key: 'ticker:prices:*', count: 50, ttl: '30초', size: '0.4MB' },
+              { key: 'referral:stats:*', count: 36, ttl: '10분', size: '0.6MB' },
+            ].map((c, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < 4 ? '1px solid #F9F5FF' : 'none' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'monospace', color: C.text1 }}>{c.key}</div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>키 {c.count}개 · TTL {c.ttl} · {c.size}</div>
+                </div>
+                <button className="btn btn-sm btn-danger">초기화</button>
+              </div>
+            ))}
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>전체 캐시 초기화</button>
+          </div>
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 16 }}>캐시 히트율</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={[
+                { name: 'Bitget', hit: 94, miss: 6 },
+                { name: 'OKX', hit: 91, miss: 9 },
+                { name: 'Bybit', hit: 89, miss: 11 },
+                { name: '시세', hit: 97, miss: 3 },
+                { name: '레퍼럴', hit: 86, miss: 14 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" />
+                <XAxis dataKey="name" fontSize={11} tick={{ fill: '#64748B' }} />
+                <YAxis fontSize={11} tick={{ fill: '#64748B' }} tickFormatter={v => `${v}%`} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="hit" fill="#7C3AED" radius={[4,4,0,0]} name="히트" stackId="a" />
+                <Bar dataKey="miss" fill="#E9D5FF" radius={[4,4,0,0]} name="미스" stackId="a" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── Page: Settings (설정) ─── */
+function PageSettings() {
+  return (
+    <>
+      <div className="section-title">설정</div>
+      <div className="grid-2">
+        <div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title" style={{ marginBottom: 14 }}>내 정보</div>
+            <div className="form-group"><div className="form-label">이름</div><input className="form-input" value="김영호" readOnly /></div>
+            <div className="form-group"><div className="form-label">이메일</div><input className="form-input" value="yh.kim@email.com" readOnly /></div>
+            <div className="form-group"><div className="form-label">연락처</div><input className="form-input" value="010-9876-5432" readOnly /></div>
+            <button className="btn btn-outline" style={{ marginTop: 4 }}>정보 수정</button>
+          </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title" style={{ marginBottom: 14 }}>거래소 API 연동</div>
+            {[
+              { name: 'Bitget', status: '연동됨', date: '2025.09.15' },
+              { name: 'OKX', status: '연동됨', date: '2025.09.18' },
+              { name: 'Bybit', status: '연동됨', date: '2025.10.01' },
+            ].map((api, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#FEFBFF', borderRadius: 8, marginBottom: 8, border: '1px solid #F3E8FF' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>{api.name}</div>
+                  <div style={{ fontSize: 11, color: C.text2 }}>연동일: {api.date}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="badge badge-green">{api.status}</span>
+                  <button className="btn btn-outline btn-sm">키 갱신</button>
+                </div>
+              </div>
+            ))}
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}>+ 거래소 연동 추가</button>
+          </div>
+        </div>
+        <div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title" style={{ marginBottom: 14 }}>환급 계좌</div>
+            <div style={{ padding: 14, background: '#FAF5FF', borderRadius: 8, marginBottom: 8, border: '1px solid #F3E8FF' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text1 }}>카카오뱅크</div>
+                  <div style={{ fontSize: 12, color: C.text2 }}>3333-12-345678 (김영호)</div>
+                </div>
+                <span className="badge badge-purple">기본</span>
+              </div>
+            </div>
+            <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center' }}>+ 계좌 추가</button>
+          </div>
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-title" style={{ marginBottom: 14 }}>알림 설정</div>
+            {[
+              { label: '환급 지급 알림', on: true },
+              { label: '자동 환급 실행 결과', on: true },
+              { label: '시세 급등/급락 알림', on: false },
+              { label: '레퍼럴 가입 알림', on: true },
+              { label: '이벤트·프로모션', on: false },
+            ].map((item, i) => (
+              <div key={i} className="settings-row">
+                <span style={{ fontSize: 13, fontWeight: 500, color: C.text1 }}>{item.label}</span>
+                <div className={`toggle ${item.on ? 'on' : ''}`}><div className="toggle-knob" /></div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <div className="card-title" style={{ marginBottom: 14 }}>보안</div>
+            <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }}>비밀번호 변경</button>
+            <button className="btn btn-outline" style={{ width: '100%', justifyContent: 'center', marginBottom: 8 }}>2단계 인증 설정</button>
+            <button className="btn btn-danger btn-sm" style={{ width: '100%', justifyContent: 'center' }}>회원 탈퇴</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── App ─── */
+function App() {
+  const [page, setPage] = useState('main');
+  const pageTitle = NAV.find(n => n.id === page)?.label || '';
+
+  return (
+    <div className="workspace">
+      <aside className="ws-sidebar">
+        <div className="ws-sidebar-logo">CH</div>
+        <div className="ws-sidebar-nav">
+          {NAV.map(n => (
+            <button key={n.id} className={`ws-nav-btn ${page === n.id ? 'active' : ''}`} onClick={() => setPage(n.id)} title={n.label}>
+              {n.icon}
+              <span>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+      <div style={{ flex: 1 }}>
+        <header className="ws-topbar">
+          <div className="ws-topbar-title">
+            <span style={{ fontSize: 18 }}>{NAV.find(n => n.id === page)?.icon}</span>
+            {pageTitle}
+          </div>
+          <div className="ws-topbar-right">
+            <input className="ws-search" placeholder="검색..." />
+            <button className="ws-bell">🔔<div className="ws-bell-dot" /></button>
+            <div className="ws-avatar">김</div>
+          </div>
+        </header>
+        <main className="ws-main">
+          {page === 'main' && <PageMain />}
+          {page === 'refund' && <PageRefund />}
+          {page === 'compare' && <PageCompare />}
+          {page === 'admin' && <PageAdmin />}
+          {page === 'settings' && <PageSettings />}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
