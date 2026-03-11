@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GlobalOps — 무역·물류 통합 데이터 자동화 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.3/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F8FAFC;color:#0F172A;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {BarChart,Bar,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area,PieChart,Pie,Cell,ComposedChart,ReferenceLine}=Recharts;
+
+const C={
+  primary:'#334155',secondary:'#0F172A',accent:'#06B6D4',
+  bg:'#F8FAFC',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#0F172A',textLight:'#64748B',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  sidebarBg:'#FFFFFF',
+};
+
+/* ─── Data ─── */
+const SHIPMENTS=[
+  {id:'SHP-0615-001',buyer:'Shanghai Metal Corp.',route:'부산→상하이',status:'선적완료',etd:'06.18',eta:'06.21',docs:4,amount:'$42,500'},
+  {id:'SHP-0615-002',buyer:'Tokyo Steel Inc.',route:'인천→도쿄',status:'통관중',etd:'06.16',eta:'06.18',docs:3,amount:'$28,700'},
+  {id:'SHP-0614-003',buyer:'PT Baja Sentosa',route:'부산→자카르타',status:'운송중',etd:'06.12',eta:'06.22',docs:4,amount:'$67,200'},
+  {id:'SHP-0614-004',buyer:'Vietnam Trading Co.',route:'인천→호치민',status:'서류준비',etd:'06.20',eta:'06.25',docs:1,amount:'$15,300'},
+];
+
+const MONTHLY_EXPORT=[
+  {month:'1월',export:42,import:38},{month:'2월',export:38,import:35},{month:'3월',export:51,import:44},
+  {month:'4월',export:47,import:41},{month:'5월',export:55,import:48},{month:'6월',export:49,import:45},
+];
+
+const PIPELINE_SOURCES=[
+  {name:'ERP 거래 데이터',source:'이카운트 API',status:'정상',records:3420,schedule:'30분',icon:'🟢'},
+  {name:'포워더 선적 현황',source:'포워더 API',status:'정상',records:184,schedule:'1시간',icon:'🟢'},
+  {name:'관세청 통관 정보',source:'공공 OpenAPI',status:'지연',records:56,schedule:'2시간',icon:'🟡'},
+];
+
+const PIPELINE_LOG=[
+  {id:'ETL-0615-001',source:'이카운트 API',entity:'수출 거래',records:342,status:'완료',duration:'4.2초',time:'14:30'},
+  {id:'ETL-0615-002',source:'이카운트 API',entity:'수입 거래',records:287,status:'완료',duration:'3.8초',time:'14:30'},
+  {id:'ETL-0615-003',source:'이카운트 API',entity:'재고 현황',records:1205,status:'완료',duration:'6.1초',time:'14:30'},
+  {id:'ETL-0615-004',source:'포워더 API',entity:'선적 현황',records:184,status:'완료',duration:'2.3초',time:'14:31'},
+  {id:'ETL-0615-005',source:'관세청 OpenAPI',entity:'통관 상태',records:56,status:'지연',duration:'15.2초',time:'14:35'},
+];
+
+const DOC_APPROVALS=[
+  {id:'APR-001',docSet:'Shanghai Metal 서류 패키지',docs:'인보이스 · 패킹리스트 · 원산지증명서 · 선하증권',stage:'2차 승인',stageNum:4,totalStages:6,approver:'이팀장',amount:'$42,500',date:'06.15 14:30',urgency:'일반'},
+  {id:'APR-002',docSet:'Tokyo Steel 서류 패키지',docs:'인보이스 · 패킹리스트 · 원산지증명서',stage:'1차 검토',stageNum:3,totalStages:6,approver:'김담당',amount:'$28,700',date:'06.15 14:20',urgency:'긴급'},
+  {id:'APR-003',docSet:'PT Baja 서류 패키지',docs:'인보이스 · 패킹리스트 · 원산지증명서 · 선하증권',stage:'최종 승인',stageNum:5,totalStages:6,approver:'박관리',amount:'$67,200',date:'06.14 17:00',urgency:'일반'},
+  {id:'APR-004',docSet:'Vietnam Trading 서류',docs:'인보이스',stage:'AI 생성중',stageNum:2,totalStages:6,approver:'—',amount:'$15,300',date:'06.15 15:00',urgency:'일반'},
+];
+
+const ANALYTICS_MONTHLY=[
+  {month:'1월',amount:1240,docs:42},{month:'2월',amount:1150,docs:38},{month:'3월',amount:1480,docs:51},
+  {month:'4월',amount:1360,docs:47},{month:'5월',amount:1620,docs:55},{month:'6월',amount:1510,docs:49},
+];
+
+const BUYER_STATS=[
+  {buyer:'Shanghai Metal Corp.',country:'중국',deals:12,amount:'$510,000',docs:48,avgTime:'3.2일'},
+  {buyer:'Tokyo Steel Inc.',country:'일본',deals:8,amount:'$229,600',docs:24,avgTime:'2.1일'},
+  {buyer:'PT Baja Sentosa',country:'인도네시아',deals:6,amount:'$403,200',docs:24,avgTime:'4.5일'},
+  {buyer:'Vietnam Trading Co.',country:'베트남',deals:5,amount:'$76,500',docs:15,avgTime:'3.8일'},
+  {buyer:'Thai Metal Supply',country:'태국',deals:4,amount:'$122,400',docs:16,avgTime:'4.1일'},
+];
+
+/* ─── Utils ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const[val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14,display:'flex',alignItems:'center',gap:8}}><span style={{color:C.accent}}>✓</span>{message}</div>;
+}
+function Modal({open,onClose,title,width=560,children}){
+  if(!open)return null;
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:16,boxShadow:'0 24px 48px rgba(0,0,0,0.15)',zIndex:1001,animation:'fadeInScale 250ms ease',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'18px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </>
+  );
+}
+function Badge({text,color}){
+  const colors={success:{bg:'#ECFDF5',text:'#059669'},danger:{bg:'#FEF2F2',text:'#DC2626'},warning:{bg:'#FFFBEB',text:'#D97706'},info:{bg:'#F0F9FF',text:'#0284C7'},accent:{bg:'#ECFEFF',text:'#0891B2'},muted:{bg:'#F1F5F9',text:'#64748B'}};
+  const c=colors[color]||colors.muted;
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:6,fontSize:11,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+function Btn({children,variant='primary',size='md',onClick,style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600,borderRadius:8,transition:'all 150ms',display:'inline-flex',alignItems:'center',gap:6};
+  const vars={primary:{background:C.accent,color:'#fff',padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13},secondary:{background:C.bg,color:C.text,padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13,border:`1px solid ${C.border}`},danger:{background:'#FEF2F2',color:C.danger,padding:size==='sm'?'5px 12px':'9px 18px',fontSize:size==='sm'?11:13}};
+  return <button onClick={onClick} style={{...base,...vars[variant],...s}} onMouseOver={e=>e.currentTarget.style.opacity='0.85'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>{children}</button>;
+}
+function Skeleton(){
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:C.surface,borderRight:`1px solid ${C.border}`}}/>
+      <div style={{flex:1,padding:20,display:'flex',flexDirection:'column',gap:12}}>
+        {[40,38,...Array(3).fill(160)].map((h,i)=><div key={i} style={{height:h,borderRadius:10,background:'linear-gradient(90deg,#E2E8F0 25%,#F1F5F9 50%,#E2E8F0 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+}
+
+/* ─── SideNav ─── */
+const NAV_ITEMS=[
+  {id:'dashboard',icon:'📊',label:'통합 대시보드'},
+  {id:'pipeline',icon:'🔄',label:'데이터 파이프라인'},
+  {id:'documents',icon:'📄',label:'서류 관리'},
+  {id:'analytics',icon:'📈',label:'분석 리포트'},
+  {id:'settings',icon:'⚙️',label:'시스템 설정'},
+];
+function SideNav({section,setSection}){
+  return(
+    <nav style={{width:240,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0}}>
+      <div style={{padding:'0 16px 20px',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:12}}>GO</div>
+        <div><div style={{fontWeight:700,fontSize:15,color:C.text}}>GlobalOps</div><div style={{fontSize:10,color:C.textMuted}}>무역·물류 자동화</div></div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+        {NAV_ITEMS.map(item=>(
+          <button key={item.id} onClick={()=>setSection(item.id)} title={item.label} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',background:section===item.id?`${C.accent}12`:'transparent',color:section===item.id?C.accent:C.textLight,borderLeft:section===item.id?`3px solid ${C.accent}`:'3px solid transparent',fontSize:13,fontWeight:section===item.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}} onMouseOver={e=>{if(section!==item.id)e.currentTarget.style.background=`${C.accent}06`}} onMouseOut={e=>{if(section!==item.id)e.currentTarget.style.background='transparent'}}>
+            <span style={{fontSize:16}}>{item.icon}</span>{item.label}
+            {item.id==='documents'&&<span style={{marginLeft:'auto',background:C.danger,color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8,fontWeight:700}}>2</span>}
+          </button>
+        ))}
+      </div>
+      <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:8}}>
+        <div style={{width:28,height:28,borderRadius:'50%',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:600}}>김</div>
+        <div><div style={{fontSize:12,fontWeight:500}}>김민수</div><div style={{fontSize:10,color:C.textMuted}}>관리자</div></div>
+      </div>
+    </nav>
+  );
+}
+
+/* ─── AppBar ─── */
+function AppBar({section}){
+  const labels={dashboard:'통합 대시보드',pipeline:'데이터 파이프라인',documents:'서류 관리',analytics:'분석 리포트',settings:'시스템 설정'};
+  return(
+    <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:6,background:C.surface,flexShrink:0,fontSize:12}}>
+      <span style={{color:C.textMuted}}>GlobalOps</span><span style={{color:C.textMuted}}>/</span>
+      <span style={{fontWeight:600,color:C.text}}>{labels[section]}</span>
+      <div style={{flex:1}}/>
+      <input placeholder="검색..." style={{width:160,padding:'5px 10px 5px 26px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,fontFamily:'inherit',outline:'none',background:C.bg}}/>
+      <span style={{fontSize:16,cursor:'pointer',position:'relative',marginLeft:8}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:6,height:6,borderRadius:'50%',background:C.danger}}/></span>
+    </header>
+  );
+}
+
+/* ─── TabStrip ─── */
+function TabStrip({tabs,active,setActive,actions}){
+  return(
+    <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+      {tabs.map((t,i)=>(
+        <button key={t.id} onClick={()=>setActive(i)} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:12,color:active===i?C.accent:C.textLight,fontWeight:active===i?600:400,borderBottom:active===i?`2px solid ${C.accent}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{t.label}</button>
+      ))}
+      <div style={{flex:1}}/>{actions}
+    </div>
+  );
+}
+
+/* ─── Dashboard ─── */
+function DashboardPage(){
+  const TABS=[{id:'overview',label:'운영 현황'},{id:'shipments',label:'선적 현황'}];
+  const[tab,setTab]=useState(0);
+  return(
+    <>
+      <TabStrip tabs={TABS} active={tab} setActive={setTab}/>
+      <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+        {tab===0?(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+              {[
+                {label:'진행 중 선적',value:4,suffix:'건',icon:'🚢',color:C.accent},
+                {label:'미결 서류 패키지',value:2,suffix:'건',icon:'📄',color:C.warning},
+                {label:'이번 달 수출',value:49,suffix:'건',icon:'📊',color:C.primary},
+                {label:'데이터 소스',value:3,suffix:'종',icon:'🔄',color:C.success},
+              ].map((k,i)=>(
+                <div key={i} style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseOver={e=>{e.currentTarget.style.borderColor=C.accent;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseOut={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.borderLeft=`1px solid ${C.border}`}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:11,color:C.textMuted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k.label}</span>
+                    <span style={{fontSize:18}}>{k.icon}</span>
+                  </div>
+                  <div style={{fontSize:24,fontWeight:700,color:k.color}}><CountUp end={k.value} suffix={k.suffix}/></div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>월별 수출입 추이</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={MONTHLY_EXPORT} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+                    <XAxis dataKey="month" tick={{fontSize:11,fill:'#94A3B8'}}/>
+                    <YAxis tick={{fontSize:11,fill:'#94A3B8'}}/>
+                    <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+                    <Bar dataKey="export" name="수출" fill="#334155" radius={[4,4,0,0]}/>
+                    <Bar dataKey="import" name="수입" fill="#06B6D4" radius={[4,4,0,0]}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{background:C.surface,borderRadius:10,padding:18,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>서류 승인 대기</div>
+                {DOC_APPROVALS.filter(a=>a.stageNum<5).slice(0,3).map((a,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:i<2?`1px solid ${C.border}`:'none'}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:a.urgency==='긴급'?C.danger:C.warning}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600}}>{a.docSet}</div>
+                      <div style={{fontSize:11,color:C.textMuted}}>{a.stage} · {a.amount}</div>
+                    </div>
+                    <Badge text={a.urgency==='긴급'?'긴급':'진행중'} color={a.urgency==='긴급'?'danger':'warning'}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        ):(
+          <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead><tr style={{background:C.bg}}>{['선적번호','바이어','노선','상태','ETD','ETA','서류','금액'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {SHIPMENTS.map((s,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${C.border}`,height:48,transition:'all 150ms'}} onMouseOver={e=>{e.currentTarget.style.background=`${C.accent}04`;e.currentTarget.style.borderLeft=`2px solid ${C.accent}`}} onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none'}}>
+                    <td style={{padding:'10px 14px',fontSize:12,fontWeight:600,color:C.accent,fontFamily:'monospace'}}>{s.id}</td>
+                    <td style={{padding:'10px 14px',fontSize:13,fontWeight:500}}>{s.buyer}</td>
+                    <td style={{padding:'10px 14px',fontSize:12,color:C.textLight}}>{s.route}</td>
+                    <td style={{padding:'10px 14px'}}><Badge text={s.status} color={s.status==='선적완료'?'success':s.status==='통관중'?'info':s.status==='운송중'?'accent':'warning'}/></td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{s.etd}</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{s.eta}</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{s.docs}종</td>
+                    <td style={{padding:'10px 14px',fontSize:13,fontWeight:700}}>{s.amount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Pipeline ─── */
+function PipelinePage(){
+  const[toast,setToast]=useState('');
+  const TABS=[{id:'sources',label:'소스별 현황'},{id:'log',label:'수집 이력'}];
+  const[tab,setTab]=useState(0);
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab} actions={<Btn size="sm" onClick={()=>setToast('멀티소스 병렬 수집을 시작합니다')} style={{marginBottom:4}}>🔄 전체 수집</Btn>}/>
+      <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+        {tab===0?(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+            {PIPELINE_SOURCES.map((s,i)=>(
+              <div key={i} style={{background:C.surface,borderRadius:10,padding:20,border:`1px solid ${s.status==='지연'?'#FDE68A':C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+                  <span style={{fontSize:24}}>{s.icon}</span>
+                  <Badge text={s.status} color={s.status==='정상'?'success':'warning'}/>
+                </div>
+                <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{s.name}</div>
+                <div style={{fontSize:12,color:C.textMuted,marginBottom:12}}>{s.source}</div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'10px 0',borderTop:`1px solid ${C.border}`}}>
+                  <span style={{color:C.textMuted}}>금일 레코드</span>
+                  <span style={{fontWeight:700}}>{s.records.toLocaleString()}건</span>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
+                  <span style={{color:C.textMuted}}>수집 주기</span>
+                  <span style={{fontWeight:600}}>매 {s.schedule}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ):(
+          <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead><tr style={{background:C.bg}}>{['ID','소스','엔티티','레코드','상태','소요시간','시각'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:C.textMuted}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {PIPELINE_LOG.map((r,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${C.border}`,height:44,transition:'background 150ms'}} onMouseOver={e=>e.currentTarget.style.background=`${C.accent}04`} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{padding:'10px 14px',fontSize:11,fontFamily:'monospace',color:C.accent,fontWeight:600}}>{r.id}</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{r.source}</td>
+                    <td style={{padding:'10px 14px',fontSize:12,fontWeight:500}}>{r.entity}</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{r.records.toLocaleString()}건</td>
+                    <td style={{padding:'10px 14px'}}><Badge text={r.status} color={r.status==='완료'?'success':'warning'}/></td>
+                    <td style={{padding:'10px 14px',fontSize:11,fontFamily:'monospace'}}>{r.duration}</td>
+                    <td style={{padding:'10px 14px',fontSize:11,color:C.textMuted}}>{r.time}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Documents ─── */
+function DocumentsPage(){
+  const[toast,setToast]=useState('');
+  const[selected,setSelected]=useState(null);
+  const TABS=[{id:'pending',label:'진행중'},{id:'completed',label:'완료'}];
+  const[tab,setTab]=useState(0);
+  const pending=DOC_APPROVALS.filter(a=>a.stageNum<5);
+  const completed=DOC_APPROVALS.filter(a=>a.stageNum>=5);
+  const list=tab===0?pending:completed;
+
+  const STAGES=['임시저장','AI 생성','1차 검토','2차 승인','최종 승인','발송'];
+
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab} actions={<Btn size="sm" onClick={()=>setToast('AI 서류 패키지 생성을 시작합니다')} style={{marginBottom:4}}>🤖 AI 생성</Btn>}/>
+      <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          {list.map((a,i)=>(
+            <div key={i} onClick={()=>setSelected(a)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===a.id?`${C.accent}08`:'transparent',borderLeft:selected?.id===a.id?`3px solid ${C.accent}`:'3px solid transparent',transition:'all 150ms'}} onMouseOver={e=>{if(selected?.id!==a.id)e.currentTarget.style.background=`${C.accent}04`}} onMouseOut={e=>{if(selected?.id!==a.id)e.currentTarget.style.background='transparent'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:600}}>{a.docSet}</span>
+                {a.urgency==='긴급'&&<Badge text="긴급" color="danger"/>}
+              </div>
+              <div style={{fontSize:11,color:C.textMuted,marginBottom:6}}>{a.docs}</div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11}}>
+                <span style={{color:C.accent,fontWeight:600}}>{a.stage}</span>
+                <span style={{fontWeight:600}}>{a.amount}</span>
+              </div>
+              <div style={{display:'flex',gap:2,marginTop:8}}>
+                {STAGES.map((_,si)=>(
+                  <div key={si} style={{flex:1,height:3,borderRadius:2,background:si<a.stageNum?C.accent:C.border}}/>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected?(
+            <div style={{animation:'slideInRight 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <div>
+                  <h3 style={{fontSize:18,fontWeight:700}}>{selected.docSet}</h3>
+                  <div style={{fontSize:12,color:C.textMuted}}>{selected.id} · {selected.date}</div>
+                </div>
+                <Badge text={selected.stage} color={selected.stageNum>=5?'success':selected.stageNum>=3?'info':'warning'}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+                {[{l:'금액',v:selected.amount},{l:'서류',v:selected.docs},{l:'승인자',v:selected.approver},{l:'단계',v:`${selected.stageNum}/${selected.totalStages}`}].map((info,i)=>(
+                  <div key={i} style={{background:C.bg,borderRadius:8,padding:12}}>
+                    <div style={{fontSize:10,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{info.l}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{info.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:10}}>XState 승인 워크플로우</div>
+              <div style={{display:'flex',alignItems:'center',gap:4,marginBottom:20}}>
+                {STAGES.map((stage,si)=>(
+                  <React.Fragment key={si}>
+                    <div style={{textAlign:'center',padding:'8px 4px',borderRadius:8,background:si<selected.stageNum?'#ECFDF5':si===selected.stageNum?'#ECFEFF':C.bg,border:`1px solid ${si<selected.stageNum?'#A7F3D0':si===selected.stageNum?'#A5F3FC':C.border}`,flex:1,minWidth:0}}>
+                      <div style={{fontSize:10,fontWeight:600,color:si<selected.stageNum?C.success:si===selected.stageNum?C.accent:C.textMuted}}>{stage}</div>
+                    </div>
+                    {si<5&&<span style={{fontSize:12,color:C.textMuted,flexShrink:0}}>→</span>}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {selected.stageNum<5&&(
+                <div style={{display:'flex',gap:8}}>
+                  <Btn onClick={()=>setToast('승인 처리되었습니다')}>✅ 승인</Btn>
+                  <Btn variant="danger" onClick={()=>setToast('반려 처리되었습니다')}>❌ 반려</Btn>
+                  <Btn variant="secondary" onClick={()=>setToast('위임 처리되었습니다')}>👤 위임</Btn>
+                </div>
+              )}
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,gap:8}}>
+              <span style={{fontSize:36}}>📄</span>
+              <span style={{fontSize:13}}>좌측에서 서류 패키지를 선택하세요</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Analytics ─── */
+function AnalyticsPage(){
+  const[toast,setToast]=useState('');
+  const TABS=[{id:'overview',label:'종합 현황'},{id:'buyer',label:'거래처별'}];
+  const[tab,setTab]=useState(0);
+
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <TabStrip tabs={TABS} active={tab} setActive={setTab} actions={<Btn size="sm" variant="secondary" onClick={()=>setToast('경영 리포트 PDF를 생성합니다')} style={{marginBottom:4}}>📥 PDF 리포트</Btn>}/>
+      <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+        {tab===0?(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+              {[{l:'이번 달 거래 건수',v:'94건'},{l:'이번 달 금액',v:'$1,510K'},{l:'서류 처리 건수',v:'127건'},{l:'평균 처리 기간',v:'3.2일'}].map((k,i)=>(
+                <div key={i} style={{background:C.surface,borderRadius:10,padding:16,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+                  <div style={{fontSize:10,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>{k.l}</div>
+                  <div style={{fontSize:20,fontWeight:700}}>{k.v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:C.surface,borderRadius:10,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+              <div style={{fontSize:12,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>월별 거래 금액 및 서류 수</div>
+              <ResponsiveContainer width="100%" height={250}>
+                <ComposedChart data={ANALYTICS_MONTHLY}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+                  <XAxis dataKey="month" tick={{fontSize:11,fill:'#94A3B8'}}/>
+                  <YAxis yAxisId="left" tick={{fontSize:11,fill:'#94A3B8'}}/>
+                  <YAxis yAxisId="right" orientation="right" tick={{fontSize:11,fill:'#94A3B8'}}/>
+                  <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+                  <Bar yAxisId="left" dataKey="amount" name="금액($K)" fill="#334155" radius={[4,4,0,0]}/>
+                  <Line yAxisId="right" dataKey="docs" name="서류 수" stroke="#06B6D4" strokeWidth={2} dot={{fill:'#06B6D4',r:3}}/>
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        ):(
+          <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead><tr style={{background:C.bg}}>{['바이어','국가','거래 건수','누적 금액','서류 수','평균 처리'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:11,fontWeight:700,color:C.textMuted,textTransform:'uppercase',letterSpacing:'0.06em'}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {BUYER_STATS.map((b,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${C.border}`,height:44,transition:'all 150ms'}} onMouseOver={e=>{e.currentTarget.style.background=`${C.accent}04`;e.currentTarget.style.borderLeft=`2px solid ${C.accent}`}} onMouseOut={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none'}}>
+                    <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{b.buyer}</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{b.country}</td>
+                    <td style={{padding:'10px 14px',fontSize:13}}>{b.deals}건</td>
+                    <td style={{padding:'10px 14px',fontSize:13,fontWeight:700,color:C.accent}}>{b.amount}</td>
+                    <td style={{padding:'10px 14px',fontSize:13}}>{b.docs}건</td>
+                    <td style={{padding:'10px 14px',fontSize:12}}>{b.avgTime}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Settings ─── */
+function SettingsPage(){
+  const[toast,setToast]=useState('');
+  return(
+    <>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <div style={{flex:1,overflowY:'auto',padding:20,animation:'fadeIn 300ms ease'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          {[
+            {title:'멀티소스 ETL',items:[{l:'이카운트 ERP',v:'OAuth2 · 30분'},{l:'포워더 API',v:'API Key · 1시간'},{l:'관세청 OpenAPI',v:'공공키 · 2시간'}]},
+            {title:'AI 서류 생성',items:[{l:'모델',v:'Gemini 1.5 Pro'},{l:'병렬 생성',v:'4종 동시'},{l:'교차 검증',v:'활성화'}]},
+            {title:'XState 승인 워크플로우',items:[{l:'승인 단계',v:'6단계 (16상태)'},{l:'위임 승인',v:'활성화'},{l:'자동 발송',v:'최종 승인 시 Nodemailer'}]},
+            {title:'알림',items:[{l:'ETL 오류',v:'Slack + 이메일'},{l:'승인 요청',v:'Slack'},{l:'발송 완료',v:'이메일'}]},
+          ].map((s,si)=>(
+            <div key={si} style={{background:C.surface,borderRadius:10,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+              <h3 style={{fontSize:14,fontWeight:700,marginBottom:14}}>{s.title}</h3>
+              {s.items.map((item,ii)=>(
+                <div key={ii} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:ii<s.items.length-1?`1px solid ${C.border}`:'none'}}>
+                  <span style={{fontSize:12,color:C.textLight}}>{item.l}</span>
+                  <span style={{fontSize:12,fontWeight:600}}>{item.v}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:16,display:'flex',gap:8}}>
+          <Btn onClick={()=>setToast('설정이 저장되었습니다')}>💾 저장</Btn>
+          <Btn variant="secondary" onClick={()=>setToast('모든 소스 연결 테스트를 실행합니다')}>🔗 연결 테스트</Btn>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── App ─── */
+function App(){
+  const[loading,setLoading]=useState(true);
+  const[section,setSection]=useState('dashboard');
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+  const render=()=>{
+    switch(section){
+      case 'dashboard':return <DashboardPage/>;
+      case 'pipeline':return <PipelinePage/>;
+      case 'documents':return <DocumentsPage/>;
+      case 'analytics':return <AnalyticsPage/>;
+      case 'settings':return <SettingsPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+  return(
+    <div style={{display:'flex',minHeight:'100vh',maxHeight:'100vh'}}>
+      <SideNav section={section} setSection={setSection}/>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <AppBar section={section}/>
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}} key={section}>
+          {render()}
+        </div>
+      </div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

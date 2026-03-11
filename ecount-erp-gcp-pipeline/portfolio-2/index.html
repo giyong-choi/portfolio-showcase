@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FactoryBI — 제조 데이터 파이프라인 및 AI 품질 보고서 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.3/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#064E3B;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#A7F3D0;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(0.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+@keyframes slideDrawer{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {BarChart,Bar,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area,PieChart,Pie,Cell,Legend,ComposedChart,ReferenceLine}=Recharts;
+
+const C={
+  primary:'#059669',secondary:'#064E3B',accent:'#34D399',
+  bg:'#F0FDF4',surface:'#FFFFFF',border:'#D1FAE5',
+  text:'#064E3B',textLight:'#6B7280',textMuted:'#9CA3AF',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  gradient:'linear-gradient(135deg,#059669,#34D399)',
+};
+
+/* ─── Data ─── */
+const PRODUCTION_DAILY=[
+  {date:'06.10',target:1200,actual:1180,defect:12},
+  {date:'06.11',target:1200,actual:1220,defect:8},
+  {date:'06.12',target:1200,actual:1150,defect:18},
+  {date:'06.13',target:1200,actual:1190,defect:15},
+  {date:'06.14',target:1200,actual:1240,defect:10},
+  {date:'06.15',target:1200,actual:1210,defect:14},
+];
+
+const LINES=[
+  {name:'A라인 (프레스)',status:'가동중',today:420,target:450,defect:4,rate:'93.3%',shift:'주간조'},
+  {name:'B라인 (용접)',status:'가동중',today:380,target:400,defect:6,rate:'95.0%',shift:'주간조'},
+  {name:'C라인 (도장)',status:'점검중',today:210,target:350,defect:2,rate:'60.0%',shift:'—'},
+  {name:'D라인 (조립)',status:'가동중',today:200,target:200,defect:2,rate:'100%',shift:'주간조'},
+];
+
+const PIPELINE_DATA=[
+  {id:'ETL-0615-001',entity:'생산 실적',records:1420,status:'완료',duration:'5.2초',time:'14:00'},
+  {id:'ETL-0615-002',entity:'불량 데이터',records:28,status:'완료',duration:'1.8초',time:'14:00'},
+  {id:'ETL-0615-003',entity:'자재 소진',records:856,status:'완료',duration:'3.5초',time:'14:00'},
+  {id:'ETL-0615-004',entity:'설비 가동',records:96,status:'완료',duration:'2.1초',time:'14:01'},
+  {id:'ETL-0615-005',entity:'작업자 실적',records:48,status:'오류',duration:'—',time:'14:01',error:'Pydantic 스키마 불일치: 신규 필드 감지'},
+  {id:'ETL-0614-001',entity:'생산 실적',records:1380,status:'완료',duration:'5.0초',time:'09:00'},
+  {id:'ETL-0614-002',entity:'불량 데이터',records:32,status:'완료',duration:'1.9초',time:'09:00'},
+];
+
+const REPORTS=[
+  {id:'RPT-0615-001',title:'A라인 프레스 불량 원인 분석',period:'2024.06.10~06.15',status:'AI생성완료',defects:42,author:'김품질',date:'2024.06.15'},
+  {id:'RPT-0615-002',title:'B라인 용접 품질 주간 보고서',period:'2024.06.10~06.15',status:'검토중',defects:18,author:'이품질',date:'2024.06.15'},
+  {id:'RPT-0614-001',title:'C라인 도장 불량 분석',period:'2024.06.03~06.14',status:'확정',defects:25,author:'김품질',date:'2024.06.14'},
+  {id:'RPT-0613-001',title:'전체 라인 월간 품질 보고서',period:'2024.05',status:'확정',defects:156,author:'박관리',date:'2024.06.13'},
+];
+
+const DEFECT_TYPES=[
+  {type:'치수 불량',count:18,pct:32,cumPct:32},{type:'외관 결함',count:12,pct:21,cumPct:53},
+  {type:'용접 불량',count:8,pct:14,cumPct:67},{type:'도장 벗김',count:7,pct:13,cumPct:80},
+  {type:'조립 오류',count:5,pct:9,cumPct:89},{type:'기타',count:6,pct:11,cumPct:100},
+];
+
+const DEFECT_BY_PROCESS=[
+  {process:'프레스',week1:8,week2:6,week3:10,week4:4},
+  {process:'용접',week1:5,week2:8,week3:3,week4:6},
+  {process:'도장',week1:3,week2:4,week3:7,week4:2},
+  {process:'조립',week1:2,week2:3,week3:2,week4:5},
+];
+
+/* ─── Utils ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const[val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:16,animation:'slideUp 300ms ease',boxShadow:'0 8px 24px rgba(5,150,105,0.3)',fontSize:14,display:'flex',alignItems:'center',gap:8}}><span style={{color:C.accent}}>✓</span>{message}</div>;
+}
+function Modal({open,onClose,title,width=560,children}){
+  if(!open)return null;
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000}}/>
+      <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width,maxHeight:'85vh',background:C.surface,borderRadius:20,boxShadow:'0 24px 48px rgba(5,150,105,0.2)',zIndex:1001,animation:'fadeInScale 250ms ease',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h3 style={{fontSize:18,fontWeight:800}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight,width:32,height:32,borderRadius:10}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </>
+  );
+}
+function Badge({text,color}){
+  const colors={success:{bg:'#ECFDF5',text:'#059669'},danger:{bg:'#FEF2F2',text:'#DC2626'},warning:{bg:'#FFFBEB',text:'#D97706'},info:{bg:'#ECFDF5',text:'#059669'},accent:{bg:'#D1FAE5',text:'#047857'},muted:{bg:'#F1F5F9',text:'#64748B'}};
+  const c=colors[color]||colors.info;
+  return <span style={{display:'inline-block',padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+function Btn({children,variant='primary',size='md',onClick,style:s={}}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,borderRadius:16,transition:'all 200ms',display:'inline-flex',alignItems:'center',gap:6};
+  const vars={primary:{background:C.gradient,color:'#fff',padding:size==='sm'?'6px 14px':'10px 22px',fontSize:size==='sm'?12:14},secondary:{background:C.bg,color:C.primary,padding:size==='sm'?'6px 14px':'10px 22px',fontSize:size==='sm'?12:14,border:`1px solid ${C.border}`},danger:{background:'#FEF2F2',color:C.danger,padding:size==='sm'?'6px 14px':'10px 22px',fontSize:size==='sm'?12:14}};
+  return <button onClick={onClick} style={{...base,...vars[variant],...s}} onMouseOver={e=>e.currentTarget.style.transform='scale(1.02)'} onMouseOut={e=>e.currentTarget.style.transform='scale(1)'}>{children}</button>;
+}
+function Skeleton(){
+  return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      <div style={{height:56,background:C.surface}}/>
+      <div style={{height:120,background:'linear-gradient(90deg,#D1FAE5 25%,#ECFDF5 50%,#D1FAE5 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>
+      <div style={{padding:28,display:'flex',flexDirection:'column',gap:16}}>
+        {[...Array(3)].map((_,i)=><div key={i} style={{height:140,borderRadius:16,background:'linear-gradient(90deg,#ECFDF5 25%,#F0FDF4 50%,#ECFDF5 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Header ─── */
+const TABS=[
+  {id:'dashboard',label:'생산 현황',icon:'📊'},
+  {id:'pipeline',label:'데이터 파이프라인',icon:'🔄'},
+  {id:'report',label:'AI 품질 보고서',icon:'📋'},
+  {id:'defect',label:'불량 분석',icon:'📈'},
+  {id:'settings',label:'시스템 설정',icon:'⚙️'},
+];
+function Header({tab,setTab}){
+  return(
+    <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 28px',gap:4}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginRight:24}}>
+        <div style={{width:32,height:32,borderRadius:10,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:14}}>FB</div>
+        <span style={{fontWeight:800,fontSize:16,color:C.secondary}}>FactoryBI</span>
+      </div>
+      {TABS.map(t=>(
+        <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:10,border:'none',cursor:'pointer',background:tab===t.id?`${C.primary}12`:'transparent',color:tab===t.id?C.primary:C.textLight,fontSize:13,fontWeight:tab===t.id?700:500,fontFamily:'inherit',transition:'all 150ms'}} onMouseOver={e=>{if(tab!==t.id)e.currentTarget.style.background='rgba(5,150,105,0.04)'}} onMouseOut={e=>{if(tab!==t.id)e.currentTarget.style.background='transparent'}}>
+          <span style={{fontSize:15}}>{t.icon}</span>{t.label}
+        </button>
+      ))}
+      <div style={{flex:1}}/>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <input placeholder="검색..." style={{width:180,padding:'7px 12px 7px 32px',border:`1px solid ${C.border}`,borderRadius:10,fontSize:12,fontFamily:'inherit',outline:'none',background:C.bg}}/>
+        <span style={{fontSize:18,cursor:'pointer',position:'relative'}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:7,height:7,borderRadius:'50%',background:C.danger}}/></span>
+        <div style={{width:32,height:32,borderRadius:'50%',background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700}}>관</div>
+      </div>
+    </header>
+  );
+}
+
+/* ─── Hero ─── */
+const PAGE_META={
+  dashboard:{title:'생산 현황 대시보드',sub:'라인별 생산 실적과 불량률을 실시간 모니터링',kpis:[{label:'금일 생산',value:'1,210개'},{label:'불량률',value:'1.2%'},{label:'가동률',value:'87.5%'}]},
+  pipeline:{title:'ERP 데이터 수집 파이프라인',sub:'생산 ERP 데이터를 Celery 스케줄러로 자동 수집',kpis:[{label:'수집 엔티티',value:'5종'},{label:'금일 레코드',value:'2,448건'},{label:'상태',value:'4/5 정상'}]},
+  report:{title:'AI 품질 보고서 자동 생성',sub:'OpenAI 기반 불량 원인 분석 및 보고서 생성',kpis:[{label:'보고서',value:'4건'},{label:'AI생성',value:'2건'},{label:'확정',value:'2건'}]},
+  defect:{title:'불량 분석 리포트',sub:'불량 유형·공정·기간별 다차원 분석',kpis:[{label:'이번 주 불량',value:'56건'},{label:'주요 원인',value:'치수 불량'},{label:'개선 추세',value:'하락'}]},
+  settings:{title:'시스템 설정',sub:'ERP 연동, ETL 스케줄, AI 모델 설정 관리',kpis:[]},
+};
+function HeroBanner({tab}){
+  const meta=PAGE_META[tab];
+  return(
+    <div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}>
+      <h1 style={{fontSize:28,fontWeight:800,letterSpacing:'-0.03em',marginBottom:4}}>{meta.title}</h1>
+      <p style={{fontSize:14,opacity:0.85,marginBottom:meta.kpis.length?16:0}}>{meta.sub}</p>
+      {meta.kpis.length>0&&(
+        <div style={{display:'flex',gap:32}}>
+          {meta.kpis.map((k,i)=>(<div key={i} style={{display:'flex',flexDirection:'column'}}><span style={{fontSize:11,opacity:0.7,letterSpacing:'0.05em',fontWeight:600}}>{k.label}</span><span style={{fontSize:22,fontWeight:800}}>{k.value}</span></div>))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Dashboard ─── */
+function DashboardPage(){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {LINES.map((l,i)=>(
+          <div key={i} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms'}} onMouseOver={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(5,150,105,0.12)'}} onMouseOut={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <span style={{fontSize:14,fontWeight:700}}>{l.name}</span>
+              <Badge text={l.status} color={l.status==='가동중'?'success':l.status==='점검중'?'warning':'muted'}/>
+            </div>
+            <div style={{marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                <span style={{color:C.textMuted}}>금일 생산</span>
+                <span style={{fontWeight:700}}>{l.today}/{l.target}</span>
+              </div>
+              <div style={{height:8,borderRadius:4,background:C.bg,overflow:'hidden'}}>
+                <div style={{height:'100%',borderRadius:4,background:parseInt(l.rate)>=90?C.success:parseInt(l.rate)>=70?C.warning:C.danger,width:l.rate,transition:'width 800ms ease'}}/>
+              </div>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textMuted}}>
+              <span>불량 {l.defect}건</span>
+              <span>{l.shift}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr',gap:16,marginBottom:24}}>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>일별 생산 실적 vs 목표</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={PRODUCTION_DAILY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D1FAE5"/>
+              <XAxis dataKey="date" tick={{fontSize:12,fill:'#9CA3AF'}}/>
+              <YAxis tick={{fontSize:12,fill:'#9CA3AF'}}/>
+              <Tooltip contentStyle={{borderRadius:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar dataKey="actual" name="실적" fill="#059669" radius={[6,6,0,0]}/>
+              <ReferenceLine y={1200} stroke="#D97706" strokeDasharray="5 5" label={{value:'목표',position:'right',fontSize:11,fill:'#D97706'}}/>
+              <Line dataKey="defect" name="불량" stroke="#DC2626" strokeWidth={2} yAxisId={0} dot={{fill:'#DC2626',r:3}}/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>불량 유형 파레토</h3>
+          {DEFECT_TYPES.slice(0,5).map((d,i)=>(
+            <div key={i} style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                <span style={{fontWeight:600}}>{d.type}</span>
+                <span style={{color:C.textMuted}}>{d.count}건 ({d.pct}%)</span>
+              </div>
+              <div style={{height:8,borderRadius:4,background:C.bg,overflow:'hidden'}}>
+                <div style={{height:'100%',borderRadius:4,background:d.cumPct<=80?C.danger:'#FCA5A5',width:`${d.pct}%`,transition:'width 800ms ease'}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Pipeline ─── */
+function PipelinePage(){
+  const[toast,setToast]=useState('');
+  const[filter,setFilter]=useState('전체');
+  const filtered=filter==='전체'?PIPELINE_DATA:PIPELINE_DATA.filter(r=>r.status===filter);
+  const entities=[
+    {name:'생산 실적',schedule:'5분',status:'정상',icon:'🟢'},
+    {name:'불량 데이터',schedule:'5분',status:'정상',icon:'🟢'},
+    {name:'자재 소진',schedule:'30분',status:'정상',icon:'🟢'},
+    {name:'설비 가동',schedule:'5분',status:'정상',icon:'🟢'},
+    {name:'작업자 실적',schedule:'일별',status:'오류',icon:'🔴'},
+  ];
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',marginBottom:24}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>Celery 엔티티별 수집 현황</h3>
+          <Btn size="sm" onClick={()=>setToast('Celery Chord 병렬 수집을 시작합니다')}>🔄 전체 수집</Btn>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12}}>
+          {entities.map((e,i)=>(
+            <div key={i} style={{padding:16,borderRadius:12,border:`1px solid ${e.status==='오류'?'#FCA5A5':C.border}`,background:e.status==='오류'?'#FEF2F2':'transparent',textAlign:'center'}}>
+              <div style={{fontSize:28,marginBottom:6}}>{e.icon}</div>
+              <div style={{fontSize:13,fontWeight:700}}>{e.name}</div>
+              <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>매 {e.schedule}</div>
+              <div style={{marginTop:6}}><Badge text={e.status} color={e.status==='정상'?'success':'danger'}/></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+        <div style={{padding:'16px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>수집 이력</h3>
+          <div style={{display:'flex',gap:8}}>
+            {['전체','완료','오류'].map(s=>(
+              <button key={s} onClick={()=>setFilter(s)} style={{padding:'5px 14px',borderRadius:20,border:`1px solid ${filter===s?C.primary:C.border}`,background:filter===s?C.primary:'transparent',color:filter===s?'#fff':C.textLight,fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:600}}>{s}</button>
+            ))}
+          </div>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:C.bg}}>{['ID','엔티티','레코드','상태','소요시간','시각',''].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textMuted}}>{h}</th>)}</tr></thead>
+          <tbody>
+            {filtered.map((r,i)=>(
+              <tr key={i} style={{borderBottom:`1px solid ${C.border}`,height:48,transition:'background 150ms'}} onMouseOver={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'10px 14px',fontSize:12,fontFamily:'monospace',color:C.primary,fontWeight:600}}>{r.id}</td>
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:500}}>{r.entity}</td>
+                <td style={{padding:'10px 14px',fontSize:13}}>{r.records>0?`${r.records.toLocaleString()}건`:'—'}</td>
+                <td style={{padding:'10px 14px'}}><Badge text={r.status} color={r.status==='완료'?'success':'danger'}/></td>
+                <td style={{padding:'10px 14px',fontSize:12,fontFamily:'monospace'}}>{r.duration}</td>
+                <td style={{padding:'10px 14px',fontSize:12,color:C.textMuted}}>{r.time}</td>
+                <td style={{padding:'10px 14px'}}>{r.status==='오류'&&<Btn variant="danger" size="sm" onClick={()=>setToast(`${r.entity} 재수집을 시작합니다`)}>재시도</Btn>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Report ─── */
+function ReportPage(){
+  const[toast,setToast]=useState('');
+  const[selected,setSelected]=useState(null);
+  const[genModal,setGenModal]=useState(false);
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <h3 style={{fontSize:16,fontWeight:700}}>품질 보고서 목록</h3>
+        <Btn onClick={()=>setGenModal(true)}>🤖 AI 보고서 생성</Btn>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {REPORTS.map((r,i)=>(
+            <div key={i} onClick={()=>setSelected(r)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',cursor:'pointer',transition:'all 200ms',border:selected?.id===r.id?`2px solid ${C.primary}`:'2px solid transparent'}} onMouseOver={e=>{e.currentTarget.style.transform='scale(1.01)';e.currentTarget.style.boxShadow='0 8px 24px rgba(5,150,105,0.12)'}} onMouseOut={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                <span style={{fontSize:12,color:C.primary,fontWeight:700}}>{r.id}</span>
+                <Badge text={r.status} color={r.status==='확정'?'success':r.status==='AI생성완료'?'info':'warning'}/>
+              </div>
+              <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{r.title}</div>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textMuted}}>
+                <span>{r.period}</span>
+                <span>불량 {r.defects}건</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+          {selected?(
+            <div style={{animation:'slideInRight 250ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+                <h3 style={{fontSize:18,fontWeight:700}}>{selected.title}</h3>
+                <Badge text={selected.status} color={selected.status==='확정'?'success':selected.status==='AI생성완료'?'info':'warning'}/>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+                {[{l:'기간',v:selected.period},{l:'분석 불량 수',v:`${selected.defects}건`},{l:'작성자',v:selected.author},{l:'작성일',v:selected.date}].map((info,i)=>(
+                  <div key={i} style={{background:C.bg,borderRadius:10,padding:14}}>
+                    <div style={{fontSize:11,color:C.textMuted,marginBottom:4}}>{info.l}</div>
+                    <div style={{fontSize:14,fontWeight:600}}>{info.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{padding:16,background:C.bg,borderRadius:12,marginBottom:16}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>🤖 AI 분석 요약</div>
+                <div style={{fontSize:13,lineHeight:1.8,color:C.text}}>
+                  주요 불량 원인은 <strong>프레스 금형 마모</strong>로 분석되며, 금형 교체 주기 단축(현 3개월→2개월)과 시편 검사 강화를 권고합니다. 또한 원자재 STS304 판재의 두께 편차가 기준(±0.05mm)을 초과하는 건이 관찰되어 수입검사 기준 재검토가 필요합니다.
+                </div>
+              </div>
+              <h4 style={{fontSize:14,fontWeight:700,marginBottom:10}}>보고서 워크플로우</h4>
+              <div style={{display:'flex',gap:8,marginBottom:20}}>
+                {['AI 생성','담당자 편집','감리자 검토','PDF 확정'].map((step,i)=>(
+                  <div key={i} style={{flex:1,textAlign:'center',padding:10,borderRadius:10,background:i<=1?'#ECFDF5':C.bg,border:`1px solid ${i<=1?'#A7F3D0':C.border}`}}>
+                    <div style={{fontSize:11,fontWeight:600,color:i<=1?C.success:C.textMuted}}>{step}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:8}}>
+                {selected.status!=='확정'&&<Btn onClick={()=>setToast('보고서를 확정 처리합니다')}>✅ 확정</Btn>}
+                <Btn variant="secondary" onClick={()=>setToast('PDF를 다운로드합니다')}>📥 PDF</Btn>
+              </div>
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,gap:8,minHeight:300}}>
+              <span style={{fontSize:40}}>📋</span>
+              <span style={{fontSize:14}}>좌측에서 보고서를 선택하세요</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <Modal open={genModal} onClose={()=>setGenModal(false)} title="AI 품질 보고서 생성" width={520}>
+        <div style={{marginBottom:16}}>
+          <label style={{display:'block',fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6}}>분석 대상 라인</label>
+          <select style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:12,fontSize:14,fontFamily:'inherit'}}>
+            <option>A라인 (프레스)</option><option>B라인 (용접)</option><option>C라인 (도장)</option><option>전체 라인</option>
+          </select>
+        </div>
+        <div style={{marginBottom:16}}>
+          <label style={{display:'block',fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6}}>분석 기간</label>
+          <div style={{display:'flex',gap:8}}>
+            <input type="date" defaultValue="2024-06-10" style={{flex:1,padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:12,fontSize:14,fontFamily:'inherit'}}/>
+            <span style={{alignSelf:'center'}}>~</span>
+            <input type="date" defaultValue="2024-06-15" style={{flex:1,padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:12,fontSize:14,fontFamily:'inherit'}}/>
+          </div>
+        </div>
+        <div style={{padding:16,background:C.bg,borderRadius:12,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600}}>🤖 OpenAI GPT-4o가 불량 데이터를 분석하여 보고서를 생성합니다</div>
+          <div style={{fontSize:12,color:C.textMuted,marginTop:4}}>원인 분석 → 재발 방지 대책 → 개선 권고를 섹션별로 자동 작성</div>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <Btn variant="secondary" onClick={()=>setGenModal(false)}>취소</Btn>
+          <Btn onClick={()=>{setGenModal(false);setToast('AI 보고서 생성을 시작합니다')}}>🤖 생성 시작</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/* ─── Defect ─── */
+function DefectPage(){
+  const COLORS=['#DC2626','#F59E0B','#059669','#0066CC','#7C3AED','#94A3B8'];
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>불량 유형 파레토 차트</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={DEFECT_TYPES}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D1FAE5"/>
+              <XAxis dataKey="type" tick={{fontSize:11,fill:'#9CA3AF'}}/>
+              <YAxis yAxisId="left" tick={{fontSize:11,fill:'#9CA3AF'}}/>
+              <YAxis yAxisId="right" orientation="right" tick={{fontSize:11,fill:'#9CA3AF'}} domain={[0,100]}/>
+              <Tooltip contentStyle={{borderRadius:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar yAxisId="left" dataKey="count" name="건수" radius={[6,6,0,0]}>
+                {DEFECT_TYPES.map((_,i)=><Cell key={i} fill={COLORS[i]}/>)}
+              </Bar>
+              <Line yAxisId="right" dataKey="cumPct" name="누적%" stroke="#064E3B" strokeWidth={2} dot={{fill:'#064E3B',r:3}}/>
+              <ReferenceLine yAxisId="right" y={80} stroke="#D97706" strokeDasharray="5 5"/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+          <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>공정별 주간 불량 추이</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={DEFECT_BY_PROCESS}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#D1FAE5"/>
+              <XAxis dataKey="process" tick={{fontSize:12,fill:'#9CA3AF'}}/>
+              <YAxis tick={{fontSize:12,fill:'#9CA3AF'}}/>
+              <Tooltip contentStyle={{borderRadius:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar dataKey="week1" name="1주차" fill="#059669" radius={[3,3,0,0]}/>
+              <Bar dataKey="week2" name="2주차" fill="#34D399" radius={[3,3,0,0]}/>
+              <Bar dataKey="week3" name="3주차" fill="#6EE7B7" radius={[3,3,0,0]}/>
+              <Bar dataKey="week4" name="4주차" fill="#A7F3D0" radius={[3,3,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,0.08)',overflow:'hidden'}}>
+        <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <h3 style={{fontSize:16,fontWeight:700}}>불량유형 × 공정 교차 집계</h3>
+          <Btn variant="secondary" size="sm">📥 엑셀 내보내기</Btn>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:C.bg}}>{['불량 유형','프레스','용접','도장','조립','합계'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textMuted}}>{h}</th>)}</tr></thead>
+          <tbody>
+            {[
+              {type:'치수 불량',press:8,weld:4,paint:3,asm:3,total:18},
+              {type:'외관 결함',press:3,weld:2,paint:5,asm:2,total:12},
+              {type:'용접 불량',press:0,weld:8,paint:0,asm:0,total:8},
+              {type:'도장 벗김',press:0,weld:0,paint:7,asm:0,total:7},
+              {type:'조립 오류',press:0,weld:0,paint:0,asm:5,total:5},
+            ].map((r,i)=>(
+              <tr key={i} style={{borderBottom:`1px solid ${C.border}`,height:44,transition:'background 150ms'}} onMouseOver={e=>e.currentTarget.style.background=`${C.primary}06`} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{r.type}</td>
+                <td style={{padding:'10px 14px',fontSize:13,color:r.press>0?C.danger:C.textMuted,fontWeight:r.press>5?700:400}}>{r.press||'-'}</td>
+                <td style={{padding:'10px 14px',fontSize:13,color:r.weld>0?C.danger:C.textMuted,fontWeight:r.weld>5?700:400}}>{r.weld||'-'}</td>
+                <td style={{padding:'10px 14px',fontSize:13,color:r.paint>0?C.danger:C.textMuted,fontWeight:r.paint>5?700:400}}>{r.paint||'-'}</td>
+                <td style={{padding:'10px 14px',fontSize:13,color:r.asm>0?C.danger:C.textMuted,fontWeight:r.asm>5?700:400}}>{r.asm||'-'}</td>
+                <td style={{padding:'10px 14px',fontSize:13,fontWeight:800,color:C.danger}}>{r.total}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Settings ─── */
+function SettingsPage(){
+  const[toast,setToast]=useState('');
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        {[
+          {title:'ERP 연동',items:[{l:'API Endpoint',v:'https://api.mfg-erp.co.kr/v2'},{l:'인증 방식',v:'OAuth2 + Bearer Token'},{l:'토큰 갱신',v:'자동 (만료 5분 전)'}]},
+          {title:'Celery ETL 스케줄',items:[{l:'생산 실적 / 불량',v:'매 5분'},{l:'자재 소진',v:'매 30분'},{l:'설비 가동',v:'매 5분'},{l:'작업자 실적',v:'매일 06:00'}]},
+          {title:'AI 모델',items:[{l:'보고서 생성',v:'OpenAI GPT-4o'},{l:'출력 형식',v:'JSON Schema 강제'},{l:'스트리밍',v:'활성화 (실시간 타이핑)'}]},
+          {title:'알림',items:[{l:'ETL 오류',v:'Slack + 이메일'},{l:'불량률 임계치',v:'2.0% 초과 시 알림'},{l:'보고서 승인 요청',v:'Slack'}]},
+        ].map((s,si)=>(
+          <div key={si} style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.08)'}}>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{s.title}</h3>
+            {s.items.map((item,ii)=>(
+              <div key={ii} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:ii<s.items.length-1?`1px solid ${C.border}`:'none'}}>
+                <span style={{fontSize:13,color:C.textLight}}>{item.l}</span>
+                <span style={{fontSize:13,fontWeight:600}}>{item.v}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{marginTop:20,display:'flex',gap:8}}>
+        <Btn onClick={()=>setToast('설정이 저장되었습니다')}>💾 저장</Btn>
+        <Btn variant="secondary" onClick={()=>setToast('ERP 연결 테스트를 실행합니다')}>🔗 연결 테스트</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App ─── */
+function App(){
+  const[loading,setLoading]=useState(true);
+  const[tab,setTab]=useState('dashboard');
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+  const render=()=>{
+    switch(tab){
+      case 'dashboard':return <DashboardPage/>;
+      case 'pipeline':return <PipelinePage/>;
+      case 'report':return <ReportPage/>;
+      case 'defect':return <DefectPage/>;
+      case 'settings':return <SettingsPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+  return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      <Header tab={tab} setTab={setTab}/>
+      <HeroBanner tab={tab}/>
+      <main style={{padding:'24px 32px',maxHeight:'calc(100vh - 56px - 120px)',overflowY:'auto'}} key={tab}>
+        {render()}
+      </main>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
