@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>어린이 코딩 교육 인터랙티브 학습 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+@keyframes ripple{0%{transform:scale(0);opacity:.5}100%{transform:scale(4);opacity:0}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {BarChart,Bar,RadarChart,Radar,PolarGrid,PolarAngleAxis,PolarRadiusAxis,ResponsiveContainer,Tooltip,LineChart,Line,XAxis,YAxis,CartesianGrid}=Recharts;
+
+const C={
+  primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',
+  bg:'#FAF5FF',surface:'#FFFFFF',
+  text:'#1E1B4B',textLight:'#6D28D9',textMuted:'#8B5CF6',
+  border:'#E9D5FF',success:'#10B981',warning:'#F59E0B',danger:'#EF4444',
+  gradient:'linear-gradient(135deg,#7C3AED,#A78BFA,#C4B5FD)'
+};
+
+const TABS=[
+  {id:'home',label:'학습 게임 플레이어',icon:'🎮'},
+  {id:'curriculum',label:'커리큘럼 탐색',icon:'📚'},
+  {id:'progress',label:'학습 진도 대시보드',icon:'📊'},
+  {id:'assignments',label:'과제 관리 센터',icon:'📝'},
+];
+
+const HERO_META={
+  home:{title:'학습 게임 플레이어',desc:'블록 코딩 개념을 재미있는 게임으로 배워요!',kpis:[{label:'학습 게임',value:'12종'},{label:'완료 스테이지',value:'45개'},{label:'학습 시간',value:'32h'}]},
+  curriculum:{title:'커리큘럼 탐색',desc:'단계별로 차근차근 코딩 개념을 익혀요',kpis:[{label:'총 과목',value:'6개'},{label:'총 유닛',value:'24개'},{label:'총 스테이지',value:'120개'}]},
+  progress:{title:'학습 진도 대시보드',desc:'나의 학습 현황을 한눈에 확인해요',kpis:[{label:'완료율',value:'67%'},{label:'연속 학습',value:'12일'},{label:'획득 배지',value:'8개'}]},
+  assignments:{title:'과제 관리 센터',desc:'교사가 배정한 과제를 확인하고 완료해요',kpis:[{label:'진행 중',value:'3건'},{label:'완료',value:'15건'},{label:'마감 임박',value:'1건'}]},
+};
+
+const GAMES=[
+  {id:1,name:'미로 탈출',concept:'순서',level:'초급',emoji:'🏃',color:'#10B981',desc:'캐릭터를 목적지까지 이동시키며 명령 순서를 배워요',stages:8,completed:6},
+  {id:2,name:'보물찾기',concept:'조건',level:'초급',emoji:'💎',color:'#F59E0B',desc:'조건에 맞는 길을 선택하여 보물을 찾아요',stages:10,completed:7},
+  {id:3,name:'패턴 퍼즐',concept:'반복',level:'중급',emoji:'🧩',color:'#EF4444',desc:'반복 패턴을 찾아 퍼즐을 완성해요',stages:12,completed:4},
+  {id:4,name:'로봇 조종',concept:'함수',level:'중급',emoji:'🤖',color:'#7C3AED',desc:'반복되는 동작을 함수로 만들어 로봇을 조종해요',stages:10,completed:2},
+  {id:5,name:'마법 상자',concept:'변수',level:'고급',emoji:'🎁',color:'#0066CC',desc:'변수에 값을 담아 마법을 시전해요',stages:8,completed:0},
+  {id:6,name:'이벤트 파티',concept:'이벤트',level:'고급',emoji:'🎉',color:'#EC4899',desc:'버튼 클릭, 키보드 입력 등 이벤트를 처리해요',stages:8,completed:0},
+];
+
+const CURRICULUM=[
+  {id:1,subject:'순서와 명령',units:4,color:'#10B981',icon:'➡️',progress:85,unlocked:true},
+  {id:2,subject:'조건과 분기',units:4,color:'#F59E0B',icon:'🔀',progress:62,unlocked:true},
+  {id:3,subject:'반복과 패턴',units:4,color:'#EF4444',icon:'🔄',progress:30,unlocked:true},
+  {id:4,subject:'함수와 추상화',units:4,color:'#7C3AED',icon:'📦',progress:15,unlocked:true},
+  {id:5,subject:'변수와 데이터',units:4,color:'#0066CC',icon:'📊',progress:0,unlocked:false},
+  {id:6,subject:'이벤트와 인터랙션',units:4,color:'#EC4899',icon:'⚡',progress:0,unlocked:false},
+];
+
+const RADAR_DATA=[
+  {subject:'순서',A:85,fullMark:100},
+  {subject:'조건',A:62,fullMark:100},
+  {subject:'반복',A:30,fullMark:100},
+  {subject:'함수',A:15,fullMark:100},
+  {subject:'변수',A:0,fullMark:100},
+  {subject:'이벤트',A:0,fullMark:100},
+];
+
+const WEEKLY=[
+  {day:'월',minutes:45},{day:'화',minutes:30},{day:'수',minutes:60},
+  {day:'목',minutes:20},{day:'금',minutes:50},{day:'토',minutes:90},{day:'일',minutes:40},
+];
+
+const ASSIGNMENTS=[
+  {id:1,title:'미로 탈출 스테이지 7-8 완료',teacher:'김선생님',subject:'순서와 명령',deadline:'2025.03.15',status:'진행중',progress:50},
+  {id:2,title:'보물찾기 조건문 복습',teacher:'김선생님',subject:'조건과 분기',deadline:'2025.03.18',status:'진행중',progress:30},
+  {id:3,title:'패턴 퍼즐 중급 도전',teacher:'박선생님',subject:'반복과 패턴',deadline:'2025.03.20',status:'미시작',progress:0},
+  {id:4,title:'미로 탈출 초급 전 클리어',teacher:'김선생님',subject:'순서와 명령',deadline:'2025.03.10',status:'완료',progress:100},
+  {id:5,title:'보물찾기 스테이지 1-5',teacher:'김선생님',subject:'조건과 분기',deadline:'2025.03.05',status:'완료',progress:100},
+];
+
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{
+    let start=0;const step=end/(duration/16);
+    const timer=setInterval(()=>{start+=step;if(start>=end){setVal(end);clearInterval(timer)}else setVal(Math.floor(start))},16);
+    return()=>clearInterval(timer);
+  },[end]);
+  return <span>{typeof end==='string'?end:`${val.toLocaleString()}${suffix}`}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return(
+    <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,.2)',fontSize:14}}>
+      ✅ {message}
+    </div>
+  );
+}
+
+function Drawer({item,onClose,children}){
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:200,animation:'fadeIn 200ms ease'}} />
+      <div style={{position:'fixed',top:0,right:0,bottom:0,width:480,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,.15)',zIndex:201,overflowY:'auto',padding:28,animation:'slideInRight 200ms ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{item.title||item.name}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        {children}
+      </div>
+    </>
+  );
+}
+
+function Badge({label}){
+  const colors={
+    '초급':{bg:'#DCFCE7',text:'#166534'},'중급':{bg:'#FEF3C7',text:'#92400E'},'고급':{bg:'#FEE2E2',text:'#991B1B'},
+    '진행중':{bg:'#EDE9FE',text:'#5B21B6'},'완료':{bg:'#DCFCE7',text:'#166534'},'미시작':{bg:'#F1F5F9',text:'#475569'},
+  };
+  const c=colors[label]||{bg:'#F1F5F9',text:'#475569'};
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:c.bg,color:c.text}}>{label}</span>;
+}
+
+function ProgressBar({value,color,height=8}){
+  return(
+    <div style={{width:'100%',height,borderRadius:height/2,background:`${color}20`,overflow:'hidden'}}>
+      <div style={{width:`${value}%`,height:'100%',borderRadius:height/2,background:color,transition:'width 800ms ease'}} />
+    </div>
+  );
+}
+
+// Pages
+function HomePage({setDrawer}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {GAMES.map((g,i)=>(
+          <div key={g.id} onClick={()=>setDrawer(g)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+              <span style={{fontSize:36,animation:`float 2s ease-in-out ${i*200}ms infinite`}}>{g.emoji}</span>
+              <Badge label={g.level} />
+            </div>
+            <h3 style={{fontSize:16,fontWeight:700,marginBottom:4}}>{g.name}</h3>
+            <div style={{fontSize:12,color:C.textMuted,marginBottom:4}}>개념: {g.concept}</div>
+            <p style={{fontSize:13,color:C.textLight,marginBottom:14,lineHeight:1.5}}>{g.desc}</p>
+            <ProgressBar value={Math.round(g.completed/g.stages*100)} color={g.color} />
+            <div style={{fontSize:11,color:C.textLight,marginTop:6,textAlign:'right'}}>{g.completed}/{g.stages} 스테이지</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CurriculumPage({setDrawer}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+        {CURRICULUM.map((c,i)=>(
+          <div key={c.id} onClick={()=>setDrawer({...c,name:c.subject,title:c.subject})} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',opacity:c.unlocked?1:0.5,animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{if(c.unlocked){e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+              <div style={{width:44,height:44,borderRadius:12,background:`${c.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>
+                {c.unlocked?c.icon:'🔒'}
+              </div>
+              <div>
+                <h4 style={{fontSize:15,fontWeight:700}}>{c.subject}</h4>
+                <div style={{fontSize:12,color:C.textLight}}>{c.units}개 유닛</div>
+              </div>
+            </div>
+            <ProgressBar value={c.progress} color={c.color} height={6} />
+            <div style={{fontSize:11,color:C.textLight,marginTop:6,textAlign:'right'}}>{c.progress}% 완료</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,.10)',animation:'slideUp 400ms ease 480ms both'}}>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:16,textTransform:'uppercase',letterSpacing:'0.05em'}}>학습 로드맵</h3>
+        <div style={{display:'flex',alignItems:'center',gap:12,overflowX:'auto',paddingBottom:8}}>
+          {CURRICULUM.map((c,i)=>(
+            <React.Fragment key={c.id}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,minWidth:100}}>
+                <div style={{width:48,height:48,borderRadius:'50%',background:c.progress>0?c.color:`${c.color}30`,display:'flex',alignItems:'center',justifyContent:'center',color:c.progress>0?'#fff':c.color,fontSize:20,fontWeight:700,transition:'all 300ms',border:`3px solid ${c.progress>=100?'#10B981':c.color}30`}}>
+                  {c.progress>=100?'✓':c.icon}
+                </div>
+                <span style={{fontSize:11,fontWeight:600,color:c.unlocked?C.text:C.textLight,textAlign:'center'}}>{c.subject}</span>
+                <span style={{fontSize:10,color:C.textLight}}>{c.progress}%</span>
+              </div>
+              {i<CURRICULUM.length-1 && (
+                <div style={{width:40,height:3,borderRadius:2,background:CURRICULUM[i+1].progress>0?C.primary:`${C.primary}20`,flexShrink:0}} />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressPage({setDrawer}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,.10)',animation:'slideUp 400ms ease both'}}>
+          <h3 style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>코딩 개념 숙련도</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <RadarChart data={RADAR_DATA}>
+              <PolarGrid stroke={C.border} />
+              <PolarAngleAxis dataKey="subject" tick={{fontSize:12,fill:C.text}} />
+              <PolarRadiusAxis angle={30} domain={[0,100]} tick={{fontSize:10}} />
+              <Radar name="숙련도" dataKey="A" stroke={C.primary} fill={C.primary} fillOpacity={0.3} />
+              <Tooltip />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,.10)',animation:'slideUp 400ms ease 80ms both'}}>
+          <h3 style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>주간 학습 시간</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={WEEKLY}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+              <XAxis dataKey="day" tick={{fontSize:12,fill:C.textLight}} />
+              <YAxis tick={{fontSize:12,fill:C.textLight}} />
+              <Tooltip formatter={(v)=>`${v}분`} />
+              <Bar dataKey="minutes" fill={C.primary} radius={[6,6,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,.10)',animation:'slideUp 400ms ease 160ms both'}}>
+        <h3 style={{fontSize:14,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>과목별 진도 상세</h3>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {CURRICULUM.map((c,i)=>(
+            <div key={c.id} onClick={()=>setDrawer({...c,name:c.subject,title:`${c.subject} 상세 진도`})} style={{display:'flex',alignItems:'center',gap:16,padding:14,borderRadius:12,cursor:'pointer',transition:'all 200ms'}}
+              onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}06`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+              onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}>
+              <div style={{width:36,height:36,borderRadius:10,background:`${c.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{c.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                  <span style={{fontSize:14,fontWeight:600}}>{c.subject}</span>
+                  <span style={{fontSize:13,color:C.textLight}}>{c.progress}%</span>
+                </div>
+                <ProgressBar value={c.progress} color={c.color} height={6} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssignmentsPage({setDrawer}){
+  const [filter,setFilter]=useState('전체');
+  const filtered=ASSIGNMENTS.filter(a=>filter==='전체'||a.status===filter);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {['전체','진행중','미시작','완료'].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)} style={{padding:'8px 16px',borderRadius:20,border:'none',background:filter===f?C.primary:`${C.primary}10`,color:filter===f?'#fff':C.primary,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',transition:'all 200ms'}}>
+            {f}
+          </button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {filtered.map((a,i)=>(
+          <div key={a.id} onClick={()=>setDrawer(a)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <Badge label={a.status} />
+              <span style={{fontSize:11,color:C.textLight}}>마감 {a.deadline}</span>
+            </div>
+            <h4 style={{fontSize:15,fontWeight:700,marginBottom:8}}>{a.title}</h4>
+            <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>📚 {a.subject}</div>
+            <div style={{fontSize:12,color:C.textLight,marginBottom:14}}>👩‍🏫 {a.teacher}</div>
+            <ProgressBar value={a.progress} color={a.status==='완료'?C.success:C.primary} />
+            <div style={{fontSize:11,color:C.textLight,marginTop:6,textAlign:'right'}}>{a.progress}%</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Drawer Contents
+function GameDrawer({item,onClose}){
+  return(
+    <Drawer item={item} onClose={onClose}>
+      <div style={{textAlign:'center',marginBottom:24}}>
+        <span style={{fontSize:64,display:'block',marginBottom:12,animation:'bounce 1s ease infinite'}}>{item.emoji}</span>
+        <Badge label={item.level} />
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        {[{l:'학습 개념',v:item.concept},{l:'난이도',v:item.level},{l:'스테이지',v:`${item.stages}개`},{l:'완료',v:`${item.completed}개`}].map(({l,v})=>(
+          <div key={l} style={{padding:14,background:`${C.primary}06`,borderRadius:12}}>
+            <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:600}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{fontSize:14,color:C.textLight,lineHeight:1.7,marginBottom:20}}>{item.desc}</p>
+      <ProgressBar value={Math.round(item.completed/item.stages*100)} color={item.color} />
+      <div style={{fontSize:12,color:C.textLight,marginTop:8,textAlign:'center'}}>{item.completed}/{item.stages} 스테이지 완료</div>
+
+      <div style={{marginTop:24}}>
+        <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>스테이지 목록</h4>
+        {[...Array(item.stages)].map((_,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderBottom:i<item.stages-1?`1px solid ${C.border}`:'none'}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:i<item.completed?item.color:`${item.color}20`,color:i<item.completed?'#fff':item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700}}>
+              {i<item.completed?'✓':i+1}
+            </div>
+            <span style={{fontSize:13,fontWeight:i<item.completed?400:500,color:i<item.completed?C.textLight:C.text}}>스테이지 {i+1}</span>
+            {i===item.completed && <Badge label="현재" />}
+          </div>
+        ))}
+      </div>
+
+      <button style={{width:'100%',padding:14,background:C.primary,color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:700,cursor:'pointer',marginTop:20,fontFamily:'inherit'}}>
+        {item.completed>0?'이어서 학습하기':'학습 시작하기'} 🚀
+      </button>
+    </Drawer>
+  );
+}
+
+function CurriculumDrawer({item,onClose}){
+  const units=[
+    {name:`${item.subject} 기초`,stages:5,completed:item.progress>=25?5:Math.floor(item.progress/5)},
+    {name:`${item.subject} 응용`,stages:5,completed:item.progress>=50?5:Math.max(0,Math.floor((item.progress-25)/5))},
+    {name:`${item.subject} 심화`,stages:5,completed:item.progress>=75?5:Math.max(0,Math.floor((item.progress-50)/5))},
+    {name:`${item.subject} 마스터`,stages:5,completed:item.progress>=100?5:Math.max(0,Math.floor((item.progress-75)/5))},
+  ];
+  return(
+    <Drawer item={item} onClose={onClose}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+        <div style={{width:48,height:48,borderRadius:14,background:`${item.color}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>{item.icon}</div>
+        <div>
+          <div style={{fontSize:14,fontWeight:700}}>{item.subject}</div>
+          <div style={{fontSize:12,color:C.textLight}}>{item.units}개 유닛 · {item.progress}% 완료</div>
+        </div>
+      </div>
+      <ProgressBar value={item.progress} color={item.color} height={8} />
+
+      <div style={{marginTop:24}}>
+        <h4 style={{fontSize:14,fontWeight:700,marginBottom:12}}>유닛 목록</h4>
+        {units.map((u,i)=>(
+          <div key={i} style={{padding:16,borderRadius:12,background:`${C.primary}04`,marginBottom:8}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <span style={{fontSize:14,fontWeight:600}}>{u.name}</span>
+              <span style={{fontSize:12,color:C.textLight}}>{u.completed}/{u.stages}</span>
+            </div>
+            <ProgressBar value={Math.round(u.completed/u.stages*100)} color={item.color} height={4} />
+          </div>
+        ))}
+      </div>
+    </Drawer>
+  );
+}
+
+function AssignmentDrawer({item,onClose}){
+  return(
+    <Drawer item={item} onClose={onClose}>
+      <Badge label={item.status} />
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,margin:'20px 0'}}>
+        {[{l:'과목',v:item.subject},{l:'교사',v:item.teacher},{l:'마감일',v:item.deadline},{l:'진도',v:`${item.progress}%`}].map(({l,v})=>(
+          <div key={l} style={{padding:14,background:`${C.primary}06`,borderRadius:12}}>
+            <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:600}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <ProgressBar value={item.progress} color={item.status==='완료'?C.success:C.primary} />
+
+      <div style={{marginTop:24}}>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:8}}>학습 메모</label>
+        <textarea placeholder="학습 중 메모를 남겨보세요..." style={{width:'100%',height:80,padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,resize:'none',fontFamily:'inherit',outline:'none'}} />
+      </div>
+
+      {item.status!=='완료' && (
+        <button style={{width:'100%',padding:14,background:C.primary,color:'#fff',border:'none',borderRadius:12,fontSize:15,fontWeight:700,cursor:'pointer',marginTop:20,fontFamily:'inherit'}}>
+          과제 시작하기 📝
+        </button>
+      )}
+    </Drawer>
+  );
+}
+
+function App(){
+  const [tab,setTab]=useState('home');
+  const [drawer,setDrawer]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  if(loading){
+    return(
+      <div style={{minHeight:'100vh',background:C.bg}}>
+        <div style={{height:56,background:C.surface}} />
+        <div style={{height:120,background:C.gradient}} />
+        <div style={{padding:'24px 32px',display:'flex',flexDirection:'column',gap:16}}>
+          {[...Array(3)].map((_,i)=>(
+            <div key={i} style={{height:120,borderRadius:16,background:'linear-gradient(90deg,#F5F3FF 25%,#EDE9FE 50%,#F5F3FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const hero=HERO_META[tab];
+
+  const renderContent=()=>{
+    switch(tab){
+      case 'home': return <HomePage setDrawer={setDrawer} />;
+      case 'curriculum': return <CurriculumPage setDrawer={setDrawer} />;
+      case 'progress': return <ProgressPage setDrawer={setDrawer} />;
+      case 'assignments': return <AssignmentsPage setDrawer={setDrawer} />;
+      default: return <HomePage setDrawer={setDrawer} />;
+    }
+  };
+
+  const renderDrawer=()=>{
+    if(!drawer) return null;
+    if(drawer.emoji) return <GameDrawer item={drawer} onClose={()=>setDrawer(null)} />;
+    if(drawer.icon) return <CurriculumDrawer item={drawer} onClose={()=>setDrawer(null)} />;
+    if(drawer.teacher) return <AssignmentDrawer item={drawer} onClose={()=>setDrawer(null)} />;
+    return <CurriculumDrawer item={drawer} onClose={()=>setDrawer(null)} />;
+  };
+
+  return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      {/* Top Nav */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 24px',gap:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginRight:16}}>
+          <div style={{width:32,height:32,borderRadius:8,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:16,fontWeight:700}}>C</div>
+          <span style={{fontWeight:700,fontSize:16,color:C.text}}>CodePlay</span>
+        </div>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} title={t.label} style={{padding:'8px 14px',borderRadius:20,border:'none',background:tab===t.id?`${C.primary}12`:'transparent',color:tab===t.id?C.primary:C.textLight,fontSize:13,fontWeight:tab===t.id?700:400,cursor:'pointer',fontFamily:'inherit',transition:'all 200ms',display:'flex',alignItems:'center',gap:6}}>
+            <span>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+        <div style={{flex:1}} />
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'7px 14px 7px 30px',borderRadius:20,border:`1px solid ${C.border}`,fontSize:13,width:180,outline:'none',fontFamily:'inherit',background:`${C.primary}04`}} />
+            <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13}}>🔍</span>
+          </div>
+          <span style={{fontSize:18,cursor:'pointer'}}>🔔</span>
+          <div style={{width:32,height:32,borderRadius:'50%',background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700}}>김</div>
+        </div>
+      </header>
+
+      {/* Hero Banner */}
+      <div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}>
+        <h1 style={{fontSize:28,fontWeight:800,letterSpacing:'-0.03em',marginBottom:4}}>{hero.title}</h1>
+        <p style={{fontSize:14,opacity:0.9,marginBottom:16}}>{hero.desc}</p>
+        <div style={{display:'flex',gap:32}}>
+          {hero.kpis.map(k=>(
+            <div key={k.label}>
+              <div style={{fontSize:11,opacity:0.7}}>{k.label}</div>
+              <div style={{fontSize:20,fontWeight:700}}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <main style={{padding:'24px 32px',height:'calc(100vh - 56px - 130px)',overflowY:'auto'}}>
+        {renderContent()}
+      </main>
+
+      {renderDrawer()}
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

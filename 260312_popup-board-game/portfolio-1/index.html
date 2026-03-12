@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>팝업 이벤트 게임 관리 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+@keyframes ripple{0%{transform:scale(0);opacity:.5}100%{transform:scale(4);opacity:0}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo,useCallback}=React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={
+  primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',
+  bg:'#F0F9FF',surface:'#FFFFFF',
+  text:'#0F172A',textLight:'#475569',
+  border:'#E2E8F0',success:'#10B981',warning:'#F59E0B',danger:'#EF4444',
+  sidebarBg:'#0F172A',sidebarText:'#94A3B8',sidebarActive:'#38BDF8'
+};
+
+const MENUS=[
+  {id:'dashboard',icon:'📊',label:'이벤트 통합 대시보드'},
+  {id:'game-config',icon:'🎮',label:'게임 설정 관리'},
+  {id:'participants',icon:'👥',label:'참여자 현황 관리'},
+  {id:'schedule',icon:'📅',label:'이벤트 일정 관리'},
+];
+
+// Dummy data
+const EVENTS_DATA=[
+  {id:1,name:'봄맞이 팝업 럭키룰렛',type:'룰렛',status:'진행중',participants:847,winners:126,startDate:'2025.03.01',endDate:'2025.03.15',location:'삼성 코엑스 B홀'},
+  {id:2,name:'신제품 런칭 카드뒤집기',type:'카드',status:'예정',participants:0,winners:0,startDate:'2025.03.20',endDate:'2025.03.25',location:'현대백화점 판교점'},
+  {id:3,name:'브랜드데이 보드게임',type:'보드',status:'완료',participants:1532,winners:312,startDate:'2025.02.14',endDate:'2025.02.28',location:'롯데월드몰 1F'},
+  {id:4,name:'겨울 시즌 퀴즈 챌린지',type:'퀴즈',status:'완료',participants:2104,winners:421,startDate:'2025.01.15',endDate:'2025.02.10',location:'IFC몰 L3'},
+  {id:5,name:'어린이날 스페셜 룰렛',type:'룰렛',status:'예정',participants:0,winners:0,startDate:'2025.05.01',endDate:'2025.05.05',location:'킨텍스 제3전시장'},
+];
+
+const PARTICIPANTS=[
+  {id:1,name:'김서연',phone:'010-****-3847',game:'봄맞이 팝업 럭키룰렛',prize:'1등 - 에어팟 프로',time:'14:23',date:'2025.03.05'},
+  {id:2,name:'이준호',phone:'010-****-9124',game:'봄맞이 팝업 럭키룰렛',prize:'2등 - 커피 쿠폰',time:'14:31',date:'2025.03.05'},
+  {id:3,name:'박하나',phone:'010-****-5562',game:'봄맞이 팝업 럭키룰렛',prize:'참여상',time:'14:45',date:'2025.03.05'},
+  {id:4,name:'정하윤',phone:'010-****-8837',game:'봄맞이 팝업 럭키룰렛',prize:'3등 - 텀블러',time:'15:02',date:'2025.03.05'},
+  {id:5,name:'최우진',phone:'010-****-2210',game:'봄맞이 팝업 럭키룰렛',prize:'2등 - 커피 쿠폰',time:'15:18',date:'2025.03.05'},
+  {id:6,name:'강유진',phone:'010-****-6643',game:'브랜드데이 보드게임',prize:'1등 - 블루투스 스피커',time:'11:05',date:'2025.02.20'},
+  {id:7,name:'김민수',phone:'010-****-1198',game:'브랜드데이 보드게임',prize:'참여상',time:'11:32',date:'2025.02.20'},
+  {id:8,name:'이지은',phone:'010-****-4475',game:'겨울 시즌 퀴즈 챌린지',prize:'1등 - 백화점 상품권',time:'16:40',date:'2025.01.28'},
+  {id:9,name:'박서진',phone:'010-****-7792',game:'겨울 시즌 퀴즈 챌린지',prize:'2등 - 치킨 쿠폰',time:'17:05',date:'2025.01.28'},
+  {id:10,name:'정수민',phone:'010-****-3356',game:'겨울 시즌 퀴즈 챌린지',prize:'참여상',time:'17:22',date:'2025.01.28'},
+];
+
+const HOURLY=[
+  {time:'10시',visitors:42},{time:'11시',visitors:78},{time:'12시',visitors:123},
+  {time:'13시',visitors:95},{time:'14시',visitors:156},{time:'15시',visitors:189},
+  {time:'16시',visitors:167},{time:'17시',visitors:134},{time:'18시',visitors:98},{time:'19시',visitors:56},
+];
+
+const GAME_TYPES=[
+  {type:'룰렛',count:2,color:'#0066CC'},{type:'카드',count:1,color:'#38BDF8'},
+  {type:'보드',count:1,color:'#10B981'},{type:'퀴즈',count:1,color:'#F59E0B'},
+];
+
+const GAME_CONFIGS=[
+  {id:1,name:'럭키룰렛 기본형',type:'룰렛',items:8,status:'활성',updated:'2025.03.01'},
+  {id:2,name:'카드뒤집기 3x4',type:'카드',items:12,status:'비활성',updated:'2025.02.28'},
+  {id:3,name:'보드게임 20칸',type:'보드',items:20,status:'활성',updated:'2025.02.14'},
+  {id:4,name:'OX퀴즈 30문항',type:'퀴즈',items:30,status:'비활성',updated:'2025.01.10'},
+];
+
+const ROULETTE_ITEMS=[
+  {id:1,label:'1등 - 에어팟 프로',probability:2,color:'#EF4444',quantity:5},
+  {id:2,label:'2등 - 커피 쿠폰',probability:10,color:'#F59E0B',quantity:50},
+  {id:3,label:'3등 - 텀블러',probability:15,color:'#10B981',quantity:100},
+  {id:4,label:'4등 - 스티커팩',probability:23,color:'#0066CC',quantity:200},
+  {id:5,label:'참여상 - 할인쿠폰',probability:50,color:'#8B5CF6',quantity:999},
+];
+
+// Components
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{
+    let start=0;const step=end/(duration/16);
+    const timer=setInterval(()=>{start+=step;if(start>=end){setVal(end);clearInterval(timer)}else setVal(Math.floor(start))},16);
+    return()=>clearInterval(timer);
+  },[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return(
+    <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,.2)',fontSize:14}}>
+      ✅ {message}
+    </div>
+  );
+}
+
+function Modal({title,onClose,children,width=560}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',animation:'fadeIn 200ms ease'}} />
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.15)'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function Badge({label,color}){
+  const colors={
+    '진행중':{bg:'#DCFCE7',text:'#166534'},
+    '예정':{bg:'#DBEAFE',text:'#1E40AF'},
+    '완료':{bg:'#F1F5F9',text:'#475569'},
+    '활성':{bg:'#DCFCE7',text:'#166534'},
+    '비활성':{bg:'#FEF3C7',text:'#92400E'},
+  };
+  const c=colors[label]||{bg:'#F1F5F9',text:'#475569'};
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:12,fontSize:12,fontWeight:600,background:c.bg,color:c.text}}>{label}</span>;
+}
+
+function KpiCard({icon,label,value,suffix,sub,index}){
+  return(
+    <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:`slideUp 400ms ease ${index*80}ms both`,transition:'all 200ms ease',cursor:'default'}}
+      onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,.12)'}}
+      onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+        <span style={{fontSize:24}}>{icon}</span>
+        <span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span>
+      </div>
+      <div style={{fontSize:28,fontWeight:700,color:C.text}}>
+        <CountUp end={value} suffix={suffix} />
+      </div>
+      {sub && <div style={{fontSize:12,color:C.textLight,marginTop:6}}>{sub}</div>}
+    </div>
+  );
+}
+
+// Pages
+function DashboardPage({setModal}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:32}}>
+        <KpiCard icon="🎯" label="총 이벤트" value={5} suffix="건" sub="진행중 1 · 예정 2" index={0} />
+        <KpiCard icon="👥" label="총 참여자" value={4483} suffix="명" sub="오늘 +189명" index={1} />
+        <KpiCard icon="🏆" label="총 당첨자" value={859} suffix="명" sub="당첨률 19.2%" index={2} />
+        <KpiCard icon="📈" label="오늘 방문" value={847} suffix="명" sub="전일 대비 +12%" index={3} />
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:32}}>
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 320ms both'}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>시간대별 참여 현황</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={HOURLY}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis dataKey="time" tick={{fontSize:12,fill:C.textLight}} />
+              <YAxis tick={{fontSize:12,fill:C.textLight}} />
+              <Tooltip />
+              <Area type="monotone" dataKey="visitors" stroke={C.primary} fill={`${C.primary}20`} strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 400ms both'}}>
+          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>게임 유형 분포</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={GAME_TYPES} dataKey="count" nameKey="type" cx="50%" cy="50%" outerRadius={70} label={({type,count})=>`${type} ${count}건`}>
+                {GAME_TYPES.map((g,i)=><Cell key={i} fill={g.color} />)}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 480ms both'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <h3 style={{fontSize:16,fontWeight:600}}>이벤트 목록</h3>
+          <button onClick={()=>setModal({type:'create-event'})} style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600}}>+ 새 이벤트</button>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['이벤트명','유형','상태','참여자','당첨자','기간','장소'].map(h=>(
+                <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textLight}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {EVENTS_DATA.map((ev,i)=>(
+              <tr key={ev.id} onClick={()=>setModal({type:'detail-event',item:ev})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}08`}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'14px 12px',fontSize:14,fontWeight:500}}>{ev.name}</td>
+                <td style={{padding:'14px 12px',fontSize:13}}>{ev.type}</td>
+                <td style={{padding:'14px 12px'}}><Badge label={ev.status} /></td>
+                <td style={{padding:'14px 12px',fontSize:14}}>{ev.participants.toLocaleString()}</td>
+                <td style={{padding:'14px 12px',fontSize:14}}>{ev.winners.toLocaleString()}</td>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{ev.startDate} ~ {ev.endDate}</td>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{ev.location}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function GameConfigPage({setModal}){
+  const [selectedConfig,setSelectedConfig]=useState(null);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:32}}>
+        {GAME_CONFIGS.map((gc,i)=>(
+          <div key={gc.id} onClick={()=>setSelectedConfig(gc)} style={{background:C.surface,borderRadius:12,padding:20,boxShadow:'0 1px 3px rgba(0,0,0,.08)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,.12)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <span style={{fontSize:24}}>{gc.type==='룰렛'?'🎡':gc.type==='카드'?'🃏':gc.type==='보드'?'🎲':'❓'}</span>
+              <Badge label={gc.status} />
+            </div>
+            <h4 style={{fontSize:15,fontWeight:600,marginBottom:8}}>{gc.name}</h4>
+            <div style={{fontSize:13,color:C.textLight}}>항목 {gc.items}개 · 수정 {gc.updated}</div>
+          </div>
+        ))}
+      </div>
+
+      {selectedConfig && (
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 300ms ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:600}}>항목 설정 — {selectedConfig.name}</h3>
+              <button onClick={()=>setModal({type:'edit-config',item:selectedConfig})} style={{padding:'6px 14px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:13}}>편집</button>
+            </div>
+            {ROULETTE_ITEMS.map((item,i)=>(
+              <div key={item.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:i<ROULETTE_ITEMS.length-1?`1px solid ${C.border}`:'none'}}>
+                <div style={{width:12,height:12,borderRadius:3,background:item.color,flexShrink:0}} />
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:500}}>{item.label}</div>
+                  <div style={{fontSize:12,color:C.textLight}}>수량 {item.quantity}개</div>
+                </div>
+                <div style={{fontSize:14,fontWeight:600,color:C.primary}}>{item.probability}%</div>
+              </div>
+            ))}
+          </div>
+          <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 300ms ease 80ms both'}}>
+            <h3 style={{fontSize:16,fontWeight:600,marginBottom:20}}>미리보기</h3>
+            <div style={{width:'100%',aspectRatio:'1',borderRadius:12,background:`linear-gradient(135deg,${C.primary}10,${C.accent}10)`,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',overflow:'hidden'}}>
+              <svg viewBox="0 0 200 200" width="80%">
+                {ROULETTE_ITEMS.map((item,i)=>{
+                  const total=ROULETTE_ITEMS.reduce((s,it)=>s+it.probability,0);
+                  let startAngle=0;
+                  for(let j=0;j<i;j++) startAngle+=ROULETTE_ITEMS[j].probability/total*360;
+                  const angle=item.probability/total*360;
+                  const rad1=startAngle*Math.PI/180;
+                  const rad2=(startAngle+angle)*Math.PI/180;
+                  const x1=100+80*Math.cos(rad1);
+                  const y1=100+80*Math.sin(rad1);
+                  const x2=100+80*Math.cos(rad2);
+                  const y2=100+80*Math.sin(rad2);
+                  const large=angle>180?1:0;
+                  return <path key={i} d={`M100,100 L${x1},${y1} A80,80 0 ${large} 1 ${x2},${y2} Z`} fill={item.color} opacity="0.7" />;
+                })}
+                <circle cx="100" cy="100" r="20" fill="#fff" />
+                <text x="100" y="104" textAnchor="middle" fontSize="10" fontWeight="700" fill={C.text}>SPIN</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!selectedConfig && (
+        <div style={{background:C.surface,borderRadius:12,padding:48,textAlign:'center',boxShadow:'0 1px 3px rgba(0,0,0,.08)'}}>
+          <div style={{fontSize:48,marginBottom:16}}>🎮</div>
+          <div style={{fontSize:16,color:C.textLight}}>게임 설정을 선택하면 항목과 미리보기가 표시됩니다</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParticipantsPage({setModal}){
+  const [filter,setFilter]=useState('전체');
+  const [search,setSearch]=useState('');
+  const filtered=PARTICIPANTS.filter(p=>{
+    if(filter!=='전체'&&!p.prize.includes(filter)) return false;
+    if(search&&!p.name.includes(search)&&!p.game.includes(search)) return false;
+    return true;
+  });
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:24}}>
+        <KpiCard icon="👥" label="총 참여자" value={4483} suffix="명" index={0} />
+        <KpiCard icon="🏆" label="1등 당첨" value={18} suffix="명" index={1} />
+        <KpiCard icon="🎁" label="2등 당첨" value={126} suffix="명" index={2} />
+        <KpiCard icon="📋" label="참여상" value={715} suffix="명" index={3} />
+      </div>
+
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideUp 400ms ease 320ms both'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{display:'flex',gap:8}}>
+            {['전체','1등','2등','3등','참여상'].map(f=>(
+              <button key={f} onClick={()=>setFilter(f)} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${filter===f?C.primary:C.border}`,background:filter===f?`${C.primary}10`:'transparent',color:filter===f?C.primary:C.textLight,fontSize:13,cursor:'pointer',fontWeight:filter===f?600:400,fontFamily:'inherit'}}>
+                {f}
+              </button>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="이름 또는 이벤트 검색" style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,width:200,outline:'none',fontFamily:'inherit'}} />
+            <button onClick={()=>setModal({type:'export'})} style={{padding:'8px 14px',background:'#10B981',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13}}>📥 엑셀 다운로드</button>
+          </div>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['#','이름','연락처','이벤트','당첨 결과','참여 시간','날짜'].map(h=>(
+                <th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textLight}}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p,i)=>(
+              <tr key={p.id} onClick={()=>setModal({type:'detail-participant',item:p})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms'}}
+                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}08`}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{p.id}</td>
+                <td style={{padding:'14px 12px',fontSize:14,fontWeight:500}}>{p.name}</td>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{p.phone}</td>
+                <td style={{padding:'14px 12px',fontSize:13}}>{p.game}</td>
+                <td style={{padding:'14px 12px'}}><Badge label={p.prize.includes('1등')?'1등':p.prize.includes('2등')?'2등':p.prize.includes('3등')?'3등':'참여상'} /></td>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{p.time}</td>
+                <td style={{padding:'14px 12px',fontSize:13,color:C.textLight}}>{p.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:16}}>
+          <div style={{fontSize:13,color:C.textLight}}>총 {filtered.length}건</div>
+          <div style={{display:'flex',gap:4}}>
+            {[1,2,3].map(p=>(
+              <button key={p} style={{width:32,height:32,borderRadius:6,border:`1px solid ${p===1?C.primary:C.border}`,background:p===1?`${C.primary}10`:'transparent',color:p===1?C.primary:C.textLight,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>{p}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePage({setModal}){
+  const [selected,setSelected]=useState(null);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+        <h3 style={{fontSize:18,fontWeight:600}}>이벤트 일정 관리</h3>
+        <button onClick={()=>setModal({type:'create-schedule'})} style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600}}>+ 이벤트 등록</button>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+        <div>
+          {EVENTS_DATA.map((ev,i)=>(
+            <div key={ev.id} onClick={()=>setSelected(ev)} style={{background:C.surface,borderRadius:12,padding:20,marginBottom:12,boxShadow:'0 1px 3px rgba(0,0,0,.08)',cursor:'pointer',transition:'all 200ms',borderLeft:selected?.id===ev.id?`4px solid ${C.primary}`:'4px solid transparent',animation:`slideUp 400ms ease ${i*80}ms both`}}
+              onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,.12)'}}
+              onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,.08)'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                <h4 style={{fontSize:15,fontWeight:600}}>{ev.name}</h4>
+                <Badge label={ev.status} />
+              </div>
+              <div style={{fontSize:13,color:C.textLight}}>{ev.startDate} ~ {ev.endDate}</div>
+              <div style={{fontSize:13,color:C.textLight,marginTop:4}}>📍 {ev.location}</div>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          {selected ? (
+            <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,.08)',animation:'slideInRight 300ms ease',position:'sticky',top:0}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+                <h3 style={{fontSize:18,fontWeight:600}}>{selected.name}</h3>
+                <button onClick={()=>setModal({type:'edit-schedule',item:selected})} style={{padding:'6px 14px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:13}}>편집</button>
+              </div>
+
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+                <div style={{padding:16,borderRadius:8,background:`${C.primary}08`}}>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>게임 유형</div>
+                  <div style={{fontSize:15,fontWeight:600}}>{selected.type}</div>
+                </div>
+                <div style={{padding:16,borderRadius:8,background:`${C.primary}08`}}>
+                  <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>참여자</div>
+                  <div style={{fontSize:15,fontWeight:600}}>{selected.participants.toLocaleString()}명</div>
+                </div>
+              </div>
+
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:12}}>QR 코드</div>
+                <div style={{width:160,height:160,borderRadius:12,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto'}}>
+                  <svg viewBox="0 0 100 100" width="120">
+                    <rect x="10" y="10" width="25" height="25" fill={C.primary} rx="3" />
+                    <rect x="65" y="10" width="25" height="25" fill={C.primary} rx="3" />
+                    <rect x="10" y="65" width="25" height="25" fill={C.primary} rx="3" />
+                    <rect x="15" y="15" width="15" height="15" fill="#fff" rx="2" />
+                    <rect x="70" y="15" width="15" height="15" fill="#fff" rx="2" />
+                    <rect x="15" y="70" width="15" height="15" fill="#fff" rx="2" />
+                    <rect x="19" y="19" width="7" height="7" fill={C.primary} />
+                    <rect x="74" y="19" width="7" height="7" fill={C.primary} />
+                    <rect x="19" y="74" width="7" height="7" fill={C.primary} />
+                    {[40,47,54,61,68,75].map((x,i)=>[42,49,56,63,70].map((y,j)=>(
+                      (i+j)%3!==0 && <rect key={`${i}-${j}`} x={x} y={y} width="5" height="5" fill={C.primary} opacity="0.7" />
+                    )))}
+                  </svg>
+                </div>
+                <div style={{textAlign:'center',marginTop:8,fontSize:12,color:C.textLight}}>스캔하여 게임 참여</div>
+              </div>
+
+              <div style={{display:'flex',gap:8}}>
+                <button style={{flex:1,padding:'10px',background:`${C.primary}10`,color:C.primary,border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>QR 다운로드</button>
+                <button style={{flex:1,padding:'10px',background:`${C.success}10`,color:C.success,border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>URL 복사</button>
+              </div>
+            </div>
+          ):(
+            <div style={{background:C.surface,borderRadius:12,padding:48,textAlign:'center',boxShadow:'0 1px 3px rgba(0,0,0,.08)'}}>
+              <div style={{fontSize:48,marginBottom:16}}>📅</div>
+              <div style={{fontSize:16,color:C.textLight}}>이벤트를 선택하면 상세 정보와 QR 코드가 표시됩니다</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modal contents
+function EventDetailModal({item,onClose}){
+  return(
+    <Modal title="이벤트 상세" onClose={onClose} width={600}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <h3 style={{fontSize:20,fontWeight:700}}>{item.name}</h3>
+        <Badge label={item.status} />
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        {[{l:'게임 유형',v:item.type},{l:'장소',v:item.location},{l:'기간',v:`${item.startDate} ~ ${item.endDate}`},{l:'참여자',v:`${item.participants.toLocaleString()}명`}].map(({l,v})=>(
+          <div key={l} style={{padding:16,background:`${C.primary}06`,borderRadius:8}}>
+            <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:600}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginBottom:16}}>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:8}}>관리자 메모</label>
+        <textarea placeholder="이벤트 관련 메모를 입력하세요..." style={{width:'100%',height:80,padding:12,borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,resize:'none',fontFamily:'inherit',outline:'none'}} />
+      </div>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+        <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>닫기</button>
+        <button style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>수정 저장</button>
+      </div>
+    </Modal>
+  );
+}
+
+function CreateEventModal({onClose,setToast}){
+  return(
+    <Modal title="새 이벤트 등록" onClose={onClose} width={520}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        {[{l:'이벤트명',ph:'예: 봄맞이 팝업 럭키룰렛',type:'text'},{l:'장소',ph:'예: 삼성 코엑스 B홀',type:'text'}].map(({l,ph,type})=>(
+          <div key={l}>
+            <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>{l}</label>
+            <input placeholder={ph} type={type} style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+          </div>
+        ))}
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>게임 유형</label>
+          <select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff'}}>
+            <option>룰렛</option><option>카드 뒤집기</option><option>보드게임</option><option>퀴즈</option>
+          </select>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div>
+            <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>시작일</label>
+            <input type="date" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+          </div>
+          <div>
+            <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>종료일</label>
+            <input type="date" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
+          <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{onClose();setToast('이벤트가 등록되었습니다')}} style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit',fontWeight:600}}>등록</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ParticipantDetailModal({item,onClose}){
+  return(
+    <Modal title="참여자 상세" onClose={onClose}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        {[{l:'이름',v:item.name},{l:'연락처',v:item.phone},{l:'이벤트',v:item.game},{l:'당첨 결과',v:item.prize},{l:'참여 시간',v:item.time},{l:'날짜',v:item.date}].map(({l,v})=>(
+          <div key={l} style={{padding:14,background:`${C.primary}06`,borderRadius:8}}>
+            <div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:14,fontWeight:500}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리자 메모</label>
+      <textarea placeholder="참여자 관련 메모..." style={{width:'100%',height:60,padding:12,borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,resize:'none',fontFamily:'inherit',outline:'none'}} />
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:16}}>
+        <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>닫기</button>
+        <button style={{padding:'8px 16px',background:C.danger,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>블랙리스트 등록</button>
+      </div>
+    </Modal>
+  );
+}
+
+function ConfigEditModal({item,onClose,setToast}){
+  return(
+    <Modal title={`게임 설정 편집 — ${item.name}`} onClose={onClose} width={580}>
+      <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        {ROULETTE_ITEMS.map((ri,i)=>(
+          <div key={ri.id} style={{display:'flex',alignItems:'center',gap:12,padding:12,borderRadius:8,background:`${C.primary}04`}}>
+            <div style={{width:10,height:10,borderRadius:3,background:ri.color}} />
+            <input defaultValue={ri.label} style={{flex:1,padding:'8px 10px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+            <input defaultValue={ri.probability} type="number" style={{width:60,padding:'8px 10px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,outline:'none',textAlign:'center',fontFamily:'inherit'}} />
+            <span style={{fontSize:12,color:C.textLight}}>%</span>
+            <input defaultValue={ri.quantity} type="number" style={{width:60,padding:'8px 10px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:13,outline:'none',textAlign:'center',fontFamily:'inherit'}} />
+            <span style={{fontSize:12,color:C.textLight}}>개</span>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:20}}>
+        <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+        <button onClick={()=>{onClose();setToast('설정이 저장되었습니다')}} style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>저장</button>
+      </div>
+    </Modal>
+  );
+}
+
+function ScheduleCreateModal({onClose,setToast}){
+  return(
+    <Modal title="이벤트 등록" onClose={onClose} width={520}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>이벤트명</label>
+          <input placeholder="이벤트명 입력" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+        </div>
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>게임 설정 선택</label>
+          <select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff'}}>
+            {GAME_CONFIGS.map(gc=><option key={gc.id}>{gc.name}</option>)}
+          </select>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>시작일</label><input type="date" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} /></div>
+          <div><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>종료일</label><input type="date" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} /></div>
+        </div>
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>장소</label>
+          <input placeholder="이벤트 장소" style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit'}} />
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
+          <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{onClose();setToast('이벤트가 등록되었습니다')}} style={{padding:'8px 16px',background:C.primary,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>등록</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ExportModal({onClose,setToast}){
+  return(
+    <Modal title="엑셀 내보내기" onClose={onClose} width={420}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>내보내기 범위</label>
+          <select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff'}}>
+            <option>전체 참여자</option><option>당첨자만</option><option>1등 당첨자</option>
+          </select>
+        </div>
+        <div>
+          <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>이벤트 필터</label>
+          <select style={{width:'100%',padding:'10px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff'}}>
+            <option>전체 이벤트</option>{EVENTS_DATA.map(e=><option key={e.id}>{e.name}</option>)}
+          </select>
+        </div>
+        <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'8px 16px',border:`1px solid ${C.border}`,borderRadius:8,background:'transparent',cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>취소</button>
+          <button onClick={()=>{onClose();setToast('엑셀 파일이 다운로드됩니다')}} style={{padding:'8px 16px',background:'#10B981',color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit'}}>다운로드</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function App(){
+  const [page,setPage]=useState('dashboard');
+  const [modal,setModal]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  if(loading){
+    return(
+      <div style={{display:'flex',minHeight:'100vh'}}>
+        <div style={{width:260,background:C.sidebarBg}} />
+        <div style={{flex:1,padding:24}}>
+          <div style={{display:'flex',flexDirection:'column',gap:16}}>
+            {[...Array(4)].map((_,i)=>(
+              <div key={i} style={{height:i===0?64:120,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const PAGE_TITLES={dashboard:'이벤트 통합 대시보드','game-config':'게임 설정 관리',participants:'참여자 현황 관리',schedule:'이벤트 일정 관리'};
+
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard': return <DashboardPage setModal={setModal} />;
+      case 'game-config': return <GameConfigPage setModal={setModal} />;
+      case 'participants': return <ParticipantsPage setModal={setModal} />;
+      case 'schedule': return <SchedulePage setModal={setModal} />;
+      default: return <DashboardPage setModal={setModal} />;
+    }
+  };
+
+  const renderModal=()=>{
+    if(!modal) return null;
+    switch(modal.type){
+      case 'detail-event': return <EventDetailModal item={modal.item} onClose={()=>setModal(null)} />;
+      case 'create-event': return <CreateEventModal onClose={()=>setModal(null)} setToast={setToast} />;
+      case 'detail-participant': return <ParticipantDetailModal item={modal.item} onClose={()=>setModal(null)} />;
+      case 'edit-config': return <ConfigEditModal item={modal.item} onClose={()=>setModal(null)} setToast={setToast} />;
+      case 'create-schedule': return <ScheduleCreateModal onClose={()=>setModal(null)} setToast={setToast} />;
+      case 'edit-schedule': return <EventDetailModal item={modal.item} onClose={()=>setModal(null)} />;
+      case 'export': return <ExportModal onClose={()=>setModal(null)} setToast={setToast} />;
+      default: return null;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      {/* Sidebar */}
+      <aside style={{width:260,background:C.sidebarBg,display:'flex',flexDirection:'column',flexShrink:0}}>
+        <div style={{padding:'20px 20px 24px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:18,fontWeight:700}}>E</div>
+          <div>
+            <div style={{color:'#fff',fontWeight:700,fontSize:15}}>EventHub</div>
+            <div style={{color:C.sidebarText,fontSize:11}}>이벤트 관리 플랫폼</div>
+          </div>
+        </div>
+        <div style={{flex:1,padding:'0 12px'}}>
+          {MENUS.map(m=>(
+            <button key={m.id} onClick={()=>setPage(m.id)} title={m.label} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'11px 14px',borderRadius:8,border:'none',cursor:'pointer',marginBottom:4,background:page===m.id?`${C.sidebarActive}15`:'transparent',color:page===m.id?C.sidebarActive:C.sidebarText,fontSize:14,fontWeight:page===m.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
+              <span style={{fontSize:18}}>{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div style={{padding:'16px 20px',borderTop:`1px solid ${C.sidebarActive}20`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:`${C.sidebarActive}30`,display:'flex',alignItems:'center',justifyContent:'center',color:C.sidebarActive,fontSize:14,fontWeight:700}}>관</div>
+            <div>
+              <div style={{color:'#fff',fontSize:13,fontWeight:500}}>관리자</div>
+              <div style={{color:C.sidebarText,fontSize:11}}>admin@eventhub.kr</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <header style={{height:56,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 24px',justifyContent:'space-between',flexShrink:0}}>
+          <h2 style={{fontSize:18,fontWeight:700}}>{PAGE_TITLES[page]}</h2>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{position:'relative'}}>
+              <input placeholder="이벤트 검색..." style={{padding:'7px 14px 7px 32px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,width:220,outline:'none',fontFamily:'inherit'}} />
+              <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14}}>🔍</span>
+            </div>
+            <div style={{position:'relative',cursor:'pointer'}}>
+              <span style={{fontSize:20}}>🔔</span>
+              <div style={{position:'absolute',top:-2,right:-4,width:8,height:8,borderRadius:'50%',background:C.danger}} />
+            </div>
+          </div>
+        </header>
+        <main style={{flex:1,overflow:'auto',padding:24}}>
+          {renderPage()}
+        </main>
+      </div>
+
+      {renderModal()}
+      {toast && <Toast message={toast} onClose={()=>setToast(null)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
