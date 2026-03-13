@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LogiFlow - 통합 물류 자동화 관리 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#111827;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:0.5}100%{transform:scale(4);opacity:0}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {BarChart,Bar,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,Legend,AreaChart,Area} = Recharts;
+
+const C = {
+  primary:'#059669',primaryLight:'#ECFDF5',secondary:'#064E3B',accent:'#34D399',
+  bg:'#F0FDF4',surface:'#FFFFFF',border:'#E5E7EB',text:'#111827',textLight:'#6B7280',
+  success:'#10B981',warning:'#F59E0B',danger:'#EF4444',info:'#3B82F6'
+};
+
+const NAV_ITEMS = [
+  {id:'dashboard',icon:'📊',label:'주문 통합'},
+  {id:'packing',icon:'📦',label:'포장 알고리즘'},
+  {id:'shipping',icon:'🚚',label:'송장 관리'},
+  {id:'inventory',icon:'📋',label:'재고 추적'},
+  {id:'settings',icon:'⚙️',label:'설정'},
+];
+
+const SECTION_TABS = {
+  dashboard:[{id:'all',label:'전체 주문'},{id:'coupang',label:'쿠팡'},{id:'naver',label:'네이버'},{id:'own',label:'자사몰'}],
+  packing:[{id:'simulate',label:'시뮬레이션'},{id:'rules',label:'분할 규칙'},{id:'history',label:'분할 이력'}],
+  shipping:[{id:'pending',label:'발행 대기'},{id:'completed',label:'발행 완료'},{id:'failed',label:'실패/재발행'}],
+  inventory:[{id:'overview',label:'재고 현황'},{id:'search',label:'품목 검색'},{id:'log',label:'입출고 이력'}],
+  settings:[{id:'api',label:'API 연동'},{id:'courier',label:'택배사'},{id:'schedule',label:'스케줄'}],
+};
+
+const ORDERS = [
+  {id:'ORD-CPN-0001',channel:'쿠팡',product:'프리미엄 티타늄 반무테',qty:5,total:'625,000원',status:'ERP 전송완료',date:'03.13 09:15',buyer:'김민수',addr:'서울시 강남구'},
+  {id:'ORD-NVR-0002',channel:'네이버',product:'블루라이트 차단 렌즈 1.60',qty:10,total:'890,000원',status:'변환 완료',date:'03.13 09:22',buyer:'이지은',addr:'경기 수원시'},
+  {id:'ORD-OWN-0003',channel:'자사몰',product:'초경량 TR 안경테 3종',qty:15,total:'1,200,000원',status:'포장 분할중',date:'03.13 09:30',buyer:'박서진',addr:'서울시 마포구'},
+  {id:'ORD-CPN-0004',channel:'쿠팡',product:'메탈 풀프레임 골드',qty:3,total:'390,000원',status:'송장 발행완료',date:'03.13 09:45',buyer:'정하윤',addr:'인천시 남동구'},
+  {id:'ORD-NVR-0005',channel:'네이버',product:'가죽 하드케이스 세트',qty:20,total:'400,000원',status:'매핑 오류',date:'03.13 10:00',buyer:'최우진',addr:'대전시 유성구'},
+  {id:'ORD-OWN-0006',channel:'자사몰',product:'프로그레시브 렌즈 1.67',qty:8,total:'1,440,000원',status:'대기',date:'03.13 10:10',buyer:'강유진',addr:'부산시 해운대구'},
+  {id:'ORD-CPN-0007',channel:'쿠팡',product:'UV 코팅 렌즈 1.56',qty:12,total:'720,000원',status:'ERP 전송완료',date:'03.13 10:25',buyer:'김서연',addr:'서울시 송파구'},
+  {id:'ORD-NVR-0008',channel:'네이버',product:'안경 닦이 극세사 50매',qty:50,total:'250,000원',status:'변환 완료',date:'03.13 10:35',buyer:'이준호',addr:'경기 성남시'},
+];
+
+const PACKING_ITEMS = [
+  {id:'PKG-001',order:'ORD-OWN-0003',product:'초경량 TR 안경테',totalQty:15,maxPerBox:5,boxes:3,status:'분할완료',weight:'2.4kg'},
+  {id:'PKG-002',order:'ORD-NVR-0002',product:'블루라이트 렌즈',totalQty:10,maxPerBox:8,boxes:2,status:'분할완료',weight:'1.6kg'},
+  {id:'PKG-003',order:'ORD-CPN-0007',product:'UV 코팅 렌즈',totalQty:12,maxPerBox:6,boxes:2,status:'시뮬레이션',weight:'1.8kg'},
+  {id:'PKG-004',order:'ORD-NVR-0008',product:'안경 닦이 극세사',totalQty:50,maxPerBox:20,boxes:3,status:'분할완료',weight:'3.0kg'},
+];
+
+const SHIPPING_PENDING = [
+  {id:'SHP-001',order:'ORD-CPN-0001',buyer:'김민수',addr:'서울시 강남구 역삼동 123-4',courier:'로젠택배',boxes:1,status:'발행대기'},
+  {id:'SHP-002',order:'ORD-OWN-0003',buyer:'박서진',addr:'서울시 마포구 합정동 45-6',courier:'CJ대한통운',boxes:3,status:'발행대기'},
+  {id:'SHP-003',order:'ORD-NVR-0002',buyer:'이지은',addr:'경기도 수원시 영통구 78-9',courier:'로젠택배',boxes:2,status:'발행대기'},
+];
+
+const SHIPPING_COMPLETED = [
+  {id:'SHP-004',order:'ORD-CPN-0004',buyer:'정하윤',courier:'로젠택배',tracking:'623890456',boxes:1,status:'배송중',date:'03.13 10:30'},
+  {id:'SHP-005',order:'ORD-CPN-0007',buyer:'김서연',courier:'CJ대한통운',tracking:'385612789',boxes:2,status:'집하',date:'03.13 10:45'},
+];
+
+const INVENTORY = [
+  {id:'INV-001',name:'프리미엄 티타늄 반무테',code:'PT-001',category:'프레임',stock:245,reserved:12,available:233,lastIn:'03.12',lastOut:'03.13'},
+  {id:'INV-002',name:'초경량 TR 안경테',code:'TR-012',category:'프레임',stock:180,reserved:15,available:165,lastIn:'03.11',lastOut:'03.13'},
+  {id:'INV-003',name:'블루라이트 차단 렌즈 1.60',code:'BL-160',category:'렌즈',stock:520,reserved:10,available:510,lastIn:'03.10',lastOut:'03.13'},
+  {id:'INV-004',name:'프로그레시브 렌즈 1.67',code:'PG-167',category:'렌즈',stock:95,reserved:8,available:87,lastIn:'03.08',lastOut:'03.12'},
+  {id:'INV-005',name:'안경 닦이 극세사',code:'CL-001',category:'액세서리',stock:1200,reserved:50,available:1150,lastIn:'03.09',lastOut:'03.13'},
+  {id:'INV-006',name:'가죽 하드케이스',code:'CS-002',category:'액세서리',stock:340,reserved:20,available:320,lastIn:'03.07',lastOut:'03.11'},
+  {id:'INV-007',name:'메탈 풀프레임 골드',code:'MF-GD',category:'프레임',stock:78,reserved:3,available:75,lastIn:'03.06',lastOut:'03.13'},
+  {id:'INV-008',name:'UV 코팅 렌즈 1.56',code:'UV-156',category:'렌즈',stock:410,reserved:12,available:398,lastIn:'03.10',lastOut:'03.13'},
+];
+
+const CHART_DATA = [
+  {date:'03.07',쿠팡:124,네이버:89,자사몰:45},{date:'03.08',쿠팡:156,네이버:102,자사몰:67},
+  {date:'03.09',쿠팡:134,네이버:95,자사몰:52},{date:'03.10',쿠팡:178,네이버:120,자사몰:78},
+  {date:'03.11',쿠팡:145,네이버:108,자사몰:62},{date:'03.12',쿠팡:167,네이버:115,자사몰:71},
+  {date:'03.13',쿠팡:152,네이버:98,자사몰:58},
+];
+
+// ─── Components ───
+function Badge({text}){
+  const colors={'ERP 전송완료':{bg:'#D1FAE5',text:'#065F46'},'변환 완료':{bg:'#DBEAFE',text:'#1E40AF'},'포장 분할중':{bg:'#FEF3C7',text:'#92400E'},'송장 발행완료':{bg:'#D1FAE5',text:'#065F46'},'매핑 오류':{bg:'#FEE2E2',text:'#991B1B'},'대기':{bg:'#F3F4F6',text:'#374151'},
+    분할완료:{bg:'#D1FAE5',text:'#065F46'},시뮬레이션:{bg:'#DBEAFE',text:'#1E40AF'},
+    발행대기:{bg:'#FEF3C7',text:'#92400E'},배송중:{bg:'#D1FAE5',text:'#065F46'},집하:{bg:'#DBEAFE',text:'#1E40AF'},
+  };
+  const c=colors[text]||{bg:'#F3F4F6',text:'#374151'};
+  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:6,fontSize:11,fontWeight:600,background:c.bg,color:c.text,border:`1px solid ${c.bg}`}}>{text}</span>;
+}
+
+function ChannelBadge({ch}){
+  const colors={쿠팡:{bg:'#FEE2E2',text:'#DC2626'},네이버:{bg:'#D1FAE5',text:'#059669'},자사몰:{bg:'#DBEAFE',text:'#2563EB'}};
+  const c=colors[ch]||{bg:'#F3F4F6',text:'#374151'};
+  return <span style={{padding:'2px 8px',borderRadius:4,fontSize:11,fontWeight:600,background:c.bg,color:c.text}}>{ch}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primary,color:'#fff',padding:'12px 24px',borderRadius:6,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(5,150,105,0.3)',fontSize:13}}>{message}</div>;
+}
+
+function SkeletonLoader(){
+  return <div style={{display:'flex',height:'100vh'}}><div style={{width:240,background:'#fff'}}/><div style={{flex:1,padding:20}}>
+    {[1,2,3].map(i=><div key={i} style={{height:80,borderRadius:20,background:'linear-gradient(90deg,#F0FDF4 25%,#D1FAE5 50%,#F0FDF4 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite',marginBottom:12}}/>)}
+  </div></div>;
+}
+
+// ─── Master-Detail Content ───
+function DashboardContent({tab,selected,setSelected}){
+  const filtered = tab==='all'?ORDERS:ORDERS.filter(o=>tab==='coupang'?o.channel==='쿠팡':tab==='naver'?o.channel==='네이버':o.channel==='자사몰');
+  return {
+    master: <>{filtered.map((o,i)=><div key={o.id} onClick={()=>setSelected({...o,_type:'order'})} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===o.id?C.primaryLight:'transparent',borderLeft:selected?.id===o.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms',animation:`slideUp 300ms ease ${i*40}ms both`}} onMouseEnter={e=>{if(selected?.id!==o.id)e.currentTarget.style.background='#F9FAFB'}} onMouseLeave={e=>{if(selected?.id!==o.id)e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+        <span style={{fontSize:12,fontFamily:'monospace',fontWeight:600,color:C.primary}}>{o.id}</span>
+        <ChannelBadge ch={o.channel}/>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{o.product}</div>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textLight}}>
+        <span>{o.buyer} · {o.qty}개</span><Badge text={o.status}/>
+      </div>
+    </div>)}</>,
+    detail: selected?._type==='order'?<OrderDetail item={selected}/>:null,
+    chart: <div style={{padding:16}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>채널별 주문 추이</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <AreaChart data={CHART_DATA}><defs><linearGradient id="gc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.primary} stopOpacity={0.2}/><stop offset="100%" stopColor={C.primary} stopOpacity={0}/></linearGradient></defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="date" fontSize={10} stroke={C.textLight}/><YAxis fontSize={10} stroke={C.textLight}/><Tooltip/>
+          <Area type="monotone" dataKey="쿠팡" stroke="#DC2626" fill="rgba(220,38,38,0.1)" strokeWidth={1.5}/>
+          <Area type="monotone" dataKey="네이버" stroke="#059669" fill="url(#gc)" strokeWidth={1.5}/>
+          <Area type="monotone" dataKey="자사몰" stroke="#2563EB" fill="rgba(37,99,235,0.1)" strokeWidth={1.5}/>
+          <Legend fontSize={11}/>
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  };
+}
+
+function OrderDetail({item}){
+  return <div style={{animation:'fadeIn 200ms ease'}}>
+    <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>주문 상세</div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+      {[{l:'주문번호',v:item.id},{l:'채널',v:item.channel},{l:'품목',v:item.product},{l:'수량',v:`${item.qty}개`},{l:'합계',v:item.total},{l:'주문자',v:item.buyer},{l:'배송지',v:item.addr},{l:'일시',v:item.date}].map(f=>
+        <div key={f.l} style={{background:C.bg,borderRadius:8,padding:10}}><div style={{fontSize:10,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{f.l}</div><div style={{fontSize:13,fontWeight:600}}>{f.v}</div></div>)}
+    </div>
+    <div style={{marginBottom:12}}><Badge text={item.status}/></div>
+    <div style={{background:C.bg,borderRadius:8,padding:12,marginBottom:12}}>
+      <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>관리자 메모</div>
+      <textarea placeholder="메모 입력..." style={{width:'100%',padding:8,border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,resize:'vertical',minHeight:48,outline:'none',fontFamily:'inherit'}}/>
+    </div>
+    <div style={{display:'flex',gap:6}}>
+      <button style={{flex:1,padding:'8px',background:C.bg,border:`1px solid ${C.primary}`,color:C.primary,borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>재변환</button>
+      <button style={{flex:1,padding:'8px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>ERP 전송</button>
+    </div>
+  </div>;
+}
+
+function PackingContent({tab,selected,setSelected}){
+  if(tab==='simulate') return {
+    master:<>{PACKING_ITEMS.map((p,i)=><div key={p.id} onClick={()=>setSelected({...p,_type:'packing'})} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===p.id?C.primaryLight:'transparent',borderLeft:selected?.id===p.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}} onMouseEnter={e=>{if(selected?.id!==p.id)e.currentTarget.style.background='#F9FAFB'}} onMouseLeave={e=>{if(selected?.id!==p.id)e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+        <span style={{fontSize:12,fontFamily:'monospace',fontWeight:600,color:C.primary}}>{p.id}</span>
+        <Badge text={p.status}/>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{p.product}</div>
+      <div style={{fontSize:11,color:C.textLight}}>총 {p.totalQty}개 → {p.boxes}박스 ({p.weight})</div>
+    </div>)}</>,
+    detail: selected?._type==='packing'?<div style={{animation:'fadeIn 200ms ease'}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>포장 시뮬레이션</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[{l:'품목',v:selected.product},{l:'총수량',v:`${selected.totalQty}개`},{l:'박스당 최대',v:`${selected.maxPerBox}개`},{l:'필요 박스',v:`${selected.boxes}개`}].map(f=>
+          <div key={f.l} style={{background:C.bg,borderRadius:8,padding:10}}><div style={{fontSize:10,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{f.l}</div><div style={{fontSize:13,fontWeight:600}}>{f.v}</div></div>)}
+      </div>
+      <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>박스 배치도</div>
+      <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
+        {Array.from({length:selected.boxes}).map((_,i)=>{
+          const itemsInBox = i<selected.boxes-1?selected.maxPerBox:selected.totalQty-(selected.boxes-1)*selected.maxPerBox;
+          return <div key={i} style={{width:100,height:80,border:`2px solid ${C.primary}`,borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.primaryLight}}>
+            <span style={{fontSize:20}}>📦</span>
+            <span style={{fontSize:11,fontWeight:600,marginTop:4}}>Box {i+1}</span>
+            <span style={{fontSize:10,color:C.textLight}}>{itemsInBox}개</span>
+          </div>;
+        })}
+      </div>
+      <button style={{width:'100%',padding:'8px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>분할 확정</button>
+    </div>:null,
+    chart: <div style={{padding:16}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>박스 분할 통계</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={[{box:'1박스',건수:45},{box:'2박스',건수:32},{box:'3박스',건수:18},{box:'4박스+',건수:8}]}>
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="box" fontSize={10}/><YAxis fontSize={10}/><Tooltip/>
+          <Bar dataKey="건수" fill={C.primary} radius={[4,4,0,0]}/>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  };
+  return {master:<div style={{padding:20,textAlign:'center',color:C.textLight}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:13}}>{tab==='rules'?'분할 규칙 설정':'분할 이력 조회'} 화면</div></div>,detail:null,chart:null};
+}
+
+function ShippingContent({tab,selected,setSelected}){
+  const data = tab==='pending'?SHIPPING_PENDING:tab==='completed'?SHIPPING_COMPLETED:[];
+  return {
+    master:<>{data.map((s,i)=><div key={s.id} onClick={()=>setSelected({...s,_type:'shipping'})} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===s.id?C.primaryLight:'transparent',borderLeft:selected?.id===s.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}} onMouseEnter={e=>{if(selected?.id!==s.id)e.currentTarget.style.background='#F9FAFB'}} onMouseLeave={e=>{if(selected?.id!==s.id)e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+        <span style={{fontSize:12,fontFamily:'monospace',fontWeight:600,color:C.primary}}>{s.id}</span>
+        <Badge text={s.status}/>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{s.buyer}</div>
+      <div style={{fontSize:11,color:C.textLight}}>{s.courier} · {s.boxes}박스{s.tracking?` · ${s.tracking}`:''}</div>
+    </div>)}{data.length===0&&<div style={{padding:40,textAlign:'center',color:C.textLight,fontSize:13}}>해당 상태의 송장이 없습니다.</div>}</>,
+    detail: selected?._type==='shipping'?<div style={{animation:'fadeIn 200ms ease'}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>송장 상세</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[{l:'송장ID',v:selected.id},{l:'주문',v:selected.order},{l:'수령인',v:selected.buyer},{l:'택배사',v:selected.courier},{l:'박스수',v:`${selected.boxes}개`},{l:'송장번호',v:selected.tracking||'-'}].map(f=>
+          <div key={f.l} style={{background:C.bg,borderRadius:8,padding:10}}><div style={{fontSize:10,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{f.l}</div><div style={{fontSize:13,fontWeight:600}}>{f.v}</div></div>)}
+      </div>
+      {selected.addr&&<div style={{background:C.bg,borderRadius:8,padding:10,marginBottom:12}}><div style={{fontSize:10,color:C.textLight,marginBottom:2}}>배송지</div><div style={{fontSize:13}}>{selected.addr}</div></div>}
+      <Badge text={selected.status}/>
+      {selected.status==='발행대기'&&<button style={{width:'100%',marginTop:12,padding:'8px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600}}>송장 발행</button>}
+    </div>:null,
+    chart:null
+  };
+}
+
+function InventoryContent({tab,selected,setSelected}){
+  if(tab==='overview'||tab==='search') return {
+    master:<>
+      {tab==='search'&&<div style={{padding:'8px 12px',borderBottom:`1px solid ${C.border}`}}><input placeholder="품목명, 코드 검색..." style={{width:'100%',padding:'6px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,outline:'none'}}/></div>}
+      {INVENTORY.map((inv,i)=><div key={inv.id} onClick={()=>setSelected({...inv,_type:'inventory'})} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',background:selected?.id===inv.id?C.primaryLight:'transparent',borderLeft:selected?.id===inv.id?`3px solid ${C.primary}`:'3px solid transparent',transition:'all 150ms'}} onMouseEnter={e=>{if(selected?.id!==inv.id)e.currentTarget.style.background='#F9FAFB'}} onMouseLeave={e=>{if(selected?.id!==inv.id)e.currentTarget.style.background='transparent'}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+          <span style={{fontSize:12,fontFamily:'monospace',fontWeight:600,color:C.primary}}>{inv.code}</span>
+          <span style={{fontSize:11,padding:'1px 6px',borderRadius:4,background:inv.stock<100?'#FEE2E2':'#D1FAE5',color:inv.stock<100?'#991B1B':'#065F46'}}>{inv.available}개</span>
+        </div>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{inv.name}</div>
+        <div style={{fontSize:11,color:C.textLight}}>{inv.category} · 예약 {inv.reserved}개</div>
+      </div>)}</>,
+    detail: selected?._type==='inventory'?<div style={{animation:'fadeIn 200ms ease'}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>재고 상세</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[{l:'품목명',v:selected.name},{l:'코드',v:selected.code},{l:'카테고리',v:selected.category},{l:'총 재고',v:`${selected.stock}개`},{l:'예약',v:`${selected.reserved}개`},{l:'가용',v:`${selected.available}개`},{l:'최근 입고',v:selected.lastIn},{l:'최근 출고',v:selected.lastOut}].map(f=>
+          <div key={f.l} style={{background:C.bg,borderRadius:8,padding:10}}><div style={{fontSize:10,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:2}}>{f.l}</div><div style={{fontSize:13,fontWeight:600}}>{f.v}</div></div>)}
+      </div>
+      <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>재고 비율</div>
+      <div style={{display:'flex',gap:4,marginBottom:16}}>
+        <div style={{flex:selected.available,height:20,background:C.success,borderRadius:'4px 0 0 4px'}}/>
+        <div style={{flex:selected.reserved,height:20,background:C.warning,borderRadius:'0 4px 4px 0'}}/>
+      </div>
+      <div style={{display:'flex',gap:12,fontSize:11,color:C.textLight}}>
+        <span><span style={{display:'inline-block',width:8,height:8,borderRadius:2,background:C.success,marginRight:4}}/>가용 {selected.available}</span>
+        <span><span style={{display:'inline-block',width:8,height:8,borderRadius:2,background:C.warning,marginRight:4}}/>예약 {selected.reserved}</span>
+      </div>
+    </div>:null,
+    chart: <div style={{padding:16}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>카테고리별 재고</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart><Pie data={[{name:'프레임',value:503},{name:'렌즈',value:1025},{name:'액세서리',value:1540}]} cx="50%" cy="50%" outerRadius={70} innerRadius={40} dataKey="value" label={({name,value})=>`${name} ${value}`} labelLine={false} fontSize={10}>
+          {[C.primary,C.info,C.warning].map((c,i)=><Cell key={i} fill={c}/>)}
+        </Pie></PieChart>
+      </ResponsiveContainer>
+    </div>
+  };
+  return {master:<div style={{padding:20,textAlign:'center',color:C.textLight}}><div style={{fontSize:32,marginBottom:8}}>📋</div><div style={{fontSize:13}}>입출고 이력 화면</div></div>,detail:null,chart:null};
+}
+
+function SettingsContent({tab,setToast}){
+  const configs = {
+    api:[{l:'이카운트 엔드포인트',v:'https://api.ecount.com/v2'},{l:'API Key',v:'ec_key_****'}],
+    courier:[{l:'로젠택배 코드',v:'LOGEN-LGF-001'},{l:'CJ대한통운 코드',v:'CJ-LGF-002'}],
+    schedule:[{l:'오전 동기화',v:'08:00'},{l:'오후 동기화',v:'14:00'}],
+  };
+  return {
+    master:<div style={{padding:16}}>
+      {(configs[tab]||[]).map((f,i)=><div key={i} style={{marginBottom:12}}>
+        <label style={{fontSize:10,color:C.textLight,textTransform:'uppercase',letterSpacing:'0.06em',display:'block',marginBottom:4}}>{f.l}</label>
+        <input defaultValue={f.v} style={{width:'100%',padding:'8px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:12,outline:'none'}}/>
+      </div>)}
+      <button onClick={()=>setToast('설정이 저장되었습니다.')} style={{width:'100%',padding:'8px',background:C.primary,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontSize:12,fontWeight:600,marginTop:8}}>저장</button>
+    </div>,
+    detail:null,chart:null
+  };
+}
+
+// ─── App ───
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [section,setSection]=useState('dashboard');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setTab(0);setSelected(null)},[section]);
+
+  if(loading) return <SkeletonLoader/>;
+
+  const tabs = SECTION_TABS[section]||[];
+  const currentTab = tabs[tab]?.id||'';
+
+  let content = {master:null,detail:null,chart:null};
+  if(section==='dashboard') content=DashboardContent({tab:currentTab,selected,setSelected});
+  else if(section==='packing') content=PackingContent({tab:currentTab,selected,setSelected});
+  else if(section==='shipping') content=ShippingContent({tab:currentTab,selected,setSelected});
+  else if(section==='inventory') content=InventoryContent({tab:currentTab,selected,setSelected});
+  else if(section==='settings') content=SettingsContent({tab:currentTab,setToast});
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0}}>
+        <div style={{padding:'0 16px 16px',display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff'}}>🚚</div>
+          <span style={{fontWeight:700,fontSize:15,color:C.text}}>LogiFlow</span>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV_ITEMS.map(item=><button key={item.id} onClick={()=>setSection(item.id)} title={item.label} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',background:section===item.id?`${C.primary}10`:'transparent',color:section===item.id?C.primary:C.textLight,borderLeft:section===item.id?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:section===item.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
+            <span style={{fontSize:18}}>{item.icon}</span>{item.label}
+          </button>)}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:'50%',background:C.primaryLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12}}>👤</div>
+          <div><div style={{fontSize:12,fontWeight:600}}>김물류</div><div style={{fontSize:10,color:C.textLight}}>운영팀 매니저</div></div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>LogiFlow</span>
+          <span style={{fontSize:12,color:C.textLight}}>›</span>
+          <span style={{fontSize:12,fontWeight:600}}>{NAV_ITEMS.find(n=>n.id===section)?.label}</span>
+          {tabs[tab]&&<><span style={{fontSize:12,color:C.textLight}}>›</span><span style={{fontSize:12,color:C.textLight}}>{tabs[tab].label}</span></>}
+          <div style={{flex:1}}/>
+          <input placeholder="검색..." style={{padding:'4px 10px',border:`1px solid ${C.border}`,borderRadius:6,fontSize:11,width:160,outline:'none'}}/>
+          <div style={{width:24,height:24,borderRadius:'50%',background:C.primaryLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,cursor:'pointer'}}>👤</div>
+        </header>
+
+        {/* Tab Strip */}
+        <div style={{height:36,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+          {tabs.map((t,i)=><button key={t.id} onClick={()=>{setTab(i);setSelected(null)}} style={{padding:'6px 14px 4px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:12,color:tab===i?C.primary:C.textLight,fontWeight:tab===i?600:400,borderBottom:tab===i?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{t.label}</button>)}
+          <div style={{flex:1}}/>
+          {section!=='settings'&&<button onClick={()=>setToast('새 항목을 추가합니다.')} style={{padding:'4px 12px',background:C.primary,color:'#fff',border:'none',borderRadius:4,cursor:'pointer',fontSize:11,fontWeight:600,marginBottom:4}}>+ 추가</button>}
+        </div>
+
+        {/* Master-Detail Workspace */}
+        <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+          {/* Master */}
+          <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto',background:'#fff'}}>
+            {content.master}
+          </div>
+          {/* Detail */}
+          <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
+            {selected?<div style={{padding:20,flex:1}}>{content.detail}</div>
+              :<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:C.textLight}}>
+                <div style={{fontSize:40,marginBottom:8}}>👈</div>
+                <div style={{fontSize:13}}>좌측 목록에서 항목을 선택하세요</div>
+              </div>}
+            {content.chart && <div style={{borderTop:`1px solid ${C.border}`}}>{content.chart}</div>}
+          </div>
+        </div>
+      </div>
+
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
