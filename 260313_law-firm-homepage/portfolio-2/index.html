@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>의원급 병원 통합 홈페이지</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F7FBFF;color:#1A2733;overflow-x:hidden;min-height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer}=Recharts;
+
+const C={
+  primary:'#2A6496',secondary:'#1C4A6E',accent:'#5DADE2',
+  bg:'#F7FBFF',surface:'#FFFFFF',border:'#E2E8F0',
+  text:'#1A2733',textLight:'#607080',textMuted:'#94A3B8',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  gradient:'linear-gradient(135deg,#2A6496,#5DADE2)',
+};
+
+/* ─── Data ─── */
+const TREATMENTS=[
+  {id:'T-01',category:'피부과',name:'레이저 토닝',desc:'색소 침착, 기미, 잡티 개선을 위한 레이저 시술. 멜라닌 색소를 선택적으로 파괴하여 맑은 피부톤을 되찾습니다.',steps:['상담 및 피부 진단','시술 부위 마취','레이저 시술 (15~20분)','진정 케어 및 자외선 차단'],price:'1회 150,000원',faq:[{q:'시술 후 일상생활이 가능한가요?',a:'네, 바로 일상생활이 가능합니다. 다만 자외선 차단제를 꼭 발라주세요.'},{q:'몇 회 시술이 권장되나요?',a:'보통 5~10회, 2주 간격으로 진행됩니다.'}]},
+  {id:'T-02',category:'피부과',name:'보톡스',desc:'표정 주름 개선 및 턱 라인 축소를 위한 보톡스 시술. FDA 승인 정품 보톡스만 사용합니다.',steps:['원하는 부위 상담','시술 부위 디자인','보톡스 주입 (10분)','경과 확인 및 주의사항 안내'],price:'부위별 80,000원~',faq:[{q:'효과는 얼마나 지속되나요?',a:'보통 4~6개월 정도 유지됩니다.'},{q:'부작용은 없나요?',a:'일시적인 멍이나 붓기가 있을 수 있으나 대부분 며칠 내 사라집니다.'}]},
+  {id:'T-03',category:'성형외과',name:'코필러',desc:'코 높이와 라인을 개선하는 비수술적 코 성형. 수술 없이 자연스러운 코 라인을 만들 수 있습니다.',steps:['3D 촬영 및 디자인','마취 크림 도포','필러 주입 (20분)','교정 및 마무리'],price:'300,000원~',faq:[{q:'영구적인가요?',a:'6~12개월 유지되며, 유지 시술로 관리할 수 있습니다.'},{q:'바로 자연스러워지나요?',a:'1~2주 후 부기가 빠지면 자연스러운 라인이 나타납니다.'}]},
+  {id:'T-04',category:'성형외과',name:'눈 매몰법',desc:'쌍꺼풀 수술 중 절개 없이 진행하는 매몰법. 자연스러운 쌍꺼풀 라인을 만들어 드립니다.',steps:['원하는 라인 상담','국소 마취','매몰 시술 (30분)','냉찜질 및 주의사항'],price:'600,000원~',faq:[{q:'회복 기간은 얼마나 걸리나요?',a:'보통 3~5일 정도면 일상생활이 가능합니다.'},{q:'풀리지 않나요?',a:'매몰법은 5~10% 정도 재시술 가능성이 있으며, 보증 프로그램을 운영합니다.'}]},
+];
+
+const GALLERY=[
+  {id:'G-01',category:'레이저 토닝',area:'얼굴',desc:'기미·잡티 개선 4회차 결과'},
+  {id:'G-02',category:'보톡스',area:'이마',desc:'이마 주름 개선 시술 전후'},
+  {id:'G-03',category:'코필러',area:'코',desc:'코 높이 개선 시술 결과'},
+  {id:'G-04',category:'눈 매몰법',area:'눈',desc:'자연스러운 쌍꺼풀 라인'},
+  {id:'G-05',category:'레이저 토닝',area:'볼',desc:'볼 색소침착 개선 6회차'},
+  {id:'G-06',category:'보톡스',area:'턱',desc:'사각턱 보톡스 시술 전후'},
+];
+
+const DOCTORS=[
+  {name:'김현우 원장',title:'대표원장',specialty:'피부과 전문의',career:'서울대 의대 졸업\n연세세브란스 피부과 전공의\n대한피부과학회 정회원\n레이저학회 인정의',photo:'👨‍⚕️'},
+  {name:'이서현 원장',title:'성형외과',specialty:'성형외과 전문의',career:'고려대 의대 졸업\n서울아산병원 성형외과 전공의\n대한성형외과학회 정회원\n미용성형학회 인정의',photo:'👩‍⚕️'},
+  {name:'박지훈 원장',title:'피부과',specialty:'피부과 전문의',career:'연세대 의대 졸업\n서울대병원 피부과 전임의\n레이저피부과학회 정회원',photo:'👨‍⚕️'},
+];
+
+const RESERVATIONS=[
+  {id:'RV-001',name:'김서연',phone:'010-****-1234',treatment:'레이저 토닝',doctor:'김현우 원장',date:'2025.06.25 14:00',status:'예약확정'},
+  {id:'RV-002',name:'이준호',phone:'010-****-5678',treatment:'코필러',doctor:'이서현 원장',date:'2025.06.25 15:30',status:'대기중'},
+  {id:'RV-003',name:'박하나',phone:'010-****-9012',treatment:'보톡스',doctor:'김현우 원장',date:'2025.06.26 10:00',status:'예약확정'},
+  {id:'RV-004',name:'정수민',phone:'010-****-3456',treatment:'눈 매몰법',doctor:'이서현 원장',date:'2025.06.26 13:00',status:'대기중'},
+  {id:'RV-005',name:'최예린',phone:'010-****-7890',treatment:'레이저 토닝',doctor:'박지훈 원장',date:'2025.06.27 11:00',status:'예약확정'},
+];
+
+const MONTHLY_RES=[
+  {month:'1월',count:82},{month:'2월',count:95},{month:'3월',count:118},
+  {month:'4월',count:105},{month:'5월',count:132},{month:'6월',count:148},
+];
+
+/* ─── Components ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const[val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({text}){
+  const colors={'예약확정':{bg:'#D1FAE5',text:'#059669'},'대기중':{bg:'#FEF3C7',text:'#D97706'},'피부과':{bg:'#DBEAFE',text:'#2A6496'},'성형외과':{bg:'#FCE7F3',text:'#DB2777'}};
+  const c=colors[text]||{bg:'#F1F5F9',text:'#475569'};
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+
+function Drawer({item,onClose,type}){
+  return(
+    <>
+      <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'fixed',top:0,right:0,bottom:0,width:480,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,0.15)',zIndex:201,overflowY:'auto',padding:28,animation:'slideInRight 200ms ease'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+          <h3 style={{fontSize:20,fontWeight:700}}>{type==='treatment'?'시술 상세':type==='doctor'?'의료진 상세':type==='gallery'?'시술 전후':type==='reservation'?'예약 상세':'상세'}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:22,cursor:'pointer',color:'#64748B'}}>✕</button>
+        </div>
+        {type==='treatment'&&item&&(
+          <>
+            <Badge text={item.category}/>
+            <h2 style={{fontSize:24,fontWeight:800,margin:'12px 0 8px'}}>{item.name}</h2>
+            <p style={{fontSize:14,color:C.textLight,lineHeight:1.7,marginBottom:20}}>{item.desc}</p>
+            <div style={{background:'#F0F9FF',borderRadius:12,padding:20,marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.primary,marginBottom:12}}>시술 과정</div>
+              {item.steps.map((s,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:12,marginBottom:i<item.steps.length-1?10:0}}>
+                  <div style={{width:28,height:28,borderRadius:14,background:C.primary,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                  <div style={{fontSize:14}}>{s}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:16,background:'#F8FAFC',borderRadius:8,marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.textLight}}>시술 비용</div>
+              <div style={{fontSize:18,fontWeight:700,marginTop:4}}>{item.price}</div>
+            </div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>자주 묻는 질문</div>
+              {item.faq.map((f,i)=>(
+                <div key={i} style={{marginBottom:12,padding:14,background:'#F8FAFC',borderRadius:8}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.primary}}>Q. {f.q}</div>
+                  <div style={{fontSize:13,color:C.textLight,marginTop:6}}>A. {f.a}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:8}}>관리자 메모</div>
+              <textarea rows={3} placeholder="내부 참고 메모" style={{width:'100%',padding:10,border:'1px solid #E2E8F0',borderRadius:6,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+          </>
+        )}
+        {type==='doctor'&&item&&(
+          <>
+            <div style={{width:80,height:80,borderRadius:40,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:40,marginBottom:16}}>{item.photo}</div>
+            <h2 style={{fontSize:22,fontWeight:800}}>{item.name}</h2>
+            <div style={{fontSize:14,color:C.primary,fontWeight:600,marginBottom:4}}>{item.title}</div>
+            <Badge text={item.specialty}/>
+            <div style={{marginTop:20}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>경력 사항</div>
+              {item.career.split('\n').map((l,i)=>(
+                <div key={i} style={{fontSize:13,color:C.textLight,padding:'6px 0',borderBottom:'1px solid #F1F5F9',display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{color:C.primary}}>•</span>{l}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {type==='gallery'&&item&&(
+          <>
+            <div style={{width:'100%',height:200,borderRadius:12,background:'linear-gradient(135deg,#E0F2FE,#BFDBFE)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                <div style={{width:160,height:160,borderRadius:8,background:'#DBEAFE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:C.textLight}}>Before</div>
+                <div style={{fontSize:20,color:C.primary}}>→</div>
+                <div style={{width:160,height:160,borderRadius:8,background:'#BFDBFE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:C.primary,fontWeight:600}}>After</div>
+              </div>
+            </div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>{item.desc}</div>
+            <div style={{display:'flex',gap:8,marginBottom:12}}><Badge text={item.category}/><span style={{fontSize:12,color:C.textMuted}}>부위: {item.area}</span></div>
+          </>
+        )}
+        {type==='reservation'&&item&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+              {[{l:'이름',v:item.name},{l:'연락처',v:item.phone},{l:'시술',v:item.treatment},{l:'담당의',v:item.doctor},{l:'예약일시',v:item.date},{l:'상태',v:item.status}].map(f=>(
+                <div key={f.l}><div style={{fontSize:12,color:C.textLight,marginBottom:4}}>{f.l}</div><div style={{fontSize:14,fontWeight:600}}>{f.v}</div></div>
+              ))}
+            </div>
+            <div style={{padding:16,background:'#F8FAFC',borderRadius:8}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:8}}>관리자 메모</div>
+              <textarea rows={3} placeholder="예약 관련 메모" style={{width:'100%',padding:10,border:'1px solid #E2E8F0',borderRadius:6,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Pages ─── */
+function HomePage({setDrawer}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:28}}>
+        {TREATMENTS.slice(0,3).map((t,i)=>(
+          <div key={t.id} onClick={()=>setDrawer({item:t,type:'treatment'})} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+            <div style={{height:140,background:`linear-gradient(135deg,${C.primary}20,${C.accent}30)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>💆</div>
+            <div style={{padding:20}}>
+              <Badge text={t.category}/>
+              <div style={{fontSize:16,fontWeight:700,margin:'8px 0 6px'}}>{t.name}</div>
+              <div style={{fontSize:13,color:C.textLight,lineHeight:1.5}}>{t.desc.slice(0,60)}...</div>
+              <div style={{fontSize:14,fontWeight:700,color:C.primary,marginTop:10}}>{t.price}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:16,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>의료진 소개</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:28}}>
+        {DOCTORS.map((d,i)=>(
+          <div key={d.name} onClick={()=>setDrawer({item:d,type:'doctor'})} style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',cursor:'pointer',transition:'all 200ms',textAlign:'center',animation:`slideUp 400ms ease ${(i+3)*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+            <div style={{width:64,height:64,borderRadius:32,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32,margin:'0 auto 12px'}}>{d.photo}</div>
+            <div style={{fontSize:16,fontWeight:700}}>{d.name}</div>
+            <div style={{fontSize:13,color:C.primary,fontWeight:600,marginTop:4}}>{d.specialty}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)'}}>
+        <div style={{fontSize:16,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>월별 예약 현황</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={MONTHLY_RES}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
+            <XAxis dataKey="month" tick={{fontSize:12}} stroke="#94A3B8"/>
+            <YAxis tick={{fontSize:12}} stroke="#94A3B8"/>
+            <Tooltip/>
+            <Bar dataKey="count" fill={C.primary} radius={[6,6,0,0]} name="예약 건수"/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function TreatmentsPage({setDrawer}){
+  const[cat,setCat]=useState('전체');
+  const cats=['전체','피부과','성형외과'];
+  const filtered=cat==='전체'?TREATMENTS:TREATMENTS.filter(t=>t.category===cat);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setCat(c)} style={{padding:'8px 20px',borderRadius:24,border:`1px solid ${cat===c?C.primary:C.border}`,background:cat===c?C.primary:'#fff',color:cat===c?'#fff':C.textLight,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit',transition:'all 200ms'}}>
+            {c}
+          </button>
+        ))}
+      </div>
+      {filtered.map((t,i)=>(
+        <div key={t.id} onClick={()=>setDrawer({item:t,type:'treatment'})} style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',marginBottom:16,cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+          onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+          onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}><Badge text={t.category}/><span style={{fontSize:14,fontWeight:700,color:C.primary}}>{t.price}</span></div>
+              <div style={{fontSize:18,fontWeight:800,marginBottom:8}}>{t.name}</div>
+              <div style={{fontSize:14,color:C.textLight,lineHeight:1.6}}>{t.desc}</div>
+            </div>
+          </div>
+          <div style={{marginTop:16,display:'flex',gap:8}}>
+            {t.steps.map((s,si)=>(
+              <div key={si} style={{flex:1,padding:'10px 12px',background:'#F0F9FF',borderRadius:8,fontSize:12,textAlign:'center'}}>
+                <div style={{fontWeight:700,color:C.primary,marginBottom:2}}>Step {si+1}</div>
+                <div style={{color:C.textLight}}>{s}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GalleryPage({setDrawer}){
+  const[filter,setFilter]=useState('전체');
+  const cats=['전체','레이저 토닝','보톡스','코필러','눈 매몰법'];
+  const filtered=filter==='전체'?GALLERY:GALLERY.filter(g=>g.category===filter);
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+        {cats.map(c=>(
+          <button key={c} onClick={()=>setFilter(c)} style={{padding:'8px 20px',borderRadius:24,border:`1px solid ${filter===c?C.primary:C.border}`,background:filter===c?C.primary:'#fff',color:filter===c?'#fff':C.textLight,cursor:'pointer',fontSize:13,fontWeight:600,fontFamily:'inherit',transition:'all 200ms'}}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {filtered.map((g,i)=>(
+          <div key={g.id} onClick={()=>setDrawer({item:g,type:'gallery'})} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,0.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+            <div style={{height:160,background:'linear-gradient(135deg,#E0F2FE,#BFDBFE)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <div style={{width:60,height:80,borderRadius:6,background:'#DBEAFE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:C.textLight}}>Before</div>
+                <span style={{color:C.primary,fontSize:16}}>→</span>
+                <div style={{width:60,height:80,borderRadius:6,background:'#BFDBFE',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:C.primary,fontWeight:600}}>After</div>
+              </div>
+            </div>
+            <div style={{padding:16}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:4}}>{g.desc}</div>
+              <div style={{display:'flex',gap:6}}><span style={{fontSize:12,color:C.textMuted}}>{g.category}</span><span style={{fontSize:12,color:C.textMuted}}>· {g.area}</span></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReservationPage({setDrawer,setToast}){
+  const[step,setStep]=useState(0);
+  const[form,setForm]=useState({name:'',phone:'',treatment:'레이저 토닝',doctor:'김현우 원장',date:'',memo:''});
+  return(
+    <div style={{animation:'fadeIn 300ms ease',display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+      <div style={{background:C.surface,borderRadius:16,padding:28,boxShadow:'0 4px 16px rgba(0,0,0,0.10)'}}>
+        <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>온라인 예약 신청</div>
+        <div style={{fontSize:13,color:C.textLight,marginBottom:20}}>아래 정보를 입력해주시면 확인 SMS를 보내드립니다</div>
+        <div style={{display:'flex',gap:8,marginBottom:20}}>
+          {['정보 입력','시술 선택','확인'].map((s,i)=>(
+            <div key={i} style={{flex:1,textAlign:'center'}}>
+              <div style={{width:28,height:28,borderRadius:14,background:step>=i?C.primary:'#E2E8F0',color:step>=i?'#fff':C.textLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,margin:'0 auto 6px'}}>{i+1}</div>
+              <div style={{fontSize:11,color:step>=i?C.primary:C.textMuted,fontWeight:step>=i?600:400}}>{s}</div>
+            </div>
+          ))}
+        </div>
+        {step===0&&(
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {[{l:'이름',k:'name',ph:'홍길동'},{l:'연락처',k:'phone',ph:'010-1234-5678'}].map(f=>(
+              <div key={f.k}>
+                <label style={{fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6,display:'block'}}>{f.l}</label>
+                <input value={form[f.k]} onChange={e=>setForm({...form,[f.k]:e.target.value})} placeholder={f.ph} style={{width:'100%',padding:'10px 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,fontFamily:'inherit',outline:'none'}}/>
+              </div>
+            ))}
+            <button onClick={()=>setStep(1)} style={{padding:'12px 0',background:C.primary,color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>다음</button>
+          </div>
+        )}
+        {step===1&&(
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <label style={{fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6,display:'block'}}>시술 선택</label>
+              <select value={form.treatment} onChange={e=>setForm({...form,treatment:e.target.value})} style={{width:'100%',padding:'10px 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,fontFamily:'inherit',background:'#fff'}}>
+                {TREATMENTS.map(t=><option key={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6,display:'block'}}>담당 의료진</label>
+              <select value={form.doctor} onChange={e=>setForm({...form,doctor:e.target.value})} style={{width:'100%',padding:'10px 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,fontFamily:'inherit',background:'#fff'}}>
+                {DOCTORS.map(d=><option key={d.name}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:13,fontWeight:600,color:C.textLight,marginBottom:6,display:'block'}}>희망 일시</label>
+              <input type="text" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} placeholder="예: 2025.07.01 14:00" style={{width:'100%',padding:'10px 14px',border:'1px solid #E2E8F0',borderRadius:10,fontSize:14,fontFamily:'inherit',outline:'none'}}/>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setStep(0)} style={{flex:1,padding:'12px 0',background:'#F1F5F9',color:C.textLight,border:'none',borderRadius:10,fontSize:14,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>이전</button>
+              <button onClick={()=>setStep(2)} style={{flex:1,padding:'12px 0',background:C.primary,color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>다음</button>
+            </div>
+          </div>
+        )}
+        {step===2&&(
+          <div>
+            <div style={{background:'#F0F9FF',borderRadius:10,padding:20,marginBottom:16}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>예약 정보 확인</div>
+              {[{l:'이름',v:form.name||'김서연'},{l:'연락처',v:form.phone||'010-****-1234'},{l:'시술',v:form.treatment},{l:'담당의',v:form.doctor},{l:'일시',v:form.date||'2025.07.01 14:00'}].map(f=>(
+                <div key={f.l} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #E0F2FE'}}>
+                  <span style={{fontSize:13,color:C.textLight}}>{f.l}</span>
+                  <span style={{fontSize:13,fontWeight:600}}>{f.v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={()=>setStep(1)} style={{flex:1,padding:'12px 0',background:'#F1F5F9',color:C.textLight,border:'none',borderRadius:10,fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>이전</button>
+              <button onClick={()=>{setToast('예약이 접수되었습니다. 확인 SMS가 발송됩니다.');setStep(0)}} style={{flex:1,padding:'12px 0',background:C.primary,color:'#fff',border:'none',borderRadius:10,fontSize:15,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>예약 신청</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 4px 16px rgba(0,0,0,0.10)'}}>
+          <div style={{fontSize:16,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:16}}>예약 현황</div>
+          {RESERVATIONS.map((r,i)=>(
+            <div key={r.id} onClick={()=>setDrawer({item:r,type:'reservation'})} style={{padding:'12px 0',borderBottom:i<RESERVATIONS.length-1?'1px solid #F1F5F9':'none',cursor:'pointer',transition:'all 150ms'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(42,100,150,0.06)';e.currentTarget.style.borderLeft='3px solid '+C.primary;e.currentTarget.style.paddingLeft='12px'}}
+              onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none';e.currentTarget.style.paddingLeft='0'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontWeight:600,fontSize:14}}>{r.name}</span>
+                <Badge text={r.status}/>
+              </div>
+              <div style={{fontSize:12,color:C.textLight,marginTop:3}}>{r.treatment} · {r.doctor} · {r.date}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DoctorsPage({setDrawer}){
+  return(
+    <div style={{animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20}}>
+        {DOCTORS.map((d,i)=>(
+          <div key={d.name} onClick={()=>setDrawer({item:d,type:'doctor'})} style={{background:C.surface,borderRadius:16,padding:28,boxShadow:'0 4px 16px rgba(0,0,0,0.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.15)'}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)'}}>
+            <div style={{width:80,height:80,borderRadius:40,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:40,margin:'0 auto 16px'}}>{d.photo}</div>
+            <div style={{textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:800}}>{d.name}</div>
+              <div style={{fontSize:14,color:C.primary,fontWeight:600,marginTop:4}}>{d.specialty}</div>
+              <div style={{fontSize:13,color:C.textLight,marginTop:8,lineHeight:1.5}}>{d.career.split('\n').slice(0,2).join(' · ')}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── App ─── */
+function App(){
+  const[tab,setTab]=useState('병원 소개 및 진료과목 메인');
+  const[drawer,setDrawer]=useState(null);
+  const[toast,setToast]=useState('');
+  const[loading,setLoading]=useState(true);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  const TABS=[
+    {id:'병원 소개 및 진료과목 메인',label:'홈'},
+    {id:'진료과목 상세',label:'진료과목 상세'},
+    {id:'시술 전후 갤러리',label:'시술 전후 갤러리'},
+    {id:'온라인 예약 신청',label:'온라인 예약 신청'},
+    {id:'의료진 소개',label:'의료진 소개'},
+  ];
+
+  const PAGE_META={
+    '병원 소개 및 진료과목 메인':{title:'에스티 피부과·성형외과',kpis:[{label:'금일 예약',value:'12건'},{label:'이번 달 예약',value:'148건'},{label:'등록 의료진',value:'3명'}]},
+    '진료과목 상세':{title:'진료과목 안내',kpis:[{label:'피부과',value:'2종'},{label:'성형외과',value:'2종'},{label:'전체 시술',value:'4종'}]},
+    '시술 전후 갤러리':{title:'시술 전후 갤러리',kpis:[{label:'등록 사례',value:'6건'},{label:'피부과',value:'3건'},{label:'성형외과',value:'3건'}]},
+    '온라인 예약 신청':{title:'온라인 예약',kpis:[{label:'대기 예약',value:'2건'},{label:'확정 예약',value:'3건'},{label:'금주 예약',value:'5건'}]},
+    '의료진 소개':{title:'의료진 소개',kpis:[{label:'전문의',value:'3명'},{label:'진료과',value:'2개'},{label:'평균 경력',value:'10년+'}]},
+  };
+  const meta=PAGE_META[tab];
+
+  if(loading) return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      <div style={{height:56,background:C.surface}}/>
+      <div style={{padding:32,display:'flex',flexDirection:'column',gap:16}}>
+        {[...Array(3)].map((_,i)=><div key={i} style={{height:140,borderRadius:16,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:'100vh',background:C.bg}}>
+      {/* Top Nav */}
+      <header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 24px',gap:8}}>
+        <div style={{fontSize:18,fontWeight:800,color:C.primary,marginRight:24}}>🏥 에스티클리닉</div>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'8px 16px',borderRadius:8,border:'none',background:tab===t.id?`${C.primary}12`:'transparent',color:tab===t.id?C.primary:C.textLight,cursor:'pointer',fontSize:14,fontWeight:tab===t.id?700:400,fontFamily:'inherit',transition:'all 200ms'}}>
+            {t.label}
+          </button>
+        ))}
+        <div style={{flex:1}}/>
+        <div style={{position:'relative'}}>
+          <input placeholder="검색..." style={{padding:'7px 14px 7px 32px',border:'1px solid #E2E8F0',borderRadius:8,fontSize:13,width:180,fontFamily:'inherit',outline:'none'}}/>
+          <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13}}>🔍</span>
+        </div>
+        <span style={{fontSize:16}}>🔔</span>
+        <div style={{width:32,height:32,borderRadius:16,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff'}}>관</div>
+      </header>
+
+      {/* Hero Banner */}
+      <div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}>
+        <h1 style={{fontSize:28,fontWeight:800,letterSpacing:'-0.03em'}}>{meta.title}</h1>
+        <div style={{display:'flex',gap:32,marginTop:12}}>
+          {meta.kpis.map(k=>(
+            <div key={k.label}>
+              <div style={{fontSize:11,opacity:0.8}}>{k.label}</div>
+              <div style={{fontSize:20,fontWeight:700,marginTop:2}}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <main style={{padding:'24px 32px'}}>
+        {tab==='병원 소개 및 진료과목 메인'&&<HomePage setDrawer={setDrawer}/>}
+        {tab==='진료과목 상세'&&<TreatmentsPage setDrawer={setDrawer}/>}
+        {tab==='시술 전후 갤러리'&&<GalleryPage setDrawer={setDrawer}/>}
+        {tab==='온라인 예약 신청'&&<ReservationPage setDrawer={setDrawer} setToast={setToast}/>}
+        {tab==='의료진 소개'&&<DoctorsPage setDrawer={setDrawer}/>}
+      </main>
+
+      {drawer&&<Drawer item={drawer.item} type={drawer.type} onClose={()=>setDrawer(null)}/>}
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

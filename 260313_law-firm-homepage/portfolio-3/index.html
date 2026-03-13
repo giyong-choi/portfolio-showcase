@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>종합 법률 포털 + 통합 어드민 시스템</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F4F8;color:#111827;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={
+  primary:'#1E3A5F',secondary:'#2E5D8E',accent:'#3B82F6',
+  bg:'#F0F4F8',surface:'#FFFFFF',border:'#E5E7EB',
+  text:'#111827',textLight:'#4B5563',textMuted:'#9CA3AF',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+};
+
+/* ─── Data ─── */
+const MONTHLY_STATS=[
+  {month:'1월',접수:32,배정:28,완료:25},{month:'2월',접수:45,배정:40,완료:37},
+  {month:'3월',접수:58,배정:52,완료:48},{month:'4월',접수:41,배정:38,완료:35},
+  {month:'5월',접수:63,배정:58,완료:54},{month:'6월',접수:72,배정:65,완료:60},
+];
+
+const FIELD_PIE=[
+  {name:'형사',value:40,color:'#1E3A5F'},{name:'민사',value:25,color:'#2E5D8E'},
+  {name:'가사',value:20,color:'#3B82F6'},{name:'노동',value:15,color:'#93C5FD'},
+];
+
+const CASES=[
+  {id:'SC-001',title:'사기 혐의 무혐의 처분',field:'형사',result:'무혐의',lawyer:'박정훈 변호사',date:'2025.06',summary:'인터넷 거래 사기 혐의를 받은 의뢰인의 거래 내역과 대화 기록을 체계적으로 정리하여 무혐의 처분을 이끌어낸 사례',detail:'거래 당시 상황을 시간순으로 재구성하고, 의뢰인의 이행 의지를 입증하는 증거자료를 체계적으로 정리하여 수사기관에 소명하였습니다.'},
+  {id:'SC-002',title:'이혼 소송 재산 분할 조정',field:'가사',result:'조정 성립',lawyer:'김수현 변호사',date:'2025.05',summary:'협의이혼 과정에서 복잡한 재산 분할 쟁점을 정리하고 양 당사자 합의를 이끌어 조정을 성립시킨 사례',detail:'부동산, 금융자산, 퇴직금 등 다양한 재산 항목을 분류하고 기여도를 산정하여 합리적인 분할안을 제시하였습니다.'},
+  {id:'SC-003',title:'부당해고 구제 신청 인용',field:'노동',result:'인용',lawyer:'이도윤 변호사',date:'2025.05',summary:'정리해고 과정에서 절차적 하자를 입증하여 부당해고 구제신청이 인용된 사례',detail:'근로기준법상 정리해고 요건(긴박한 경영상 필요, 해고 회피 노력, 합리적 기준, 노조 협의)의 미충족을 하나씩 입증하였습니다.'},
+  {id:'SC-004',title:'손해배상 청구 소송 승소',field:'민사',result:'승소',lawyer:'박정훈 변호사',date:'2025.04',summary:'건물 누수로 인한 영업 손실에 대해 건물주 상대 손해배상 청구 소송에서 승소한 사례',detail:'누수 발생 시점부터의 영업 매출 감소분을 회계 자료로 입증하고, 건물 관리 의무 위반을 전문가 감정으로 확인하였습니다.'},
+  {id:'SC-005',title:'음주운전 감경 판결',field:'형사',result:'감경',lawyer:'김수현 변호사',date:'2025.03',summary:'초범 음주운전 사건에서 반성문, 재발 방지 서약, 알코올 치료 이수 등을 통해 양형 감경을 이끌어낸 사례',detail:'의뢰인의 진정한 반성 의사를 나타내는 여러 정상 자료를 준비하고, 알코올 치료 프로그램 이수를 적극적으로 진행하여 감경 판결을 받았습니다.'},
+  {id:'SC-006',title:'임금체불 소송 전액 지급 판결',field:'노동',result:'승소',lawyer:'이도윤 변호사',date:'2025.02',summary:'퇴직 후 미지급 임금 및 퇴직금 청구 소송에서 전액 지급 판결을 받은 사례',detail:'근로계약서, 급여 명세서, 근태 기록을 종합하여 미지급 금액을 산정하고, 사용자의 지급 의무를 명확히 입증하였습니다.'},
+];
+
+const CONSULTATIONS=[
+  {id:'CL-001',name:'김민재',field:'형사',type:'사기 혐의 상담',date:'2025.06.22 14:30',status:'신청',assignee:null,content:'인터넷 중고거래 관련 사기 혐의로 경찰 조사를 받게 되었습니다.',phone:'010-****-2341',email:'kim@gmail.com'},
+  {id:'CL-002',name:'이서연',field:'가사',type:'이혼 상담',date:'2025.06.22 11:00',status:'검토중',assignee:'김수현 변호사',content:'협의이혼을 진행하려 하는데 재산 분할이 복잡합니다.',phone:'010-****-5678',email:'lee@naver.com'},
+  {id:'CL-003',name:'박준호',field:'노동',type:'부당해고 상담',date:'2025.06.21 16:00',status:'배정',assignee:'이도윤 변호사',content:'갑작스러운 정리해고 통보를 받았습니다.',phone:'010-****-9012',email:'park@daum.net'},
+  {id:'CL-004',name:'정예린',field:'민사',type:'손해배상 상담',date:'2025.06.21 10:30',status:'완료',assignee:'박정훈 변호사',content:'건물 누수로 인한 영업 손실 배상을 청구하고 싶습니다.',phone:'010-****-3456',email:'jung@gmail.com'},
+  {id:'CL-005',name:'최하윤',field:'형사',type:'음주운전 상담',date:'2025.06.20 15:00',status:'완료',assignee:'김수현 변호사',content:'초범 음주운전으로 기소되었습니다. 감경 방법이 궁금합니다.',phone:'010-****-7890',email:'choi@gmail.com'},
+  {id:'CL-006',name:'강민수',field:'노동',type:'임금체불 상담',date:'2025.06.19 13:00',status:'배정',assignee:'이도윤 변호사',content:'퇴직 후 3개월째 미지급 임금이 있습니다.',phone:'010-****-1234',email:'kang@gmail.com'},
+];
+
+const LAWYERS=[
+  {name:'박정훈 변호사',role:'대표변호사',field:'형사·민사',cases:28,active:8,photo:'👨‍⚖️'},
+  {name:'김수현 변호사',role:'파트너변호사',field:'형사·가사',cases:22,active:6,photo:'👩‍⚖️'},
+  {name:'이도윤 변호사',role:'소속변호사',field:'노동·민사',cases:18,active:5,photo:'👨‍⚖️'},
+];
+
+const STATUS_FLOW=['신청','검토중','배정','진행중','완료'];
+const STATUS_COLOR={'신청':'#3B82F6','검토중':'#D97706','배정':'#8B5CF6','진행중':'#059669','완료':'#6B7280'};
+
+/* ─── Components ─── */
+function CountUp({end,duration=1200,suffix=''}){
+  const[val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.primary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({text,color}){
+  const c=color||STATUS_COLOR[text]||'#6B7280';
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:`${c}18`,color:c}}>{text}</span>;
+}
+
+function SideNavItem({icon,label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
+      <span style={{fontSize:18}}>{icon}</span>{label}
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:active?C.primary:C.textLight,fontWeight:active?600:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>
+      {label}
+    </button>
+  );
+}
+
+/* ─── Pages with master-detail ─── */
+function DashboardSection(){
+  return(
+    <div style={{padding:20,animation:'fadeIn 300ms ease'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
+        {[{t:'금일 상담 접수',v:5,icon:'📥'},{t:'배정 대기',v:3,icon:'⏳'},{t:'이번 달 완료',v:60,icon:'✅'},{t:'등록 변호사',v:3,icon:'👨‍⚖️'}].map((k,i)=>(
+          <div key={i} style={{background:C.surface,borderRadius:20,padding:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{fontSize:12,color:C.textLight,marginBottom:6}}>{k.t}</div>
+                <div style={{fontSize:24,fontWeight:700}}><CountUp end={k.v}/></div>
+              </div>
+              <span style={{fontSize:22}}>{k.icon}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:16}}>
+        <div style={{background:C.surface,borderRadius:20,padding:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>월별 상담 추이</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={MONTHLY_STATS}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="month" tick={{fontSize:11}} stroke="#9CA3AF"/>
+              <YAxis tick={{fontSize:11}} stroke="#9CA3AF"/>
+              <Tooltip/>
+              <Bar dataKey="접수" fill={C.primary} radius={[4,4,0,0]}/>
+              <Bar dataKey="완료" fill={C.accent} radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>분야별 비중</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={FIELD_PIE} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>
+                {FIELD_PIE.map((e,i)=><Cell key={i} fill={e.color}/>)}
+              </Pie>
+              <Tooltip/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CasesSection({selected,setSelected}){
+  const[filter,setFilter]=useState('전체');
+  const fields=['전체','형사','민사','가사','노동'];
+  const filtered=filter==='전체'?CASES:CASES.filter(c=>c.field===filter);
+  return(
+    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6}}>
+          {fields.map(f=>(
+            <button key={f} onClick={()=>setFilter(f)} style={{padding:'4px 10px',borderRadius:12,border:`1px solid ${filter===f?C.primary:C.border}`,background:filter===f?C.primary:'transparent',color:filter===f?'#fff':C.textLight,cursor:'pointer',fontSize:11,fontWeight:500,fontFamily:'inherit'}}>
+              {f}
+            </button>
+          ))}
+        </div>
+        {filtered.map(c=>(
+          <div key={c.id} onClick={()=>setSelected(c)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===c.id?`${C.primary}08`:'transparent',borderLeft:selected?.id===c.id?`2px solid ${C.primary}`:'2px solid transparent'}}
+            onMouseEnter={e=>{if(selected?.id!==c.id)e.currentTarget.style.background=`${C.primary}04`}}
+            onMouseLeave={e=>{if(selected?.id!==c.id)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:600}}>{c.title}</span>
+              <Badge text={c.field}/>
+            </div>
+            <div style={{fontSize:11,color:C.textMuted}}>{c.lawyer} · {c.date}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <div style={{display:'flex',gap:8,marginBottom:12}}><Badge text={selected.field}/><Badge text={selected.result} color={C.success}/></div>
+            <h2 style={{fontSize:22,fontWeight:700,marginBottom:8}}>{selected.title}</h2>
+            <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>{selected.lawyer} · {selected.date}</div>
+            <div style={{fontSize:14,lineHeight:1.7,color:C.textLight,marginBottom:16}}>{selected.summary}</div>
+            <div style={{background:'#F8FAFC',borderRadius:12,padding:16,marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>상세 내용</div>
+              <div style={{fontSize:13,lineHeight:1.7,color:C.textLight}}>{selected.detail}</div>
+            </div>
+            <div style={{background:'#F8FAFC',borderRadius:12,padding:16}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:8}}>관리자 메모</div>
+              <textarea rows={3} placeholder="내부 참고용 메모" style={{width:'100%',padding:10,border:'1px solid #E2E8F0',borderRadius:8,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측 목록에서 사례를 선택하세요</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConsultsSection({selected,setSelected,setToast}){
+  const[filter,setFilter]=useState('전체');
+  const statuses=['전체',...STATUS_FLOW];
+  const filtered=filter==='전체'?CONSULTATIONS:CONSULTATIONS.filter(c=>c.status===filter);
+  return(
+    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:4,flexWrap:'wrap'}}>
+          {statuses.map(s=>(
+            <button key={s} onClick={()=>setFilter(s)} style={{padding:'4px 10px',borderRadius:12,border:`1px solid ${filter===s?C.primary:C.border}`,background:filter===s?C.primary:'transparent',color:filter===s?'#fff':C.textLight,cursor:'pointer',fontSize:11,fontWeight:500,fontFamily:'inherit'}}>
+              {s}
+            </button>
+          ))}
+        </div>
+        {filtered.map(c=>(
+          <div key={c.id} onClick={()=>setSelected(c)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===c.id?`${C.primary}08`:'transparent',borderLeft:selected?.id===c.id?`2px solid ${C.primary}`:'2px solid transparent'}}
+            onMouseEnter={e=>{if(selected?.id!==c.id)e.currentTarget.style.background=`${C.primary}04`}}
+            onMouseLeave={e=>{if(selected?.id!==c.id)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:600}}>{c.name}</span>
+              <Badge text={c.status}/>
+            </div>
+            <div style={{fontSize:11,color:C.textMuted}}>{c.type} · {c.date}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <h2 style={{fontSize:20,fontWeight:700}}>{selected.name}</h2>
+              <Badge text={selected.status}/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:16}}>
+              {[{l:'연락처',v:selected.phone},{l:'이메일',v:selected.email},{l:'분야',v:selected.field},{l:'접수일',v:selected.date},{l:'유형',v:selected.type},{l:'담당',v:selected.assignee||'미배정'}].map(f=>(
+                <div key={f.l}><div style={{fontSize:11,color:C.textMuted,marginBottom:2}}>{f.l}</div><div style={{fontSize:13,fontWeight:600}}>{f.v}</div></div>
+              ))}
+            </div>
+            <div style={{background:'#F8FAFC',borderRadius:12,padding:16,marginBottom:16}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:6}}>문의 내용</div>
+              <div style={{fontSize:13,lineHeight:1.6}}>{selected.content}</div>
+            </div>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:8}}>상태 변경</div>
+              <div style={{display:'flex',gap:6}}>
+                {STATUS_FLOW.map(s=>(
+                  <button key={s} onClick={()=>setToast(`${selected.name}님 상태: ${s}`)} style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${STATUS_COLOR[s]}30`,background:selected.status===s?`${STATUS_COLOR[s]}18`:'transparent',color:STATUS_COLOR[s],cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'inherit',transition:'all 150ms'}}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{background:'#F8FAFC',borderRadius:12,padding:16}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:8}}>관리자 메모</div>
+              <textarea rows={3} placeholder="상담 관련 내부 메모" style={{width:'100%',padding:10,border:'1px solid #E2E8F0',borderRadius:8,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측 목록에서 상담을 선택하세요</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminSection({setToast}){
+  return(
+    <div style={{padding:20,animation:'fadeIn 300ms ease'}}>
+      <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>변호사별 수임 현황</div>
+      <div style={{background:C.surface,borderRadius:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',overflow:'hidden',marginBottom:20}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{background:'#F8FAFC'}}>
+            {['변호사','역할','전문분야','총 사건','진행 중',''].map(h=><th key={h} style={{padding:'10px 16px',textAlign:'left',fontSize:11,fontWeight:600,color:C.textMuted,borderBottom:'1px solid #E5E7EB'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {LAWYERS.map(l=>(
+              <tr key={l.name} style={{transition:'background 150ms'}}
+                onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft='2px solid '+C.primary}}
+                onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='none'}}>
+                <td style={{padding:'10px 16px',borderBottom:'1px solid #F1F5F9'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span style={{fontSize:20}}>{l.photo}</span>
+                    <span style={{fontSize:13,fontWeight:600}}>{l.name}</span>
+                  </div>
+                </td>
+                <td style={{padding:'10px 16px',fontSize:12,color:C.textLight,borderBottom:'1px solid #F1F5F9'}}>{l.role}</td>
+                <td style={{padding:'10px 16px',borderBottom:'1px solid #F1F5F9'}}><Badge text={l.field} color={C.accent}/></td>
+                <td style={{padding:'10px 16px',fontSize:14,fontWeight:600,borderBottom:'1px solid #F1F5F9'}}>{l.cases}건</td>
+                <td style={{padding:'10px 16px',borderBottom:'1px solid #F1F5F9'}}><span style={{fontSize:14,fontWeight:700,color:C.accent}}>{l.active}건</span></td>
+                <td style={{padding:'10px 16px',borderBottom:'1px solid #F1F5F9'}}>
+                  <button onClick={()=>setToast(`${l.name} 사건 목록 조회`)} style={{padding:'5px 12px',borderRadius:8,border:'1px solid #E5E7EB',background:'transparent',fontSize:12,cursor:'pointer',fontFamily:'inherit',color:C.textLight}}>상세</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div style={{background:C.surface,borderRadius:20,padding:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>접수·완료 추이</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={MONTHLY_STATS}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="month" tick={{fontSize:11}} stroke="#9CA3AF"/>
+              <YAxis tick={{fontSize:11}} stroke="#9CA3AF"/>
+              <Tooltip/>
+              <Area type="monotone" dataKey="접수" stroke={C.primary} fill={`${C.primary}20`}/>
+              <Area type="monotone" dataKey="완료" stroke={C.accent} fill={`${C.accent}20`}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:20,border:'1px solid #E5E7EB',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:12}}>분야별 사건 분포</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={FIELD_PIE} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>
+                {FIELD_PIE.map((e,i)=><Cell key={i} fill={e.color}/>)}
+              </Pie>
+              <Tooltip/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LawyersSection({selected,setSelected}){
+  return(
+    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        {LAWYERS.map(l=>(
+          <div key={l.name} onClick={()=>setSelected(l)} style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.name===l.name?`${C.primary}08`:'transparent',borderLeft:selected?.name===l.name?`2px solid ${C.primary}`:'2px solid transparent'}}
+            onMouseEnter={e=>{if(selected?.name!==l.name)e.currentTarget.style.background=`${C.primary}04`}}
+            onMouseLeave={e=>{if(selected?.name!==l.name)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:24}}>{l.photo}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:600}}>{l.name}</div>
+                <div style={{fontSize:11,color:C.textMuted}}>{l.role} · {l.field}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
+              <div style={{width:64,height:64,borderRadius:32,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:32}}>{selected.photo}</div>
+              <div>
+                <div style={{fontSize:22,fontWeight:700}}>{selected.name}</div>
+                <div style={{fontSize:13,color:C.accent,fontWeight:600}}>{selected.role}</div>
+              </div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:20}}>
+              <div style={{background:'#F8FAFC',borderRadius:12,padding:14,textAlign:'center'}}>
+                <div style={{fontSize:11,color:C.textMuted}}>전문분야</div>
+                <div style={{fontSize:14,fontWeight:700,marginTop:4}}>{selected.field}</div>
+              </div>
+              <div style={{background:'#F8FAFC',borderRadius:12,padding:14,textAlign:'center'}}>
+                <div style={{fontSize:11,color:C.textMuted}}>총 사건</div>
+                <div style={{fontSize:14,fontWeight:700,marginTop:4}}>{selected.cases}건</div>
+              </div>
+              <div style={{background:'#F8FAFC',borderRadius:12,padding:14,textAlign:'center'}}>
+                <div style={{fontSize:11,color:C.textMuted}}>진행 중</div>
+                <div style={{fontSize:14,fontWeight:700,color:C.accent,marginTop:4}}>{selected.active}건</div>
+              </div>
+            </div>
+            <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>담당 사례</div>
+            {CASES.filter(c=>c.lawyer===selected.name).map(c=>(
+              <div key={c.id} style={{padding:'10px 14px',background:'#F8FAFC',borderRadius:10,marginBottom:8}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:13,fontWeight:600}}>{c.title}</span>
+                  <Badge text={c.result} color={C.success}/>
+                </div>
+                <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{c.field} · {c.date}</div>
+              </div>
+            ))}
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측에서 변호사를 선택하세요</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── App ─── */
+function App(){
+  const[section,setSection]=useState('포털 메인 대시보드');
+  const[tab,setTab]=useState(0);
+  const[selected,setSelected]=useState(null);
+  const[toast,setToast]=useState('');
+  const[loading,setLoading]=useState(true);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setSelected(null);setTab(0)},[section]);
+
+  const NAV=[
+    {id:'포털 메인 대시보드',icon:'📊',label:'포털 메인 대시보드'},
+    {id:'사건 유형별 성공사례',icon:'🏆',label:'사건 유형별 성공사례'},
+    {id:'온라인 법률 상담 신청',icon:'💬',label:'온라인 법률 상담 신청'},
+    {id:'어드민 사건 관리 CMS',icon:'⚙️',label:'어드민 사건 관리 CMS'},
+    {id:'변호사 소개',icon:'👨‍⚖️',label:'변호사 소개'},
+  ];
+
+  const SECTION_TABS={
+    '포털 메인 대시보드':[{id:'overview',label:'전체 현황'},{id:'weekly',label:'주간 리포트'}],
+    '사건 유형별 성공사례':[{id:'all',label:'전체'},{id:'criminal',label:'형사'},{id:'civil',label:'민사'},{id:'family',label:'가사'},{id:'labor',label:'노동'}],
+    '온라인 법률 상담 신청':[{id:'list',label:'상담 목록'},{id:'pending',label:'배정 대기'},{id:'completed',label:'완료'}],
+    '어드민 사건 관리 CMS':[{id:'lawyers',label:'변호사 현황'},{id:'stats',label:'통계'}],
+    '변호사 소개':[{id:'all',label:'전체'},{id:'criminal',label:'형사'},{id:'labor',label:'노동'}],
+  };
+
+  if(loading) return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:'#fff',borderRight:'1px solid #E5E7EB'}}/>
+      <div style={{flex:1,padding:20,display:'flex',flexDirection:'column',gap:12}}>
+        {[...Array(4)].map((_,i)=><div key={i} style={{height:100,borderRadius:20,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+
+  const isDetailView=['사건 유형별 성공사례','온라인 법률 상담 신청','변호사 소개'].includes(section);
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0}}>
+        <div style={{padding:'0 16px 16px',fontWeight:700,fontSize:16,display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:20}}>⚖️</span> 리걸파트너스
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV.map(n=><SideNavItem key={n.id} icon={n.icon} label={n.label} active={section===n.id} onClick={()=>setSection(n.id)}/>)}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:14,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,color:'#fff'}}>관</div>
+          <div><div style={{fontSize:12,fontWeight:600}}>관리자</div><div style={{fontSize:10,color:C.textMuted}}>admin@legalpartners.kr</div></div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textMuted}}>리걸파트너스</span>
+          <span style={{fontSize:12,color:C.textMuted}}>/</span>
+          <span style={{fontSize:12,fontWeight:600}}>{section}</span>
+          <div style={{flex:1}}/>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'5px 10px 5px 28px',border:'1px solid #E5E7EB',borderRadius:6,fontSize:12,width:160,fontFamily:'inherit',outline:'none'}}/>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:12}}>🔍</span>
+          </div>
+          <div style={{width:24,height:24,borderRadius:12,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:'#fff'}}>관</div>
+        </header>
+
+        {/* Tab strip */}
+        <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+          {(SECTION_TABS[section]||[]).map((t,i)=><TabUnderline key={t.id} label={t.label} active={tab===i} onClick={()=>{setTab(i);setSelected(null)}}/>)}
+        </div>
+
+        {/* Content */}
+        {section==='포털 메인 대시보드'&&<div style={{flex:1,overflowY:'auto'}}><DashboardSection/></div>}
+        {section==='사건 유형별 성공사례'&&<CasesSection selected={selected} setSelected={setSelected}/>}
+        {section==='온라인 법률 상담 신청'&&<ConsultsSection selected={selected} setSelected={setSelected} setToast={setToast}/>}
+        {section==='어드민 사건 관리 CMS'&&<div style={{flex:1,overflowY:'auto'}}><AdminSection setToast={setToast}/></div>}
+        {section==='변호사 소개'&&<LawyersSection selected={selected} setSelected={setSelected}/>}
+      </div>
+      {toast&&<Toast message={toast} onClose={()=>setToast('')}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
