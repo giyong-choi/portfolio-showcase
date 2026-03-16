@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI 캐릭터 채팅 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#0F0A1E;color:#F5F3FF;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#3B2D5E;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes typing{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo}=React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={
+  primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',
+  bg:'#0F0A1E',surface:'#1A1133',surfaceLight:'#241A40',border:'#2D2255',
+  text:'#F5F3FF',textLight:'#C4B5FD',textMuted:'#8B7FB5',
+  success:'#34D399',warning:'#FBBF24',danger:'#F87171',
+  sidebarBg:'#130E26',sidebarActive:'#7C3AED',
+  chatBubbleAI:'#241A40',chatBubbleUser:'#7C3AED',
+};
+
+/* ─── Characters ─── */
+const CHARACTERS=[
+  {id:1,name:'루나',avatar:'🌙',personality:'감성적',desc:'따뜻한 위로와 공감을 나누는 감성 캐릭터',category:'감성',tags:['위로','공감','힐링'],color:'#A78BFA',msgCount:4823,likes:1247,online:true},
+  {id:2,name:'아틀라스',avatar:'⚡',personality:'지적 탐구',desc:'과학과 철학을 즐기는 지식 탐험가',category:'지식',tags:['과학','철학','토론'],color:'#38BDF8',msgCount:3215,likes:892,online:true},
+  {id:3,name:'하루',avatar:'🌸',personality:'밝고 활발',desc:'일상의 재미를 찾아주는 유쾌한 친구',category:'일상',tags:['유머','잡담','게임'],color:'#F472B6',msgCount:6102,likes:2103,online:true},
+  {id:4,name:'제로',avatar:'🎮',personality:'쿨한 게이머',desc:'게임 전략과 리뷰를 공유하는 게이머',category:'게임',tags:['게임','전략','리뷰'],color:'#34D399',msgCount:2847,likes:756,online:false},
+  {id:5,name:'미르',avatar:'🐉',personality:'판타지 세계관',desc:'환상의 세계에서 온 신비로운 존재',category:'판타지',tags:['모험','세계관','롤플레이'],color:'#FBBF24',msgCount:1923,likes:643,online:true},
+  {id:6,name:'소라',avatar:'🎵',personality:'음악 감성',desc:'음악과 예술을 사랑하는 감성 뮤지션',category:'예술',tags:['음악','작곡','감상'],color:'#FB923C',msgCount:2156,likes:821,online:false},
+];
+
+const CHAT_HISTORY={
+  1:[
+    {role:'user',text:'오늘 정말 힘든 하루였어...'},
+    {role:'ai',text:'힘든 하루를 보냈구나 💜 어떤 일이 있었는지 이야기해줄래? 네 이야기를 듣고 싶어.'},
+    {role:'user',text:'회사에서 프레젠테이션 실수했어'},
+    {role:'ai',text:'그랬구나... 발표하면서 실수하면 정말 속상하지. 하지만 실수는 누구나 하는 거야. 그 순간 용기를 내서 발표한 것 자체가 대단한 거야 ✨ 구체적으로 어떤 부분이 아쉬웠어?'},
+    {role:'user',text:'중간에 데이터를 잘못 말했어'},
+    {role:'ai',text:'데이터 실수는 다음에 준비할 때 더 꼼꼼히 체크하면 되니까! 😊 첫 번째로 발표 자료에 핵심 수치를 크게 표시해두고, 두 번째로 리허설할 때 소리 내어 읽는 방법을 추천해. 실수에서 배우는 게 성장이야!'},
+  ],
+  3:[
+    {role:'user',text:'심심한데 뭐하면 좋을까?'},
+    {role:'ai',text:'오오~ 심심타파 타임이야! 🎉 지금 기분이 어때? 1) 머리 쓰고 싶으면 퀴즈 놀이 2) 웃고 싶으면 랜덤 유머 3) 수다 떨고 싶으면 TMI 대결! 뭐가 끌려?'},
+    {role:'user',text:'퀴즈 놀이 하자!'},
+    {role:'ai',text:'좋아좋아! 🧠 첫 번째 문제 나간다~\n\n"세계에서 가장 긴 영어 단어는 몇 글자일까?"\n\nA) 29글자  B) 45글자  C) 189,819글자\n\n힌트: 이 단어는 어떤 단백질의 이름이야!'},
+  ],
+};
+
+const PLANS=[
+  {name:'무료',price:0,coins:30,features:['일 30회 대화','기본 캐릭터 3종','채팅 히스토리 7일'],current:false},
+  {name:'베이직',price:9900,coins:300,features:['일 300회 대화','전체 캐릭터','채팅 히스토리 무제한','캐릭터 커스텀'],current:true},
+  {name:'프리미엄',price:19900,coins:'무제한',features:['무제한 대화','전체 캐릭터','채팅 히스토리 무제한','캐릭터 생성','우선 응답','광고 없음'],current:false},
+];
+
+const COIN_PACKAGES=[
+  {coins:100,price:3900,bonus:0},
+  {coins:300,price:9900,bonus:30},
+  {coins:500,price:14900,bonus:75},
+  {coins:1000,price:24900,bonus:200},
+];
+
+const PAYMENT_HISTORY=[
+  {id:'PAY-2025-0821',type:'구독',plan:'베이직',amount:'9,900',date:'2025.05.01',status:'완료',method:'카드'},
+  {id:'PAY-2025-0745',type:'코인 충전',plan:'300코인',amount:'9,900',date:'2025.04.15',status:'완료',method:'카드'},
+  {id:'PAY-2025-0698',type:'구독',plan:'베이직',amount:'9,900',date:'2025.04.01',status:'완료',method:'카드'},
+  {id:'PAY-2025-0612',type:'코인 충전',plan:'100코인',amount:'3,900',date:'2025.03.20',status:'완료',method:'카카오페이'},
+  {id:'PAY-2025-0534',type:'구독',plan:'베이직',amount:'9,900',date:'2025.03.01',status:'완료',method:'카드'},
+];
+
+const ADMIN_USERS=[
+  {id:1,name:'김서연',email:'kim@mail.com',plan:'프리미엄',coins:847,chats:2341,joined:'2025.01.15',status:'활성'},
+  {id:2,name:'박지민',email:'park@mail.com',plan:'베이직',coins:156,chats:1523,joined:'2025.02.03',status:'활성'},
+  {id:3,name:'이현우',email:'lee@mail.com',plan:'무료',coins:12,chats:342,joined:'2025.03.10',status:'활성'},
+  {id:4,name:'최수진',email:'choi@mail.com',plan:'베이직',coins:0,chats:891,joined:'2025.02.22',status:'정지'},
+  {id:5,name:'정하윤',email:'jung@mail.com',plan:'프리미엄',coins:1205,chats:3102,joined:'2025.01.28',status:'활성'},
+  {id:6,name:'강민재',email:'kang@mail.com',plan:'베이직',coins:87,chats:675,joined:'2025.04.05',status:'활성'},
+];
+
+const ADMIN_CHARS=[
+  {id:1,name:'루나',category:'감성',status:'활성',chats:4823,likes:1247,created:'2025.01.10'},
+  {id:2,name:'아틀라스',category:'지식',status:'활성',chats:3215,likes:892,created:'2025.01.10'},
+  {id:3,name:'하루',category:'일상',status:'활성',chats:6102,likes:2103,created:'2025.01.15'},
+  {id:4,name:'제로',category:'게임',status:'활성',chats:2847,likes:756,created:'2025.02.01'},
+  {id:5,name:'미르',category:'판타지',status:'활성',chats:1923,likes:643,created:'2025.02.15'},
+  {id:6,name:'소라',category:'예술',status:'검토중',chats:2156,likes:821,created:'2025.03.01'},
+];
+
+const DAILY_CHART=[
+  {day:'05.01',chats:1240,users:320},{day:'05.05',chats:1580,users:385},
+  {day:'05.10',chats:1890,users:412},{day:'05.15',chats:2150,users:445},
+  {day:'05.20',chats:2340,users:478},{day:'05.25',chats:2680,users:512},
+  {day:'05.30',chats:2890,users:548},
+];
+const PIE_PLANS=[
+  {name:'무료',value:45,color:'#4B5563'},{name:'베이직',value:38,color:'#7C3AED'},{name:'프리미엄',value:17,color:'#A78BFA'},
+];
+const PIE_CATS=[
+  {name:'감성',value:28,color:'#A78BFA'},{name:'지식',value:19,color:'#38BDF8'},
+  {name:'일상',value:32,color:'#F472B6'},{name:'게임',value:12,color:'#34D399'},
+  {name:'판타지',value:9,color:'#FBBF24'},
+];
+
+/* ─── Components ─── */
+function Badge({text,color}){
+  const colors={'활성':{bg:'rgba(52,211,153,.15)',text:'#34D399'},'정지':{bg:'rgba(248,113,113,.15)',text:'#F87171'},'검토중':{bg:'rgba(251,191,36,.15)',text:'#FBBF24'},'완료':{bg:'rgba(52,211,153,.15)',text:'#34D399'}};
+  const c=colors[text]||{bg:'rgba(139,127,181,.15)',text:'#8B7FB5'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:c.bg,color:c.text}}>{text}</span>;
+}
+
+function KpiCard({icon,label,value,sub,accent}){
+  return(
+    <div style={{background:C.surface,borderRadius:12,padding:'20px 24px',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:13,color:C.textMuted,fontWeight:500}}>{label}</span>
+        <span style={{fontSize:20}}>{icon}</span>
+      </div>
+      <div style={{fontSize:26,fontWeight:800,color:accent||C.accent,lineHeight:1.2}}>{value}</div>
+      {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:6}}>{sub}</div>}
+    </div>
+  );
+}
+
+function Modal({open,onClose,title,children}){
+  if(!open)return null;
+  return(<>
+    <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',zIndex:1000}}/>
+    <div style={{position:'fixed',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:560,maxHeight:'85vh',background:C.surface,borderRadius:16,border:`1px solid ${C.border}`,zIndex:1001,animation:'fadeInScale 250ms ease',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textMuted,borderRadius:8,width:32,height:32,display:'flex',alignItems:'center',justifyContent:'center'}} onMouseOver={e=>e.currentTarget.style.background=C.surfaceLight} onMouseOut={e=>e.currentTarget.style.background='none'}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </>);
+}
+
+/* ─── Pages ─── */
+function ChatMainPage(){
+  const[selChar,setSelChar]=useState(CHARACTERS[0]);
+  const[messages,setMessages]=useState(CHAT_HISTORY[1]||[]);
+  const[input,setInput]=useState('');
+  const[isTyping,setIsTyping]=useState(false);
+  const chatEndRef=useRef(null);
+
+  useEffect(()=>{
+    setMessages(CHAT_HISTORY[selChar.id]||[{role:'ai',text:`안녕! 나는 ${selChar.name}이야 ${selChar.avatar} ${selChar.desc}. 편하게 말 걸어줘!`}]);
+  },[selChar]);
+
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:'smooth'})},[messages]);
+
+  const sendMsg=()=>{
+    if(!input.trim())return;
+    setMessages(p=>[...p,{role:'user',text:input}]);
+    setInput('');
+    setIsTyping(true);
+    setTimeout(()=>{
+      setIsTyping(false);
+      const replies=[
+        '그렇구나! 더 자세히 이야기해줄 수 있어? 😊',
+        '흥미로운 이야기네! 나도 비슷한 경험이 있어.',
+        '그 마음 충분히 이해해. 함께 생각해보자 💜',
+        '좋은 질문이야! 내 생각에는...',
+      ];
+      setMessages(p=>[...p,{role:'ai',text:replies[Math.floor(Math.random()*replies.length)]}]);
+    },1500);
+  };
+
+  return(
+    <div style={{display:'flex',height:'100%',animation:'fadeIn 400ms ease'}}>
+      {/* Character sidebar */}
+      <div style={{width:280,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',background:C.surface}}>
+        <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:12}}>캐릭터 목록</div>
+          <input placeholder="캐릭터 검색..." style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surfaceLight,color:C.text,fontSize:13,outline:'none'}}/>
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:'8px 12px'}}>
+          {CHARACTERS.map(ch=>(
+            <div key={ch.id} onClick={()=>setSelChar(ch)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:10,marginBottom:4,cursor:'pointer',background:selChar.id===ch.id?C.surfaceLight:'transparent',transition:'background 150ms'}}>
+              <div style={{position:'relative'}}>
+                <div style={{width:42,height:42,borderRadius:'50%',background:`${ch.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{ch.avatar}</div>
+                {ch.online&&<div style={{position:'absolute',bottom:1,right:1,width:10,height:10,borderRadius:'50%',background:C.success,border:`2px solid ${C.surface}`}}/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:2}}>{ch.name}</div>
+                <div style={{fontSize:11,color:C.textMuted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ch.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat area */}
+      <div style={{flex:1,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'16px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:14,background:C.surface}}>
+          <div style={{width:40,height:40,borderRadius:'50%',background:`${selChar.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{selChar.avatar}</div>
+          <div>
+            <div style={{fontSize:15,fontWeight:700}}>{selChar.name} <span style={{fontSize:11,color:C.textMuted,fontWeight:400}}>· {selChar.personality}</span></div>
+            <div style={{fontSize:12,color:selChar.online?C.success:C.textMuted}}>{selChar.online?'온라인':'오프라인'}</div>
+          </div>
+          <div style={{marginLeft:'auto',display:'flex',gap:8}}>
+            {selChar.tags.map(t=><span key={t} style={{padding:'4px 10px',borderRadius:12,background:C.surfaceLight,fontSize:11,color:C.textLight}}>#{t}</span>)}
+          </div>
+        </div>
+
+        <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+          {messages.map((m,i)=>(
+            <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start',marginBottom:16,animation:'slideUp 300ms ease'}}>
+              {m.role==='ai'&&<div style={{width:32,height:32,borderRadius:'50%',background:`${selChar.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,marginRight:10,flexShrink:0,marginTop:4}}>{selChar.avatar}</div>}
+              <div style={{maxWidth:'70%',padding:'12px 16px',borderRadius:m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px',background:m.role==='user'?C.chatBubbleUser:C.chatBubbleAI,color:C.text,fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap'}}>
+                {m.text}
+              </div>
+            </div>
+          ))}
+          {isTyping&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:`${selChar.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{selChar.avatar}</div>
+            <div style={{padding:'12px 16px',borderRadius:'16px 16px 16px 4px',background:C.chatBubbleAI}}>
+              <div style={{display:'flex',gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:'50%',background:C.textMuted,animation:`typing 1s ${i*0.2}s infinite`}}/>)}</div>
+            </div>
+          </div>}
+          <div ref={chatEndRef}/>
+        </div>
+
+        <div style={{padding:'16px 24px',borderTop:`1px solid ${C.border}`,background:C.surface}}>
+          <div style={{display:'flex',gap:10}}>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendMsg()} placeholder={`${selChar.name}에게 메시지 보내기...`} style={{flex:1,padding:'12px 16px',borderRadius:12,border:`1px solid ${C.border}`,background:C.surfaceLight,color:C.text,fontSize:14,outline:'none'}}/>
+            <button onClick={sendMsg} style={{padding:'12px 20px',borderRadius:12,background:C.primary,color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>전송</button>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:8}}>
+            <div style={{fontSize:11,color:C.textMuted}}>남은 대화: 127 / 300회</div>
+            <div style={{fontSize:11,color:C.textMuted}}>코인 잔액: 156 🪙</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CharactersPage(){
+  const[filter,setFilter]=useState('전체');
+  const[detail,setDetail]=useState(null);
+  const cats=['전체','감성','지식','일상','게임','판타지','예술'];
+  const filtered=filter==='전체'?CHARACTERS:CHARACTERS.filter(c=>c.category===filter);
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:22,fontWeight:800,marginBottom:6}}>캐릭터 탐색</h2>
+      <p style={{fontSize:14,color:C.textMuted,marginBottom:20}}>다양한 AI 캐릭터와 대화를 시작해보세요</p>
+
+      <div style={{display:'flex',gap:8,marginBottom:24}}>
+        {cats.map(c=><button key={c} onClick={()=>setFilter(c)} style={{padding:'8px 16px',borderRadius:20,border:`1px solid ${filter===c?C.primary:C.border}`,background:filter===c?C.primary:'transparent',color:filter===c?'#fff':C.textLight,fontSize:13,fontWeight:500,cursor:'pointer',transition:'all 150ms'}}>{c}</button>)}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {filtered.map(ch=>(
+          <div key={ch.id} onClick={()=>setDetail(ch)} style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`,cursor:'pointer',transition:'transform 150ms,border-color 150ms'}} onMouseOver={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.borderColor=ch.color}} onMouseOut={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.borderColor=C.border}}>
+            <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+              <div style={{width:52,height:52,borderRadius:'50%',background:`${ch.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28}}>{ch.avatar}</div>
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:17,fontWeight:700}}>{ch.name}</span>
+                  {ch.online&&<span style={{width:8,height:8,borderRadius:'50%',background:C.success,display:'inline-block'}}/>}
+                </div>
+                <div style={{fontSize:12,color:C.textMuted}}>{ch.personality}</div>
+              </div>
+            </div>
+            <p style={{fontSize:13,color:C.textLight,marginBottom:14,lineHeight:1.5}}>{ch.desc}</p>
+            <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
+              {ch.tags.map(t=><span key={t} style={{padding:'4px 10px',borderRadius:10,background:C.surfaceLight,fontSize:11,color:C.textLight}}>#{t}</span>)}
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:C.textMuted}}>
+              <span>💬 {ch.msgCount.toLocaleString()}</span>
+              <span>❤️ {ch.likes.toLocaleString()}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Modal open={!!detail} onClose={()=>setDetail(null)} title={detail?`${detail.avatar} ${detail.name}`:''}>
+        {detail&&<div>
+          <div style={{textAlign:'center',marginBottom:20}}>
+            <div style={{width:80,height:80,borderRadius:'50%',background:`${detail.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:44,margin:'0 auto 12px'}}>{detail.avatar}</div>
+            <div style={{fontSize:20,fontWeight:800}}>{detail.name}</div>
+            <div style={{fontSize:14,color:C.textMuted}}>{detail.personality}</div>
+          </div>
+          <p style={{fontSize:14,color:C.textLight,marginBottom:20,lineHeight:1.6,textAlign:'center'}}>{detail.desc}</p>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+            <div style={{textAlign:'center',padding:12,background:C.surfaceLight,borderRadius:10}}>
+              <div style={{fontSize:18,fontWeight:800,color:C.accent}}>{detail.msgCount.toLocaleString()}</div>
+              <div style={{fontSize:11,color:C.textMuted}}>총 대화</div>
+            </div>
+            <div style={{textAlign:'center',padding:12,background:C.surfaceLight,borderRadius:10}}>
+              <div style={{fontSize:18,fontWeight:800,color:'#F472B6'}}>{detail.likes.toLocaleString()}</div>
+              <div style={{fontSize:11,color:C.textMuted}}>좋아요</div>
+            </div>
+            <div style={{textAlign:'center',padding:12,background:C.surfaceLight,borderRadius:10}}>
+              <div style={{fontSize:18,fontWeight:800,color:C.success}}>{detail.online?'온라인':'오프라인'}</div>
+              <div style={{fontSize:11,color:C.textMuted}}>상태</div>
+            </div>
+          </div>
+          <button style={{width:'100%',padding:'12px',borderRadius:10,background:C.primary,color:'#fff',border:'none',fontSize:15,fontWeight:600,cursor:'pointer'}}>대화 시작하기</button>
+        </div>}
+      </Modal>
+    </div>
+  );
+}
+
+function PaymentPage(){
+  const[tab,setTab]=useState('구독');
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:22,fontWeight:800,marginBottom:6}}>결제 관리</h2>
+      <p style={{fontSize:14,color:C.textMuted,marginBottom:20}}>구독 플랜과 코인을 관리하세요</p>
+
+      <div style={{display:'flex',gap:8,marginBottom:24}}>
+        {['구독','코인 충전','결제 이력'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${tab===t?C.primary:C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.textLight,fontSize:13,fontWeight:600,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      {tab==='구독'&&<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+        {PLANS.map(p=>(
+          <div key={p.name} style={{background:C.surface,borderRadius:14,padding:28,border:`1px solid ${p.current?C.primary:C.border}`,position:'relative'}}>
+            {p.current&&<div style={{position:'absolute',top:-10,left:'50%',transform:'translateX(-50%)',padding:'4px 14px',borderRadius:12,background:C.primary,color:'#fff',fontSize:11,fontWeight:700}}>현재 플랜</div>}
+            <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>{p.name}</div>
+            <div style={{fontSize:28,fontWeight:800,color:C.accent,marginBottom:4}}>{p.price===0?'무료':`₩${p.price.toLocaleString()}`}<span style={{fontSize:13,fontWeight:400,color:C.textMuted}}>{p.price>0?' / 월':''}</span></div>
+            <div style={{fontSize:13,color:C.textMuted,marginBottom:20}}>월 {typeof p.coins==='number'?`${p.coins}코인`:p.coins}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:24}}>
+              {p.features.map(f=><div key={f} style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:C.textLight}}>
+                <span style={{color:C.success}}>✓</span>{f}
+              </div>)}
+            </div>
+            <button style={{width:'100%',padding:'10px',borderRadius:10,background:p.current?'transparent':C.primary,color:p.current?C.textMuted:'#fff',border:p.current?`1px solid ${C.border}`:'none',fontSize:14,fontWeight:600,cursor:p.current?'default':'pointer'}}>{p.current?'이용 중':'변경하기'}</button>
+          </div>
+        ))}
+      </div>}
+
+      {tab==='코인 충전'&&<div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+          {COIN_PACKAGES.map(pkg=>(
+            <div key={pkg.coins} style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`,textAlign:'center',cursor:'pointer',transition:'border-color 150ms'}} onMouseOver={e=>e.currentTarget.style.borderColor=C.primary} onMouseOut={e=>e.currentTarget.style.borderColor=C.border}>
+              <div style={{fontSize:32,marginBottom:8}}>🪙</div>
+              <div style={{fontSize:22,fontWeight:800,color:C.accent}}>{pkg.coins}</div>
+              <div style={{fontSize:12,color:C.textMuted,marginBottom:4}}>코인</div>
+              {pkg.bonus>0&&<div style={{fontSize:12,color:C.success,marginBottom:8}}>+{pkg.bonus} 보너스</div>}
+              <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>₩{pkg.price.toLocaleString()}</div>
+              <button style={{width:'100%',padding:'8px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>구매</button>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>코인 사용 안내</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+            {[['일반 대화','1코인/메시지'],['긴 대화','2코인/메시지'],['캐릭터 커스텀','10코인/회']].map(([k,v])=>(
+              <div key={k} style={{padding:12,background:C.surfaceLight,borderRadius:8,display:'flex',justifyContent:'space-between',fontSize:13}}>
+                <span style={{color:C.textLight}}>{k}</span><span style={{fontWeight:600,color:C.accent}}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>}
+
+      {tab==='결제 이력'&&<div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['주문번호','유형','상품','금액','결제일','상태','결제 수단'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{PAYMENT_HISTORY.map(p=><tr key={p.id} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'12px',fontWeight:600,color:C.accent,fontFamily:'monospace',fontSize:12}}>{p.id}</td>
+            <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:4,background:p.type==='구독'?'rgba(124,58,237,.15)':'rgba(167,139,250,.15)',color:p.type==='구독'?C.primary:C.accent,fontSize:11,fontWeight:600}}>{p.type}</span></td>
+            <td style={{padding:'12px'}}>{p.plan}</td>
+            <td style={{padding:'12px',fontWeight:700}}>₩{p.amount}</td>
+            <td style={{padding:'12px',color:C.textMuted}}>{p.date}</td>
+            <td style={{padding:'12px'}}><Badge text={p.status}/></td>
+            <td style={{padding:'12px',color:C.textLight}}>{p.method}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+    </div>
+  );
+}
+
+function AdminPage(){
+  const[tab,setTab]=useState('현황');
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:22,fontWeight:800,marginBottom:6}}>관리자 대시보드</h2>
+      <p style={{fontSize:14,color:C.textMuted,marginBottom:20}}>서비스 운영 현황과 콘텐츠를 관리합니다</p>
+
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {['현황','회원 관리','캐릭터 관리','콘텐츠'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'8px 18px',borderRadius:8,border:`1px solid ${tab===t?C.primary:C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.textLight,fontSize:13,fontWeight:600,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      {tab==='현황'&&<>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+          <KpiCard icon="👥" label="전체 회원" value="2,847" sub="+183 이번 달"/>
+          <KpiCard icon="💬" label="일 평균 채팅" value="2,680" sub="전주 대비 +12%"/>
+          <KpiCard icon="💰" label="월 매출" value="₩8.4M" sub="구독 + 코인" accent={C.success}/>
+          <KpiCard icon="🤖" label="활성 캐릭터" value="5" sub="검토중 1개"/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:20}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>일별 채팅량 · 사용자 추이</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={DAILY_CHART}>
+                <defs>
+                  <linearGradient id="chatGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={.2}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/></linearGradient>
+                  <linearGradient id="userGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.accent} stopOpacity={.2}/><stop offset="95%" stopColor={C.accent} stopOpacity={0}/></linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border}/>
+                <XAxis dataKey="day" tick={{fontSize:12,fill:C.textMuted}}/>
+                <YAxis tick={{fontSize:12,fill:C.textMuted}}/>
+                <Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/>
+                <Area type="monotone" dataKey="chats" stroke={C.primary} fill="url(#chatGrad)" strokeWidth={2} name="채팅"/>
+                <Area type="monotone" dataKey="users" stroke={C.accent} fill="url(#userGrad)" strokeWidth={2} name="사용자"/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>플랜 분포</div>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart><Pie data={PIE_PLANS} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" paddingAngle={4}>{PIE_PLANS.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip contentStyle={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,color:C.text}}/></PieChart>
+            </ResponsiveContainer>
+            <div style={{display:'flex',justifyContent:'center',gap:16,marginTop:8}}>
+              {PIE_PLANS.map(d=><div key={d.name} style={{display:'flex',alignItems:'center',gap:6,fontSize:12,color:C.textLight}}><div style={{width:8,height:8,borderRadius:'50%',background:d.color}}/>{d.name} {d.value}%</div>)}
+            </div>
+          </div>
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>카테고리별 채팅 비율</div>
+          <div style={{display:'flex',gap:12}}>
+            {PIE_CATS.map(c=>(
+              <div key={c.name} style={{flex:1,padding:14,background:C.surfaceLight,borderRadius:10,textAlign:'center'}}>
+                <div style={{fontSize:22,fontWeight:800,color:c.color}}>{c.value}%</div>
+                <div style={{fontSize:12,color:C.textMuted}}>{c.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>}
+
+      {tab==='회원 관리'&&<div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700}}>회원 목록</div>
+          <input placeholder="이름/이메일 검색..." style={{padding:'8px 14px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surfaceLight,color:C.text,fontSize:13,outline:'none',width:220}}/>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['이름','이메일','플랜','코인','대화수','가입일','상태'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{ADMIN_USERS.map(u=><tr key={u.id} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'12px',fontWeight:600}}>{u.name}</td>
+            <td style={{padding:'12px',color:C.textLight,fontSize:12}}>{u.email}</td>
+            <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:4,background:u.plan==='프리미엄'?'rgba(167,139,250,.15)':u.plan==='베이직'?'rgba(124,58,237,.15)':'rgba(75,85,99,.15)',color:u.plan==='프리미엄'?C.accent:u.plan==='베이직'?C.primary:'#9CA3AF',fontSize:11,fontWeight:600}}>{u.plan}</span></td>
+            <td style={{padding:'12px'}}>{u.coins} 🪙</td>
+            <td style={{padding:'12px'}}>{u.chats.toLocaleString()}</td>
+            <td style={{padding:'12px',color:C.textMuted}}>{u.joined}</td>
+            <td style={{padding:'12px'}}><Badge text={u.status}/></td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+
+      {tab==='캐릭터 관리'&&<div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:700}}>캐릭터 목록</div>
+          <button style={{padding:'8px 16px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 캐릭터 추가</button>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['이름','카테고리','대화수','좋아요','생성일','상태'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{ADMIN_CHARS.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'12px',fontWeight:600}}>{CHARACTERS.find(ch=>ch.id===c.id)?.avatar} {c.name}</td>
+            <td style={{padding:'12px'}}><span style={{padding:'3px 8px',borderRadius:4,background:C.surfaceLight,fontSize:11,color:C.textLight}}>{c.category}</span></td>
+            <td style={{padding:'12px'}}>{c.chats.toLocaleString()}</td>
+            <td style={{padding:'12px',color:'#F472B6'}}>❤️ {c.likes.toLocaleString()}</td>
+            <td style={{padding:'12px',color:C.textMuted}}>{c.created}</td>
+            <td style={{padding:'12px'}}><Badge text={c.status}/></td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+
+      {tab==='콘텐츠'&&<div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+          <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>프롬프트 템플릿</div>
+            {['기본 인사말','감정 공감 응답','학습 가이드','유머 응답 패턴'].map((t,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',border:`1px solid ${C.border}`,borderRadius:8,marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600}}>{t}</div>
+                  <div style={{fontSize:11,color:C.textMuted}}>마지막 수정: 2025.05.{10+i*5}</div>
+                </div>
+                <button style={{padding:'6px 12px',borderRadius:6,background:C.surfaceLight,border:`1px solid ${C.border}`,color:C.textLight,fontSize:12,cursor:'pointer'}}>편집</button>
+              </div>
+            ))}
+          </div>
+          <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>콘텐츠 정책</div>
+            {['금지어 필터 규칙','응답 길이 설정','캐릭터 성격 파라미터','안전 응답 가이드라인'].map((t,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',border:`1px solid ${C.border}`,borderRadius:8,marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600}}>{t}</div>
+                  <div style={{fontSize:11,color:C.textMuted}}>규칙 {(i+1)*12}개 적용 중</div>
+                </div>
+                <button style={{padding:'6px 12px',borderRadius:6,background:C.surfaceLight,border:`1px solid ${C.border}`,color:C.textLight,fontSize:12,cursor:'pointer'}}>관리</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function SettingsPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>설정</h2>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:20}}>
+        <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>프로필 설정</div>
+          {[['닉네임','채팅마스터'],['이메일','user@example.com'],['가입일','2025.01.15']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>채팅 환경설정</div>
+          {[['AI 응답 속도','빠름'],['알림','켜짐'],['테마','다크'],['언어','한국어']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600,color:C.accent}}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App Shell ─── */
+function App(){
+  const[page,setPage]=useState('채팅 메인');
+  const menus=[
+    {name:'채팅 메인',icon:'💬'},
+    {name:'캐릭터 탐색',icon:'🤖'},
+    {name:'결제 관리',icon:'💎'},
+    {name:'관리자 대시보드',icon:'📊'},
+    {name:'설정',icon:'⚙️'},
+  ];
+
+  const renderPage=()=>{
+    switch(page){
+      case '채팅 메인':return <ChatMainPage/>;
+      case '캐릭터 탐색':return <CharactersPage/>;
+      case '결제 관리':return <PaymentPage/>;
+      case '관리자 대시보드':return <AdminPage/>;
+      case '설정':return <SettingsPage/>;
+      default:return <ChatMainPage/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',height:'100vh'}}>
+      {/* Sidebar */}
+      <div style={{width:260,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>💬</div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:C.text}}>CharaChat</div>
+              <div style={{fontSize:11,color:C.textMuted}}>AI Character Platform</div>
+            </div>
+          </div>
+        </div>
+
+        <nav style={{flex:1,padding:'12px 14px'}}>
+          {menus.map(m=>(
+            <button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:10,border:'none',background:page===m.name?C.sidebarActive:'transparent',color:page===m.name?'#fff':C.textLight,fontSize:14,fontWeight:page===m.name?600:400,cursor:'pointer',marginBottom:4,transition:'all 150ms',textAlign:'left'}}>
+              <span style={{fontSize:18}}>{m.icon}</span>{m.name}
+            </button>
+          ))}
+        </nav>
+
+        <div style={{padding:'16px 20px',borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:'50%',background:C.surfaceLight,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>👤</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>채팅마스터</div>
+              <div style={{fontSize:11,color:C.textMuted}}>베이직 · 156 🪙</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Top bar + Content */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'14px 28px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',background:C.surface}}>
+          <div style={{fontSize:13,color:C.textMuted}}>
+            <span style={{color:C.text,fontWeight:600}}>{page}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <span style={{fontSize:13,color:C.textMuted}}>🪙 156</span>
+            <span style={{fontSize:13,padding:'4px 10px',borderRadius:6,background:'rgba(124,58,237,.15)',color:C.primary,fontWeight:600}}>베이직</span>
+          </div>
+        </div>
+        <div style={{flex:1,overflow:'auto',padding:page==='채팅 메인'?0:'28px'}}>
+          {renderPage()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
