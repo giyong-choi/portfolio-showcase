@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>클린체크 — 프랜차이즈 위생·운영 점검</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#022C22;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#A7F3D0;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={primary:'#059669',secondary:'#064E3B',accent:'#34D399',bg:'#F0FDF4',surface:'#FFFFFF',border:'#D1D5DB',text:'#022C22',textLight:'#6B7280',textMuted:'#9CA3AF',success:'#059669',warning:'#D97706',danger:'#DC2626'};
+
+const STORES=[
+  {id:1,name:'강남본점',region:'서울',mgr:'김태형',lastCheck:'2025.08.15',score:95,status:'완료'},
+  {id:2,name:'홍대점',region:'서울',mgr:'이서연',lastCheck:'2025.08.14',score:88,status:'완료'},
+  {id:3,name:'판교점',region:'경기',mgr:'박지민',lastCheck:'2025.08.13',score:92,status:'완료'},
+  {id:4,name:'부산서면점',region:'부산',mgr:'최현우',lastCheck:'2025.08.12',score:78,status:'미흡'},
+  {id:5,name:'대전둔산점',region:'대전',mgr:'정수진',lastCheck:'—',score:0,status:'미점검'},
+  {id:6,name:'인천송도점',region:'인천',mgr:'강민재',lastCheck:'2025.08.15',score:91,status:'완료'},
+];
+
+const CHECKLIST=[
+  {id:1,cat:'주방',item:'조리대 소독',result:'합격',photo:true},
+  {id:2,cat:'주방',item:'냉장고 온도 (0~5°C)',result:'합격',photo:true},
+  {id:3,cat:'주방',item:'식자재 유통기한',result:'합격',photo:false},
+  {id:4,cat:'홀',item:'테이블 청결',result:'합격',photo:true},
+  {id:5,cat:'홀',item:'바닥 청소',result:'불합격',photo:true},
+  {id:6,cat:'화장실',item:'비누·소독제 비치',result:'합격',photo:false},
+  {id:7,cat:'화장실',item:'청소 상태',result:'해당없음',photo:false},
+];
+
+const REGION_CHART=[{region:'서울',complete:12,fail:1},{region:'경기',complete:8,fail:2},{region:'부산',complete:5,fail:3},{region:'대전',complete:3,fail:1},{region:'인천',complete:6,fail:0}];
+const WEEKLY_SCORE=[{week:'1주',score:89},{week:'2주',score:92},{week:'3주',score:87},{week:'4주',score:94}];
+
+const REPORTS=[
+  {id:'RPT-0823',store:'강남본점',period:'2025.08',score:95,items:24,pass:23,fail:1,date:'2025.08.15'},
+  {id:'RPT-0822',store:'홍대점',period:'2025.08',score:88,items:24,pass:21,fail:3,date:'2025.08.14'},
+  {id:'RPT-0821',store:'판교점',period:'2025.08',score:92,items:24,pass:22,fail:2,date:'2025.08.13'},
+];
+
+/* ─── Components ─── */
+function Badge({text}){
+  const colors={'합격':{bg:'#ECFDF5',c:'#059669'},'불합격':{bg:'#FEF2F2',c:'#DC2626'},'해당없음':{bg:'#F3F4F6',c:'#6B7280'},'완료':{bg:'#ECFDF5',c:'#059669'},'미흡':{bg:'#FEF3C7',c:'#D97706'},'미점검':{bg:'#FEF2F2',c:'#DC2626'}};
+  const s=colors[text]||{bg:'#F3F4F6',c:'#6B7280'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}>{text}</span>;
+}
+function KpiCard({icon,label,value,sub,accent}){
+  return(<div style={{background:C.surface,borderRadius:16,padding:'20px 24px',boxShadow:'0 4px 16px rgba(5,150,105,0.06)',animation:'slideUp 500ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span><span style={{fontSize:20}}>{icon}</span></div>
+    <div style={{fontSize:28,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:6}}>{sub}</div>}
+  </div>);
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{background:`linear-gradient(135deg,${C.secondary},${C.primary})`,borderRadius:16,padding:'32px 36px',marginBottom:24,color:'#fff'}}>
+      <div style={{fontSize:13,opacity:.7,marginBottom:4}}>프랜차이즈 위생·운영 관리</div>
+      <h2 style={{fontSize:24,fontWeight:800,marginBottom:8}}>전국 매장 점검 현황</h2>
+      <div style={{display:'flex',gap:20,fontSize:14}}><span>🏪 등록 매장: 34개</span><span>✅ 점검 완료: 29개</span><span>⚠️ 미흡: 3개</span><span>❌ 미점검: 2개</span></div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+      <KpiCard icon="🏪" label="전체 매장" value="34" sub="5개 지역"/>
+      <KpiCard icon="✅" label="점검 완료" value="29" sub="이번 달" accent={C.success}/>
+      <KpiCard icon="⚠️" label="미흡 매장" value="3" accent={C.warning}/>
+      <KpiCard icon="📊" label="평균 점수" value="91점" accent={C.primary}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>지역별 점검 현황</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={REGION_CHART}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="region" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/><Bar dataKey="complete" fill={C.primary} name="완료" radius={[0,0,0,0]}/><Bar dataKey="fail" fill={C.danger} name="미흡" radius={[4,4,0,0]}/></BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>주간 평균 점수 추이</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={WEEKLY_SCORE}>
+            <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="week" tick={{fontSize:12,fill:C.textMuted}}/><YAxis domain={[80,100]} tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/><Area type="monotone" dataKey="score" stroke={C.primary} fill="url(#sg)" strokeWidth={2}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>);
+}
+
+function ChecklistPage(){
+  const pass=CHECKLIST.filter(c=>c.result==='합격').length;
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>체크리스트 점검</h2>
+    <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(0,0,0,0.04)',marginBottom:20}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:15,fontWeight:700}}>강남본점 — 8월 정기 점검</span>
+        <span style={{padding:'4px 12px',borderRadius:20,background:'#ECFDF5',color:C.success,fontSize:12,fontWeight:600}}>{pass}/{CHECKLIST.length} 합격</span>
+      </div>
+      <div style={{height:8,background:'#E5E7EB',borderRadius:4,marginBottom:16}}>
+        <div style={{width:`${pass/CHECKLIST.length*100}%`,height:'100%',borderRadius:4,background:C.success}}/>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          {['구역','점검 항목','결과','사진'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{CHECKLIST.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'10px 12px'}}><span style={{padding:'3px 8px',borderRadius:4,background:'#F0FDF4',fontSize:11,fontWeight:600,color:C.primary}}>{c.cat}</span></td>
+          <td style={{padding:'10px 12px',fontWeight:500}}>{c.item}</td>
+          <td style={{padding:'10px 12px'}}><Badge text={c.result}/></td>
+          <td style={{padding:'10px 12px'}}>{c.photo?'📷':'—'}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div style={{display:'flex',gap:8}}>
+      <button style={{padding:'10px 20px',borderRadius:12,background:C.primary,color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}}>📷 사진 업로드</button>
+      <button style={{padding:'10px 20px',borderRadius:12,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:14,fontWeight:600,cursor:'pointer'}}>점검 제출</button>
+    </div>
+  </div>);
+}
+
+function StorePage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>매장 관리</h2>
+      <button style={{padding:'8px 16px',borderRadius:12,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 매장 등록</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,boxShadow:'0 2px 8px rgba(0,0,0,0.04)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`,background:'#F0FDF4'}}>
+          {['매장명','지역','담당자','최근 점검','점수','상태'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{STORES.map(s=><tr key={s.id} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'14px',fontWeight:600}}>{s.name}</td>
+          <td style={{padding:'14px'}}><span style={{padding:'3px 8px',borderRadius:4,background:'#F0FDF4',fontSize:11,fontWeight:600,color:C.primary}}>{s.region}</span></td>
+          <td style={{padding:'14px',color:C.textLight}}>{s.mgr}</td>
+          <td style={{padding:'14px',color:C.textMuted}}>{s.lastCheck}</td>
+          <td style={{padding:'14px',fontWeight:700,color:s.score>=90?C.success:s.score>=80?C.warning:s.score>0?C.danger:C.textMuted}}>{s.score>0?`${s.score}점`:'—'}</td>
+          <td style={{padding:'14px'}}><Badge text={s.status}/></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function ReportPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>점검 리포트</h2>
+      <button style={{padding:'8px 16px',borderRadius:12,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>📄 PDF 다운로드</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,boxShadow:'0 2px 8px rgba(0,0,0,0.04)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          {['리포트 ID','매장','기간','항목수','합격','미흡','점수','작성일'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{REPORTS.map(r=><tr key={r.id} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'12px',fontFamily:'monospace',fontWeight:600,color:C.primary}}>{r.id}</td>
+          <td style={{padding:'12px',fontWeight:600}}>{r.store}</td>
+          <td style={{padding:'12px'}}>{r.period}</td>
+          <td style={{padding:'12px'}}>{r.items}</td>
+          <td style={{padding:'12px',color:C.success}}>{r.pass}</td>
+          <td style={{padding:'12px',color:C.danger}}>{r.fail}</td>
+          <td style={{padding:'12px',fontWeight:700,color:r.score>=90?C.success:C.warning}}>{r.score}점</td>
+          <td style={{padding:'12px',color:C.textMuted}}>{r.date}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function SettingsPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>점검 기준 설정</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:20}}>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>점검 항목 관리</div>
+        {[['주방 항목','8개'],['홀 항목','6개'],['화장실 항목','4개'],['공용 항목','6개']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>
+        ))}
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>점검 정책</div>
+        {[['점검 주기','월 1회'],['사진 첨부','필수 항목 지정'],['점수 기준','합격 80점 이상'],['리포트 자동 생성','켜짐']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600,color:C.primary}}>{v}</span></div>
+        ))}
+      </div>
+    </div>
+  </div>);
+}
+
+/* ─── App Shell (topnav-hero) ─── */
+function App(){
+  const[page,setPage]=useState('점검 현황 대시보드');
+  const tabs=[{name:'점검 현황 대시보드',icon:'📊'},{name:'체크리스트 점검',icon:'✅'},{name:'매장 관리',icon:'🏪'},{name:'점검 리포트',icon:'📋'},{name:'점검 기준 설정',icon:'⚙️'}];
+  const renderPage=()=>{switch(page){case '점검 현황 대시보드':return <DashboardPage/>;case '체크리스트 점검':return <ChecklistPage/>;case '매장 관리':return <StorePage/>;case '점검 리포트':return <ReportPage/>;case '점검 기준 설정':return <SettingsPage/>;default:return <DashboardPage/>;}};
+
+  return(<div style={{height:'100vh',display:'flex',flexDirection:'column'}}>
+    <header style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:'0 32px',display:'flex',alignItems:'center',justifyContent:'space-between',height:56,flexShrink:0}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff',fontWeight:800}}>CC</div>
+        <span style={{fontSize:16,fontWeight:800}}>CleanCheck</span>
+      </div>
+      <nav style={{display:'flex',gap:2}}>
+        {tabs.map(t=>(<button key={t.name} onClick={()=>setPage(t.name)} title={t.name} style={{padding:'6px 14px',borderRadius:8,border:'none',background:page===t.name?`${C.primary}15`:'transparent',color:page===t.name?C.primary:C.textMuted,fontSize:13,fontWeight:page===t.name?600:400,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}><span style={{fontSize:14}}>{t.icon}</span>{t.name}</button>))}
+      </nav>
+      <span style={{fontSize:12,color:C.textMuted}}>본사 관리자</span>
+    </header>
+    <main style={{flex:1,overflow:'auto',padding:28}}>{renderPage()}</main>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

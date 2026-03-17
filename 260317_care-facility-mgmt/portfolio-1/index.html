@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>케어밀 — 요양시설 급식·위생 통합 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',bg:'#F0F9FF',surface:'#FFFFFF',border:'#E2E8F0',text:'#0F172A',textLight:'#64748B',textMuted:'#94A3B8',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#1A365D',sidebarText:'#CBD5E1',sidebarActive:'#0066CC'};
+
+/* ─── Data ─── */
+const WEEK_MEALS=[
+  {day:'월',breakfast:'현미밥, 된장찌개, 시금치나물, 배추김치',lunch:'보리밥, 불고기, 계란찜, 열무김치',dinner:'쌀밥, 미역국, 두부조림, 깍두기',special:''},
+  {day:'화',breakfast:'쌀밥, 콩나물국, 멸치볶음, 깍두기',lunch:'잡곡밥, 돼지갈비찜, 도토리묵, 배추김치',dinner:'현미밥, 감자수제비, 어묵볶음, 열무김치',special:''},
+  {day:'수',breakfast:'흑미밥, 소고기무국, 장조림, 깍두기',lunch:'쌀밥, 생선구이, 시금치나물, 배추김치',dinner:'잡곡밥, 닭곰탕, 무생채, 열무김치',special:'당뇨식: 흑미밥→잡곡밥'},
+  {day:'목',breakfast:'보리밥, 황태국, 고사리나물, 깍두기',lunch:'현미밥, 돈까스, 샐러드, 배추김치',dinner:'쌀밥, 된장국, 버섯볶음, 열무김치',special:''},
+  {day:'금',breakfast:'쌀밥, 시래기국, 두부구이, 깍두기',lunch:'잡곡밥, 해물파전, 콩나물무침, 배추김치',dinner:'현미밥, 삼계탕, 오이소박이, 열무김치',special:'연화식: 해물파전→죽 제공'},
+];
+
+const RESIDENTS=[
+  {id:1,name:'김영숙',age:82,room:'201호',diet:'일반식',status:'정상',lastMeal:'점심'},
+  {id:2,name:'이순자',age:78,room:'203호',diet:'당뇨식',status:'정상',lastMeal:'점심'},
+  {id:3,name:'박정희',age:85,room:'205호',diet:'연화식',status:'식이변경',lastMeal:'아침'},
+  {id:4,name:'최옥순',age:80,room:'207호',diet:'일반식',status:'정상',lastMeal:'점심'},
+  {id:5,name:'정말순',age:88,room:'301호',diet:'경관식',status:'정상',lastMeal:'점심'},
+  {id:6,name:'한복순',age:76,room:'302호',diet:'일반식',status:'정상',lastMeal:'점심'},
+  {id:7,name:'윤영자',age:83,room:'305호',diet:'당뇨식',status:'정상',lastMeal:'아침'},
+  {id:8,name:'오정숙',age:79,room:'307호',diet:'연화식',status:'정상',lastMeal:'점심'},
+];
+
+const HYGIENE_ITEMS=[
+  {id:1,category:'주방',item:'조리대 소독 여부',status:'완료',checker:'김영미',time:'06:30',photo:true},
+  {id:2,category:'주방',item:'냉장고 온도 확인 (0~5°C)',status:'완료',checker:'김영미',time:'06:35',photo:true},
+  {id:3,category:'주방',item:'식자재 유통기한 확인',status:'완료',checker:'김영미',time:'06:40',photo:false},
+  {id:4,category:'식당',item:'테이블·의자 청결 상태',status:'완료',checker:'박수진',time:'07:00',photo:true},
+  {id:5,category:'식당',item:'바닥 청소 및 소독',status:'미완료',checker:'—',time:'—',photo:false},
+  {id:6,category:'복도',item:'손소독제 비치 확인',status:'완료',checker:'박수진',time:'07:10',photo:true},
+  {id:7,category:'화장실',item:'화장실 청소 및 소독',status:'미완료',checker:'—',time:'—',photo:false},
+];
+
+const MEAL_CHART=[{month:'1월',count:245},{month:'2월',count:238},{month:'3월',count:252},{month:'4월',count:248},{month:'5월',count:256},{month:'6월',count:260}];
+const DIET_PIE=[{name:'일반식',value:52,color:C.primary},{name:'당뇨식',value:18,color:C.warning},{name:'연화식',value:15,color:C.success},{name:'경관식',value:5,color:C.danger}];
+const HYGIENE_CHART=[{week:'1주',score:92},{week:'2주',score:88},{week:'3주',score:95},{week:'4주',score:91}];
+
+const EVAL_ITEMS=[
+  {category:'급식 관리',items:['식단표 작성·게시','특별 식이 관리','급식 인원 기록'],score:92},
+  {category:'위생 관리',items:['주방 위생 점검','식당 청결 점검','손위생 관리'],score:88},
+  {category:'영양 관리',items:['영양사 배치','영양 상담 기록','영양 교육'],score:85},
+  {category:'안전 관리',items:['소방 점검','낙상 예방','응급 대응'],score:90},
+];
+
+const STATS=[
+  {month:'1월',meals:7350,hygiene:28,eval:88},{month:'2월',meals:6664,hygiene:26,eval:90},
+  {month:'3월',meals:7812,hygiene:30,eval:91},{month:'4월',meals:7440,hygiene:29,eval:89},
+  {month:'5월',meals:7936,hygiene:31,eval:93},{month:'6월',meals:7800,hygiene:28,eval:92},
+];
+
+/* ─── Components ─── */
+function Badge({text}){
+  const colors={'완료':{bg:'#ECFDF5',c:'#059669'},'미완료':{bg:'#FEF2F2',c:'#DC2626'},'정상':{bg:'#ECFDF5',c:'#059669'},'식이변경':{bg:'#FEF3C7',c:'#D97706'},'일반식':{bg:'#EFF6FF',c:'#0066CC'},'당뇨식':{bg:'#FEF3C7',c:'#D97706'},'연화식':{bg:'#ECFDF5',c:'#059669'},'경관식':{bg:'#FEF2F2',c:'#DC2626'}};
+  const s=colors[text]||{bg:'#F1F5F9',c:'#475569'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}>{text}</span>;
+}
+function KpiCard({icon,label,value,sub,accent}){
+  return(<div style={{background:C.surface,borderRadius:10,padding:'20px 24px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span><span style={{fontSize:20}}>{icon}</span></div>
+    <div style={{fontSize:28,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:6}}>{sub}</div>}
+  </div>);
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>통합 대시보드</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+      <KpiCard icon="🍚" label="오늘 급식 인원" value="82명" sub="아침 78 · 점심 82 · 저녁 80"/>
+      <KpiCard icon="✅" label="위생 점검" value="5/7" sub="미완료 2건" accent={C.warning}/>
+      <KpiCard icon="🏥" label="어르신 현원" value="90명" sub="입소 90 · 퇴소 0"/>
+      <KpiCard icon="📋" label="기관 평가 점수" value="92점" sub="이번 분기" accent={C.success}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 급식 인원 추이</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={MEAL_CHART}>
+            <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="month" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:12,fill:C.textMuted}}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/><Area type="monotone" dataKey="count" stroke={C.primary} fill="url(#mg)" strokeWidth={2} name="급식 인원"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>식이 유형 분포</div>
+        <ResponsiveContainer width="100%" height={160}>
+          <PieChart><Pie data={DIET_PIE} cx="50%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={3}>{DIET_PIE.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip/></PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:10,marginTop:8}}>
+          {DIET_PIE.map(d=><div key={d.name} style={{display:'flex',alignItems:'center',gap:4,fontSize:11}}><div style={{width:8,height:8,borderRadius:'50%',background:d.color}}/>{d.name} {d.value}명</div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>주간 위생 점검 점수</div>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={HYGIENE_CHART}><CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="week" tick={{fontSize:12,fill:C.textMuted}}/><YAxis domain={[80,100]} tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/><Bar dataKey="score" fill={C.success} radius={[4,4,0,0]} name="점수"/></BarChart>
+      </ResponsiveContainer>
+    </div>
+  </div>);
+}
+
+function MealPlanPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>식단 관리</h2>
+      <div style={{display:'flex',gap:8}}>
+        <button style={{padding:'8px 16px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 식단 등록</button>
+        <button style={{padding:'8px 16px',borderRadius:8,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:13,fontWeight:600,cursor:'pointer'}}>📋 식단 복사</button>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,overflow:'hidden',marginBottom:24}}>
+      <div style={{padding:'16px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:15,fontWeight:700}}>2025년 6월 3주차 식단표</span>
+        <div style={{display:'flex',gap:8}}>
+          <button style={{padding:'4px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:12,cursor:'pointer'}}>◀ 이전 주</button>
+          <button style={{padding:'4px 12px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:12,cursor:'pointer'}}>다음 주 ▶</button>
+        </div>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`,background:'#F8FAFC'}}>
+          {['요일','아침','점심','저녁','특이사항'].map(h=><th key={h} style={{padding:'10px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{WEEK_MEALS.map(m=><tr key={m.day} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'12px 14px',fontWeight:700,color:C.primary}}>{m.day}</td>
+          <td style={{padding:'12px 14px',fontSize:12,lineHeight:1.5}}>{m.breakfast}</td>
+          <td style={{padding:'12px 14px',fontSize:12,lineHeight:1.5}}>{m.lunch}</td>
+          <td style={{padding:'12px 14px',fontSize:12,lineHeight:1.5}}>{m.dinner}</td>
+          <td style={{padding:'12px 14px',fontSize:12,color:m.special?C.warning:C.textMuted}}>{m.special||'—'}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div style={{fontSize:15,fontWeight:700}}>급식 인원 관리</div>
+        <input placeholder="어르신 이름 검색..." style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,outline:'none',width:200}}/>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          {['이름','나이','호실','식이 유형','상태','최근 식사'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{RESIDENTS.map(r=><tr key={r.id} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'10px 12px',fontWeight:600}}>{r.name}</td>
+          <td style={{padding:'10px 12px'}}>{r.age}세</td>
+          <td style={{padding:'10px 12px'}}>{r.room}</td>
+          <td style={{padding:'10px 12px'}}><Badge text={r.diet}/></td>
+          <td style={{padding:'10px 12px'}}><Badge text={r.status}/></td>
+          <td style={{padding:'10px 12px',color:C.textMuted}}>{r.lastMeal}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function HygienePage(){
+  const completed=HYGIENE_ITEMS.filter(h=>h.status==='완료').length;
+  const total=HYGIENE_ITEMS.length;
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>위생 점검</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}}>
+      <KpiCard icon="✅" label="점검 완료" value={`${completed}/${total}`} accent={C.success}/>
+      <KpiCard icon="❌" label="미완료" value={total-completed} accent={C.danger}/>
+      <KpiCard icon="📷" label="사진 첨부" value={HYGIENE_ITEMS.filter(h=>h.photo).length} sub="증빙 사진"/>
+    </div>
+    <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`,marginBottom:20}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:15,fontWeight:700}}>오늘의 위생 점검 체크리스트</span>
+        <span style={{padding:'4px 12px',borderRadius:6,background:completed===total?'#ECFDF5':'#FEF3C7',color:completed===total?C.success:C.warning,fontSize:12,fontWeight:600}}>{Math.round(completed/total*100)}% 완료</span>
+      </div>
+      <div style={{height:8,background:'#E2E8F0',borderRadius:4,marginBottom:16}}>
+        <div style={{width:`${completed/total*100}%`,height:'100%',borderRadius:4,background:C.success}}/>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          {['구역','점검 항목','상태','담당자','시간','사진'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{HYGIENE_ITEMS.map(h=><tr key={h.id} style={{borderBottom:`1px solid ${C.border}`,background:h.status==='미완료'?'#FEF2F208':'transparent'}}>
+          <td style={{padding:'10px 12px'}}><span style={{padding:'3px 8px',borderRadius:4,background:'#F1F5F9',fontSize:11,fontWeight:600}}>{h.category}</span></td>
+          <td style={{padding:'10px 12px',fontWeight:500}}>{h.item}</td>
+          <td style={{padding:'10px 12px'}}><Badge text={h.status}/></td>
+          <td style={{padding:'10px 12px',color:C.textMuted}}>{h.checker}</td>
+          <td style={{padding:'10px 12px',color:C.textMuted}}>{h.time}</td>
+          <td style={{padding:'10px 12px'}}>{h.photo?<span style={{color:C.success}}>📷</span>:<span style={{color:C.textMuted}}>—</span>}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <button style={{padding:'10px 20px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}}>📷 사진 업로드</button>
+  </div>);
+}
+
+function EvaluationPage(){
+  const avgScore=Math.round(EVAL_ITEMS.reduce((s,e)=>s+e.score,0)/EVAL_ITEMS.length);
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>평가 자료</h2>
+      <button style={{padding:'8px 16px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>📄 PDF 생성</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+      <KpiCard icon="📊" label="종합 점수" value={`${avgScore}점`} accent={C.success}/>
+      <KpiCard icon="🍚" label="급식 관리" value="92점"/>
+      <KpiCard icon="🧹" label="위생 관리" value="88점" accent={C.warning}/>
+      <KpiCard icon="🏥" label="안전 관리" value="90점"/>
+    </div>
+    <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>평가 항목별 실적</div>
+      {EVAL_ITEMS.map(e=>(
+        <div key={e.category} style={{marginBottom:16,padding:16,background:'#F8FAFC',borderRadius:8,border:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <span style={{fontSize:14,fontWeight:700}}>{e.category}</span>
+            <span style={{fontSize:18,fontWeight:800,color:e.score>=90?C.success:e.score>=85?C.warning:C.danger}}>{e.score}점</span>
+          </div>
+          <div style={{height:8,background:'#E2E8F0',borderRadius:4,marginBottom:8}}>
+            <div style={{width:`${e.score}%`,height:'100%',borderRadius:4,background:e.score>=90?C.success:e.score>=85?C.warning:C.danger}}/>
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {e.items.map(i=><span key={i} style={{padding:'3px 10px',borderRadius:4,background:'#EFF6FF',fontSize:11,color:C.primary}}>{i}</span>)}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>);
+}
+
+function StatisticsPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>통계 리포트</h2>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 급식 건수</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={STATS}><CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="month" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/><Bar dataKey="meals" fill={C.primary} radius={[4,4,0,0]} name="급식 건수"/></BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 평가 점수 추이</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={STATS}><CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="month" tick={{fontSize:12,fill:C.textMuted}}/><YAxis domain={[80,100]} tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/><Line type="monotone" dataKey="eval" stroke={C.success} strokeWidth={2} dot={{fill:C.success,r:4}} name="평가 점수"/></LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>);
+}
+
+function SettingsPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>시스템 설정</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:20}}>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>시설 정보</div>
+        {[['시설명','행복요양원'],['시설유형','노인요양시설'],['정원','100명'],['현원','90명'],['관리자','김미영']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>
+        ))}
+      </div>
+      <div style={{background:C.surface,borderRadius:10,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>알림 설정</div>
+        {[['위생 미점검 알림','09:00 자동 알림'],['식단 미등록 알림','전일 18:00'],['기관 평가 D-30 알림','켜짐'],['식이 변경 알림','즉시 알림']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600,color:C.primary}}>{v}</span></div>
+        ))}
+      </div>
+    </div>
+  </div>);
+}
+
+/* ─── App Shell ─── */
+function App(){
+  const[page,setPage]=useState('통합 대시보드');
+  const menus=[{name:'통합 대시보드',icon:'📊'},{name:'식단 관리',icon:'🍚'},{name:'위생 점검',icon:'🧹'},{name:'평가 자료',icon:'📋'},{name:'통계 리포트',icon:'📈'},{name:'시스템 설정',icon:'⚙️'}];
+  const renderPage=()=>{switch(page){case '통합 대시보드':return <DashboardPage/>;case '식단 관리':return <MealPlanPage/>;case '위생 점검':return <HygienePage/>;case '평가 자료':return <EvaluationPage/>;case '통계 리포트':return <StatisticsPage/>;case '시스템 설정':return <SettingsPage/>;default:return <DashboardPage/>;}};
+
+  return(<div style={{display:'flex',height:'100vh'}}>
+    <div style={{width:260,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'20px 24px',borderBottom:'1px solid rgba(255,255,255,0.1)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>🏥</div>
+          <div><div style={{fontSize:16,fontWeight:800,color:'#fff'}}>케어밀</div><div style={{fontSize:11,color:C.sidebarText}}>요양시설 통합 관리</div></div>
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'12px 14px'}}>
+        {menus.map(m=>(<button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:10,border:'none',background:page===m.name?C.sidebarActive:'transparent',color:page===m.name?'#fff':C.sidebarText,fontSize:14,fontWeight:page===m.name?600:400,cursor:'pointer',marginBottom:4,transition:'all 150ms',textAlign:'left'}}><span style={{fontSize:18}}>{m.icon}</span>{m.name}</button>))}
+      </nav>
+      <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+        <div style={{fontSize:11,color:C.sidebarText}}>행복요양원</div>
+        <div style={{fontSize:13,fontWeight:600,color:'#fff'}}>현원 90명 · 정원 100명</div>
+      </div>
+    </div>
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'14px 28px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:13,fontWeight:600}}>{page}</span>
+        <span style={{padding:'4px 10px',borderRadius:6,background:'#ECFDF5',color:C.success,fontSize:12,fontWeight:600}}>● 시스템 정상</span>
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:28}}>{renderPage()}</div>
+    </div>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
