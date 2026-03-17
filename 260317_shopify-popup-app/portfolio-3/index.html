@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>O2O 팝업 커머스 통합 운영 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#DDD6FE;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect} = React;
+const {AreaChart,Area,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend,ComposedChart,Line} = Recharts;
+
+const C = {
+  primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',
+  bg:'#FAF5FF',surface:'#FFFFFF',border:'#E9D5FF',
+  text:'#1E1B4B',textLight:'#5B4A8A',
+  success:'#059669',warning:'#D97706',danger:'#EF4444',
+};
+
+const NAV = [
+  {id:'dashboard',icon:'📊',label:'대시보드'},
+  {id:'multi-reservation',icon:'📅',label:'예약 관리'},
+  {id:'crm',icon:'👥',label:'CRM'},
+  {id:'settlement',icon:'💰',label:'정산'},
+];
+
+// Data
+const POPUPS = [
+  {name:'성수 플래그십',reservations:142,checkins:128,revenue:18400000,status:'운영중'},
+  {name:'강남 팝업',reservations:98,checkins:84,revenue:12800000,status:'운영중'},
+  {name:'홍대 팝업',reservations:76,checkins:65,revenue:8900000,status:'운영중'},
+  {name:'여의도 팝업',reservations:54,checkins:42,revenue:5600000,status:'준비중'},
+];
+
+const DAILY_DATA = [
+  {date:'3/11',예약:45,매출:280},{date:'3/12',예약:52,매출:340},{date:'3/13',예약:48,매출:310},
+  {date:'3/14',예약:61,매출:420},{date:'3/15',예약:55,매출:380},{date:'3/16',예약:72,매출:520},{date:'3/17',예약:68,매출:490},
+];
+
+const RESERVATIONS = [
+  {id:'RES-2601',customer:'김서연',popup:'성수 플래그십',date:'2026.03.17',time:'14:00',people:2,status:'confirmed',segment:'VIP',phone:'010-1234-5678',history:[{event:'예약 생성',time:'03/15 09:12'},{event:'예약 확정',time:'03/15 09:15'}]},
+  {id:'RES-2602',customer:'이준호',popup:'강남 팝업',date:'2026.03.17',time:'15:30',people:1,status:'waiting',segment:'일반',phone:'010-2345-6789',history:[{event:'예약 생성',time:'03/15 10:30'},{event:'대기열 배정',time:'03/15 10:31'}]},
+  {id:'RES-2603',customer:'박하나',popup:'홍대 팝업',date:'2026.03.18',time:'11:00',people:3,status:'confirmed',segment:'VIP',phone:'010-3456-7890',history:[{event:'예약 생성',time:'03/16 14:22'},{event:'예약 확정',time:'03/16 14:25'}]},
+  {id:'RES-2604',customer:'정수민',popup:'성수 플래그십',date:'2026.03.18',time:'10:00',people:2,status:'confirmed',segment:'일반',phone:'010-4567-8901',history:[{event:'예약 생성',time:'03/16 16:40'},{event:'예약 확정',time:'03/16 16:42'}]},
+  {id:'RES-2605',customer:'최우진',popup:'여의도 팝업',date:'2026.03.19',time:'16:00',people:4,status:'waiting',segment:'잠재',phone:'010-5678-9012',history:[{event:'예약 생성',time:'03/17 08:05'}]},
+  {id:'RES-2606',customer:'강유진',popup:'강남 팝업',date:'2026.03.17',time:'13:00',people:1,status:'cancelled',segment:'일반',phone:'010-6789-0123',history:[{event:'예약 생성',time:'03/14 11:20'},{event:'예약 취소',time:'03/16 09:10'}]},
+  {id:'RES-2607',customer:'김민수',popup:'성수 플래그십',date:'2026.03.19',time:'14:30',people:2,status:'confirmed',segment:'VIP',phone:'010-7890-1234',history:[{event:'예약 생성',time:'03/17 09:00'},{event:'예약 확정',time:'03/17 09:03'}]},
+];
+
+const CUSTOMERS = [
+  {id:'CUS-001',name:'김서연',segment:'VIP',visits:12,stamps:48,purchases:2340000,lastVisit:'2026.03.15',email:'seo@email.com',phone:'010-1234-5678',joinDate:'2025.06.10'},
+  {id:'CUS-002',name:'이준호',segment:'일반',visits:5,stamps:20,purchases:780000,lastVisit:'2026.03.12',email:'jun@email.com',phone:'010-2345-6789',joinDate:'2025.09.22'},
+  {id:'CUS-003',name:'박하나',segment:'VIP',visits:15,stamps:60,purchases:3100000,lastVisit:'2026.03.16',email:'hana@email.com',phone:'010-3456-7890',joinDate:'2025.05.15'},
+  {id:'CUS-004',name:'정수민',segment:'일반',visits:3,stamps:12,purchases:420000,lastVisit:'2026.03.10',email:'sum@email.com',phone:'010-4567-8901',joinDate:'2025.11.03'},
+  {id:'CUS-005',name:'최우진',segment:'잠재',visits:1,stamps:4,purchases:150000,lastVisit:'2026.02.28',email:'woo@email.com',phone:'010-5678-9012',joinDate:'2026.01.14'},
+  {id:'CUS-006',name:'강유진',segment:'VIP',visits:18,stamps:72,purchases:4200000,lastVisit:'2026.03.17',email:'yoo@email.com',phone:'010-6789-0123',joinDate:'2025.04.01'},
+  {id:'CUS-007',name:'김민수',segment:'일반',visits:7,stamps:28,purchases:1100000,lastVisit:'2026.03.14',email:'min@email.com',phone:'010-7890-1234',joinDate:'2025.08.18'},
+  {id:'CUS-008',name:'이지은',segment:'잠재',visits:2,stamps:8,purchases:280000,lastVisit:'2026.03.05',email:'jie@email.com',phone:'010-8901-2345',joinDate:'2026.02.01'},
+];
+
+const SETTLEMENTS = [
+  {popup:'성수 플래그십',channel:'자체예약',orders:142,gross:18400000,fee:920000,net:17480000},
+  {popup:'성수 플래그십',channel:'Shopify',orders:87,gross:11200000,fee:560000,net:10640000},
+  {popup:'강남 팝업',channel:'자체예약',orders:98,gross:12800000,fee:640000,net:12160000},
+  {popup:'강남 팝업',channel:'Shopify',orders:54,gross:6800000,fee:340000,net:6460000},
+  {popup:'홍대 팝업',channel:'자체예약',orders:76,gross:8900000,fee:445000,net:8455000},
+  {popup:'홍대 팝업',channel:'Shopify',orders:32,gross:4100000,fee:205000,net:3895000},
+  {popup:'여의도 팝업',channel:'자체예약',orders:54,gross:5600000,fee:280000,net:5320000},
+];
+
+const CHANNEL_DATA=[{name:'자체예약',value:45700000},{name:'Shopify',value:22100000}];
+const SEG_MAP={VIP:{color:C.primary},일반:{color:C.warning},잠재:{color:C.textLight}};
+const RES_STATUS={confirmed:{label:'확정',color:C.success},waiting:{label:'대기',color:C.warning},cancelled:{label:'취소',color:C.danger}};
+
+// Components
+function CountUp({end,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(1200/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+function Badge({label,color}){return <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:`${color}15`,color}}>{label}</span>}
+function Toast({message,onClose}){useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);return<div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>}
+function Modal({title,onClose,children,width=560}){
+  return(<div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
+    <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
+      </div>
+      <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+    </div>
+  </div>);
+}
+
+function SideNavItem({icon,label,active,onClick}){
+  return(<button onClick={onClick} title={label} style={{
+    display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 14px',borderRadius:8,border:'none',cursor:'pointer',
+    background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,
+    borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',
+    fontSize:14,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left',
+  }}><span style={{fontSize:17}}>{icon}</span>{label}</button>);
+}
+
+function TabUnderline({label,active,onClick}){
+  return(<button onClick={onClick} style={{
+    padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,
+    color:active?C.primary:C.textLight,fontWeight:active?600:400,
+    borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,
+  }}>{label}</button>);
+}
+
+// Detail Panel
+function DetailPanel({item,section,showToast}){
+  if(!item) return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>항목을 선택하세요</div>);
+
+  if(section==='multi-reservation'){
+    return(<div style={{animation:'slideInRight 250ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
+        <div><div style={{fontSize:11,color:C.textLight,letterSpacing:'0.06em',textTransform:'uppercase',fontWeight:700,marginBottom:4}}>예약 정보</div><h3 style={{fontSize:18,fontWeight:700}}>{item.id}</h3></div>
+        <Badge {...RES_STATUS[item.status]}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:20}}>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>고객</div><div style={{fontSize:14,fontWeight:500}}>{item.customer}</div></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>세그먼트</div><Badge label={item.segment} color={SEG_MAP[item.segment]?.color||C.textLight}/></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>팝업</div><div style={{fontSize:14}}>{item.popup}</div></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>일시</div><div style={{fontSize:14}}>{item.date} {item.time}</div></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>인원</div><div style={{fontSize:14}}>{item.people}명</div></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>연락처</div><div style={{fontSize:14}}>{item.phone}</div></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:13,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:C.textLight,marginBottom:8}}>이벤트 이력</div>
+        {item.history.map((h,i)=>(
+          <div key={i} style={{display:'flex',gap:10,padding:'8px 0',borderBottom:i<item.history.length-1?`1px solid ${C.border}`:'none'}}>
+            <div style={{width:8,height:8,borderRadius:4,background:C.accent,marginTop:5,flexShrink:0}}/>
+            <div><div style={{fontSize:13}}>{h.event}</div><div style={{fontSize:11,color:C.textLight}}>{h.time}</div></div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginBottom:16}}><div style={{fontSize:12,color:C.textLight,marginBottom:6}}>관리자 메모</div><textarea rows={2} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical'}} placeholder="메모 입력..."/></div>
+      <div style={{display:'flex',gap:8}}>
+        {item.status==='waiting'&&<button onClick={()=>showToast('예약이 확정되었습니다.')} style={{flex:1,padding:'10px',borderRadius:8,background:C.success,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>확정</button>}
+        {item.status!=='cancelled'&&<button onClick={()=>showToast('예약이 취소되었습니다.')} style={{flex:1,padding:'10px',borderRadius:8,background:C.danger,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>취소</button>}
+      </div>
+    </div>);
+  }
+
+  if(section==='crm'){
+    return(<div style={{animation:'slideInRight 250ms ease'}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
+        <div style={{width:48,height:48,borderRadius:24,background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{item.name[0]}</div>
+        <div><h3 style={{fontSize:18,fontWeight:700}}>{item.name}</h3><Badge label={item.segment} color={SEG_MAP[item.segment]?.color||C.textLight}/></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        {[{label:'방문 횟수',value:`${item.visits}회`},{label:'스탬프',value:`${item.stamps}개`},{label:'누적 구매',value:`₩${item.purchases.toLocaleString()}`},{label:'최근 방문',value:item.lastVisit},{label:'이메일',value:item.email},{label:'가입일',value:item.joinDate}].map(f=>(
+          <div key={f.label} style={{padding:12,background:`${C.primary}05`,borderRadius:10,border:`1px solid ${C.border}`}}>
+            <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>{f.label}</div><div style={{fontSize:13,fontWeight:500}}>{f.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:13,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:C.textLight,marginBottom:8}}>스탬프 진행</div>
+        <div style={{display:'flex',gap:4}}>
+          {Array.from({length:10},(_,i)=>(
+            <div key={i} style={{flex:1,height:24,borderRadius:6,background:i<(item.stamps%10)?C.primary:`${C.primary}10`,transition:'all 200ms',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,color:i<(item.stamps%10)?'#fff':C.textLight}}>{i+1}</div>
+          ))}
+        </div>
+        <div style={{fontSize:11,color:C.textLight,marginTop:4}}>다음 보상까지 {10-(item.stamps%10)}개</div>
+      </div>
+      <div style={{marginBottom:16}}><div style={{fontSize:12,color:C.textLight,marginBottom:6}}>CRM 메모</div><textarea rows={2} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical'}} placeholder="고객 메모 입력..."/></div>
+      <button onClick={()=>showToast('쿠폰이 발송되었습니다.')} style={{width:'100%',padding:'10px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>🎁 맞춤 쿠폰 발송</button>
+    </div>);
+  }
+
+  if(section==='settlement'){
+    return(<div style={{animation:'slideInRight 250ms ease'}}>
+      <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>{item.popup} — {item.channel}</h3>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>주문 건수</div><div style={{fontSize:18,fontWeight:700}}>{item.orders}건</div></div>
+        <div style={{padding:14,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textLight,marginBottom:4}}>총 매출</div><div style={{fontSize:18,fontWeight:700}}>₩{item.gross.toLocaleString()}</div></div>
+        <div style={{padding:14,background:'#FEF3C715',borderRadius:12,border:`1px solid #FCD34D40`}}>
+          <div style={{fontSize:11,color:C.warning,marginBottom:4}}>수수료</div><div style={{fontSize:18,fontWeight:700,color:C.warning}}>₩{item.fee.toLocaleString()}</div></div>
+        <div style={{padding:14,background:`${C.success}08`,borderRadius:12,border:`1px solid ${C.success}20`}}>
+          <div style={{fontSize:11,color:C.success,marginBottom:4}}>정산액</div><div style={{fontSize:18,fontWeight:700,color:C.success}}>₩{item.net.toLocaleString()}</div></div>
+      </div>
+      <div style={{marginBottom:16}}><div style={{fontSize:12,color:C.textLight,marginBottom:6}}>정산 메모</div><textarea rows={2} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical'}} placeholder="정산 관련 메모..."/></div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>showToast('엑셀 파일이 다운로드됩니다.')} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>📥 엑셀 다운로드</button>
+        <button onClick={()=>showToast('PDF 리포트가 생성됩니다.')} style={{flex:1,padding:'10px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>📄 PDF 리포트</button>
+      </div>
+    </div>);
+  }
+  return null;
+}
+
+// Dashboard
+function DashboardPage(){
+  const totalRev = POPUPS.reduce((s,p)=>s+p.revenue,0);
+  const totalRes = POPUPS.reduce((s,p)=>s+p.reservations,0);
+  const totalChk = POPUPS.reduce((s,p)=>s+p.checkins,0);
+  return(
+    <div style={{padding:20,animation:'fadeIn 300ms ease',overflowY:'auto',height:'100%'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
+        {[{icon:'📅',label:'총 예약',value:totalRes,suffix:'건'},{icon:'✅',label:'체크인',value:totalChk,suffix:'건'},{icon:'💰',label:'총 매출',value:Math.round(totalRev/10000),suffix:'만원'},{icon:'🏪',label:'운영 팝업',value:POPUPS.filter(p=>p.status==='운영중').length,suffix:'개'}].map((k,i)=>(
+          <div key={k.label} style={{background:C.surface,borderRadius:20,padding:18,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:`slideUp 400ms ease ${i*80}ms both`}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div><div style={{fontSize:11,color:C.textLight,marginBottom:6}}>{k.label}</div><div style={{fontSize:24,fontWeight:700}}><CountUp end={k.value} suffix={k.suffix}/></div></div>
+              <div style={{width:36,height:36,borderRadius:12,background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{k.icon}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'3fr 2fr',gap:14,marginBottom:24}}>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:'slideUp 400ms ease 320ms both'}}>
+          <div style={{fontSize:13,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:C.textLight,marginBottom:16}}>일별 예약·매출 추이</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={DAILY_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF40"/>
+              <XAxis dataKey="date" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <YAxis yAxisId="left" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <YAxis yAxisId="right" orientation="right" tick={{fontSize:11,fill:C.textLight}} axisLine={false} tickLine={false}/>
+              <Tooltip contentStyle={{borderRadius:10,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar yAxisId="left" dataKey="예약" fill={`${C.primary}40`} radius={[4,4,0,0]}/>
+              <Line yAxisId="right" type="monotone" dataKey="매출" stroke={C.accent} strokeWidth={2} dot={{fill:C.accent,r:3}}/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:'slideUp 400ms ease 400ms both'}}>
+          <div style={{fontSize:13,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:C.textLight,marginBottom:16}}>채널별 매출</div>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={CHANNEL_DATA} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3}>
+                <Cell fill={C.primary}/><Cell fill={C.accent}/>
+              </Pie>
+              <Tooltip formatter={v=>`₩${v.toLocaleString()}`} contentStyle={{borderRadius:10,border:'none'}}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',justifyContent:'center',gap:20,marginTop:8}}>
+            {CHANNEL_DATA.map((d,i)=>(
+              <div key={d.name} style={{display:'flex',alignItems:'center',gap:6}}>
+                <div style={{width:10,height:10,borderRadius:3,background:i===0?C.primary:C.accent}}/>
+                <span style={{fontSize:12,color:C.textLight}}>{d.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:'slideUp 400ms ease 480ms both'}}>
+        <div style={{fontSize:13,fontWeight:700,letterSpacing:'0.06em',textTransform:'uppercase',color:C.textLight,marginBottom:16}}>팝업별 현황</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+          {POPUPS.map((p,i)=>(
+            <div key={p.name} style={{padding:16,borderRadius:14,border:`1px solid ${C.border}`,background:`${C.primary}03`,transition:'all 200ms',cursor:'default'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                <span style={{fontSize:14,fontWeight:600}}>{p.name}</span>
+                <Badge label={p.status} color={p.status==='운영중'?C.success:C.warning}/>
+              </div>
+              <div style={{display:'flex',gap:16}}>
+                <div><div style={{fontSize:11,color:C.textLight}}>예약</div><div style={{fontSize:16,fontWeight:700}}>{p.reservations}</div></div>
+                <div><div style={{fontSize:11,color:C.textLight}}>체크인</div><div style={{fontSize:16,fontWeight:700}}>{p.checkins}</div></div>
+                <div><div style={{fontSize:11,color:C.textLight}}>매출</div><div style={{fontSize:16,fontWeight:700}}>₩{(p.revenue/10000).toFixed(0)}만</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// List renderers
+function ReservationList({selected,onSelect}){
+  return RESERVATIONS.map((r,i)=>(
+    <div key={r.id} onClick={()=>onSelect(r)} style={{
+      padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',
+      background:selected?.id===r.id?`${C.primary}08`:'transparent',
+      borderLeft:selected?.id===r.id?`3px solid ${C.primary}`:'3px solid transparent',
+      animation:`slideUp 200ms ease ${i*40}ms both`,
+    }} onMouseEnter={e=>{if(selected?.id!==r.id)e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{if(selected?.id!==r.id)e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+        <span style={{fontSize:13,fontWeight:600}}>{r.customer}</span>
+        <Badge {...RES_STATUS[r.status]}/>
+      </div>
+      <div style={{fontSize:12,color:C.textLight}}>{r.popup} · {r.date} {r.time} · {r.people}명</div>
+    </div>
+  ));
+}
+
+function CustomerList({selected,onSelect}){
+  return CUSTOMERS.map((c,i)=>(
+    <div key={c.id} onClick={()=>onSelect(c)} style={{
+      padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',
+      background:selected?.id===c.id?`${C.primary}08`:'transparent',
+      borderLeft:selected?.id===c.id?`3px solid ${C.primary}`:'3px solid transparent',
+      animation:`slideUp 200ms ease ${i*40}ms both`,
+    }} onMouseEnter={e=>{if(selected?.id!==c.id)e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{if(selected?.id!==c.id)e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+        <span style={{fontSize:13,fontWeight:600}}>{c.name}</span>
+        <Badge label={c.segment} color={SEG_MAP[c.segment]?.color||C.textLight}/>
+      </div>
+      <div style={{fontSize:12,color:C.textLight}}>방문 {c.visits}회 · 스탬프 {c.stamps} · ₩{(c.purchases/10000).toFixed(0)}만</div>
+    </div>
+  ));
+}
+
+function SettlementList({selected,onSelect}){
+  return SETTLEMENTS.map((s,i)=>(
+    <div key={`${s.popup}-${s.channel}`} onClick={()=>onSelect(s)} style={{
+      padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',
+      background:selected&&selected.popup===s.popup&&selected.channel===s.channel?`${C.primary}08`:'transparent',
+      borderLeft:selected&&selected.popup===s.popup&&selected.channel===s.channel?`3px solid ${C.primary}`:'3px solid transparent',
+      animation:`slideUp 200ms ease ${i*40}ms both`,
+    }} onMouseEnter={e=>{if(!(selected&&selected.popup===s.popup&&selected.channel===s.channel))e.currentTarget.style.background=`${C.primary}04`}} onMouseLeave={e=>{if(!(selected&&selected.popup===s.popup&&selected.channel===s.channel))e.currentTarget.style.background='transparent'}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+        <span style={{fontSize:13,fontWeight:600}}>{s.popup}</span>
+        <span style={{fontSize:12,padding:'2px 8px',borderRadius:12,background:s.channel==='Shopify'?'#EDE9FE':'#F0FDF4',color:s.channel==='Shopify'?C.primary:C.success,fontWeight:500}}>{s.channel}</span>
+      </div>
+      <div style={{fontSize:12,color:C.textLight}}>주문 {s.orders}건 · 정산 ₩{(s.net/10000).toFixed(0)}만</div>
+    </div>
+  ));
+}
+
+// Skeleton
+function SkeletonLoader(){
+  return(<div style={{display:'flex',minHeight:'100vh'}}>
+    <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`}}/>
+    <div style={{flex:1,padding:20}}>{[...Array(4)].map((_,i)=><div key={i} style={{height:80,borderRadius:20,marginBottom:14,background:'linear-gradient(90deg,#F3E8FF 25%,#E9D5FF 50%,#F3E8FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}</div>
+  </div>);
+}
+
+// App
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [section,setSection]=useState('dashboard');
+  const [tab,setTab]=useState(0);
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [createModal,setCreateModal]=useState(false);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setSelected(null);setTab(0)},[section]);
+
+  if(loading) return <SkeletonLoader/>;
+
+  const SECTION_TABS = {
+    'multi-reservation':[{id:'all',label:'전체'},{id:'confirmed',label:'확정'},{id:'waiting',label:'대기'},{id:'cancelled',label:'취소'}],
+    crm:[{id:'all',label:'전체 고객'},{id:'vip',label:'VIP'},{id:'normal',label:'일반'},{id:'potential',label:'잠재'}],
+    settlement:[{id:'all',label:'전체'},{id:'자체예약',label:'자체예약'},{id:'Shopify',label:'Shopify'}],
+  };
+
+  const breadcrumb = section==='dashboard'?'대시보드':NAV.find(n=>n.id===section)?.label||'';
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',position:'sticky',top:0,height:'100vh',flexShrink:0}}>
+        <div style={{padding:'18px 18px 14px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>🏪</div>
+          <span style={{fontWeight:700,fontSize:15,color:C.secondary}}>PopFeed</span>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV.map(n=><SideNavItem key={n.id} icon={n.icon} label={n.label} active={section===n.id} onClick={()=>setSection(n.id)}/>)}
+        </div>
+        <div style={{padding:'12px 14px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:28,height:28,borderRadius:14,background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12}}>관</div>
+          <div><div style={{fontSize:12,fontWeight:500}}>운영 관리자</div><div style={{fontSize:10,color:C.textLight}}>admin@popfeed.kr</div></div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>PopFeed</span>
+          <span style={{fontSize:12,color:C.textLight}}>/</span>
+          <span style={{fontSize:12,fontWeight:500}}>{breadcrumb}</span>
+          {SECTION_TABS[section]&&tab>0&&<><span style={{fontSize:12,color:C.textLight}}>/</span><span style={{fontSize:12}}>{SECTION_TABS[section][tab]?.label}</span></>}
+          <div style={{flex:1}}/>
+          <span style={{fontSize:14,cursor:'pointer'}}>🔍</span>
+          <div style={{width:24,height:24,borderRadius:12,background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11}}>👤</div>
+        </header>
+
+        {section==='dashboard'?<DashboardPage/>:(
+          <>
+            {/* Tab strip */}
+            <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+              {(SECTION_TABS[section]||[]).map((t,i)=><TabUnderline key={t.id} label={t.label} active={tab===i} onClick={()=>{setTab(i);setSelected(null)}}/>)}
+              <div style={{flex:1}}/>
+              {section==='multi-reservation'&&<button onClick={()=>setCreateModal(true)} style={{padding:'5px 14px',borderRadius:6,background:C.primary,color:'#fff',border:'none',fontSize:12,fontWeight:500,cursor:'pointer',fontFamily:'inherit',marginBottom:4}}>+ 예약 추가</button>}
+              {section==='settlement'&&<button onClick={()=>setToast('엑셀 내보내기를 시작합니다.')} style={{padding:'5px 14px',borderRadius:6,border:`1px solid ${C.border}`,background:'#fff',fontSize:12,cursor:'pointer',fontFamily:'inherit',marginBottom:4}}>📥 전체 내보내기</button>}
+            </div>
+
+            {/* Master-Detail */}
+            <div style={{flex:1,display:'flex',overflow:'hidden'}}>
+              <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+                {section==='multi-reservation'&&<ReservationList selected={selected} onSelect={setSelected}/>}
+                {section==='crm'&&<CustomerList selected={selected} onSelect={setSelected}/>}
+                {section==='settlement'&&<SettlementList selected={selected} onSelect={setSelected}/>}
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:20}}>
+                <DetailPanel item={selected} section={section} showToast={m=>setToast(m)}/>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {createModal&&<Modal title="새 예약 등록" onClose={()=>setCreateModal(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>고객명</label><input style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}} placeholder="고객명"/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>팝업스토어</label><select style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:'#fff'}}>{POPUPS.map(p=><option key={p.name}>{p.name}</option>)}</select></div>
+            <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>인원</label><input type="number" defaultValue={1} min={1} style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}/></div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>날짜</label><input type="date" style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}/></div>
+            <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>시간</label><select style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:'#fff'}}><option>10:00</option><option>11:00</option><option>13:00</option><option>14:00</option><option>15:00</option><option>16:00</option></select></div>
+          </div>
+          <div><label style={{fontSize:12,fontWeight:500,display:'block',marginBottom:4}}>세그먼트</label><select style={{width:'100%',padding:'9px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',background:'#fff'}}><option>VIP</option><option>일반</option><option>잠재</option></select></div>
+          <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:4}}>
+            <button onClick={()=>setCreateModal(false)} style={{padding:'9px 18px',borderRadius:8,border:`1px solid ${C.border}`,background:'#fff',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+            <button onClick={()=>{setCreateModal(false);setToast('예약이 등록되었습니다.')}} style={{padding:'9px 18px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>등록</button>
+          </div>
+        </div>
+      </Modal>}
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
