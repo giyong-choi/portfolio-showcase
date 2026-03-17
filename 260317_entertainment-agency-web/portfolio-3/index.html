@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>스테이지원 — 공연기획사 통합 CMS</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#1A365D;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#93C5FD;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line,AreaChart,Area}=Recharts;
+
+const C={
+  primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',
+  bg:'#F0F9FF',surface:'#FFFFFF',surfaceWarm:'#EFF6FF',border:'#D1D5DB',
+  text:'#1A365D',textLight:'#64748B',textMuted:'#9CA3AF',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  sidebarBg:'#EFF6FF',sidebarActive:'#0066CC',
+};
+
+const PUBLISH_CHART=[
+  {week:'W1',portfolio:3,magazine:1,recruit:0},{week:'W2',portfolio:2,magazine:1,recruit:1},
+  {week:'W3',portfolio:4,magazine:2,recruit:0},{week:'W4',portfolio:1,magazine:1,recruit:1},
+];
+
+const PORTFOLIOS=[
+  {id:1,title:'서울 뮤직 페스티벌 2025',cat:'Festival',status:'발행',images:24,team:'기획1팀'},
+  {id:2,title:'아이유 콘서트 골든아워',cat:'Concert',status:'발행',images:18,team:'콘서트팀'},
+  {id:3,title:'현대차 브랜드 체험관',cat:'BTL',status:'발행',images:32,team:'BTL팀'},
+  {id:4,title:'서울대 축제 프로덕션',cat:'University',status:'발행',images:15,team:'기획2팀'},
+  {id:5,title:'LoL 챔피언스 무대연출',cat:'E-Sport',status:'발행',images:22,team:'기획1팀'},
+  {id:6,title:'카카오프렌즈 팝업',cat:'IP-Business',status:'임시저장',images:8,team:'BTL팀'},
+];
+
+const CONTENTS=[
+  {id:1,type:'매거진',title:'2025 페스티벌 트렌드 리포트',status:'발행',date:'2025.12.10'},
+  {id:2,type:'매거진',title:'무대 조명 디자인의 진화',status:'발행',date:'2025.12.05'},
+  {id:3,type:'채용',title:'공연 기획 PD 모집',status:'모집중',date:'2025.12.01'},
+  {id:4,type:'매거진',title:'ESG와 지속 가능한 이벤트',status:'예약',date:'2025.12.20'},
+  {id:5,type:'채용',title:'무대 디자이너 모집',status:'모집중',date:'2025.11.25'},
+  {id:6,type:'채용',title:'영상 디렉터 모집',status:'마감',date:'2025.11.01'},
+];
+
+const INQUIRIES=[
+  {id:1,name:'(주)에이비씨',subject:'기업 행사 기획 문의',date:'2025.12.14',status:'신규'},
+  {id:2,name:'서울시청',subject:'시민 축제 협업 제안',date:'2025.12.12',status:'검토중'},
+  {id:3,name:'넷마블',subject:'게임 론칭 이벤트',date:'2025.12.10',status:'완료'},
+];
+
+const TEAM=[
+  {name:'김태형',role:'대표 PD',team:'경영',joined:'2018'},
+  {name:'이서연',role:'공연 기획 PD',team:'기획1팀',joined:'2020'},
+  {name:'박지민',role:'무대 디자이너',team:'디자인팀',joined:'2021'},
+  {name:'최현우',role:'BTL 기획',team:'BTL팀',joined:'2022'},
+  {name:'정수진',role:'영상 디렉터',team:'콘텐츠팀',joined:'2023'},
+];
+
+const AWARDS=[
+  {year:'2025',items:['대한민국 축제 대상 — 서울 뮤직 페스티벌','한국 이벤트산업 협회 우수상']},
+  {year:'2024',items:['아시아 이벤트 어워드 — BTL 부문 금상','서울시 문화공헌 표창']},
+  {year:'2023',items:['대한민국 광고대상 — 이벤트 부문']},
+];
+
+const DOMAIN_PIE=[
+  {name:'포트폴리오',value:6,color:C.primary},{name:'매거진',value:3,color:C.accent},
+  {name:'채용',value:3,color:C.warning},{name:'문의',value:3,color:C.success},
+];
+
+/* ─── Components ─── */
+function Badge({text}){
+  const colors={'발행':{bg:'#ECFDF5',c:'#059669'},'예약':{bg:'#EFF6FF',c:'#0066CC'},'임시저장':{bg:'#FEF3C7',c:'#D97706'},'모집중':{bg:'#ECFDF5',c:'#059669'},'마감':{bg:'#F3F4F6',c:'#6B7280'},'신규':{bg:'#FEF2F2',c:'#DC2626'},'검토중':{bg:'#FEF3C7',c:'#D97706'},'완료':{bg:'#ECFDF5',c:'#059669'}};
+  const s=colors[text]||{bg:'#F3F4F6',c:'#6B7280'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}>{text}</span>;
+}
+
+function KpiCard({icon,label,value,sub,accent}){
+  return(
+    <div style={{background:C.surface,borderRadius:10,padding:'18px 22px',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span>
+        <span style={{fontSize:18}}>{icon}</span>
+      </div>
+      <div style={{fontSize:24,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+      {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:5}}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>통합 대시보드</h2>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <KpiCard icon="🎨" label="포트폴리오" value="6" sub="5 발행 · 1 임시"/>
+        <KpiCard icon="📰" label="매거진" value="3" sub="2 발행 · 1 예약"/>
+        <KpiCard icon="💼" label="채용" value="3" sub="모집중 2"/>
+        <KpiCard icon="📩" label="문의" value="1" sub="신규 미처리" accent={C.danger}/>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>주간 콘텐츠 발행 현황</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={PUBLISH_CHART}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="week" tick={{fontSize:12,fill:C.textMuted}}/>
+              <YAxis tick={{fontSize:12,fill:C.textMuted}}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar dataKey="portfolio" fill={C.primary} name="포트폴리오" radius={[0,0,0,0]}/>
+              <Bar dataKey="magazine" fill={C.accent} name="매거진"/>
+              <Bar dataKey="recruit" fill={C.warning} name="채용" radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>도메인별 콘텐츠 분포</div>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart><Pie data={DOMAIN_PIE} cx="50%" cy="50%" innerRadius={40} outerRadius={62} dataKey="value" paddingAngle={4}>{DOMAIN_PIE.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip/></PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:8}}>
+            {DOMAIN_PIE.map(d=><div key={d.name} style={{display:'flex',alignItems:'center',gap:4,fontSize:11}}><div style={{width:8,height:8,borderRadius:'50%',background:d.color}}/>{d.name}</div>)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>최근 문의</div>
+          {INQUIRIES.map(q=>(
+            <div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+              <div><div style={{fontSize:13,fontWeight:600}}>{q.subject}</div><div style={{fontSize:11,color:C.textMuted}}>{q.name} · {q.date}</div></div>
+              <Badge text={q.status}/>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>알림</div>
+          {[
+            {icon:'📩',text:'신규 문의: (주)에이비씨 — 기업 행사 기획',time:'2시간 전'},
+            {icon:'💼',text:'채용 지원: 김서연 — 공연 기획 PD',time:'5시간 전'},
+            {icon:'📰',text:'매거진 예약 발행 예정: ESG와 이벤트',time:'12월 20일'},
+          ].map((n,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+              <span style={{fontSize:16}}>{n.icon}</span>
+              <div style={{flex:1}}><div style={{fontSize:13}}>{n.text}</div><div style={{fontSize:11,color:C.textMuted}}>{n.time}</div></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PortfolioPage(){
+  const[cat,setCat]=useState('전체');
+  const cats=['전체','Festival','Concert','BTL','University','E-Sport','IP-Business'];
+  const filtered=cat==='전체'?PORTFOLIOS:PORTFOLIOS.filter(p=>p.cat===cat);
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div><h2 style={{fontSize:20,fontWeight:800,marginBottom:4}}>포트폴리오 & 미디어 관리</h2><p style={{fontSize:13,color:C.textMuted}}>카테고리별 포트폴리오 관리 및 미디어 라이브러리</p></div>
+        <button style={{padding:'8px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 등록</button>
+      </div>
+
+      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+        {cats.map(c=><button key={c} onClick={()=>setCat(c)} style={{padding:'5px 12px',borderRadius:16,border:`1px solid ${cat===c?C.primary:C.border}`,background:cat===c?C.primary:'transparent',color:cat===c?'#fff':C.textLight,fontSize:12,fontWeight:500,cursor:'pointer'}}>{c}</button>)}
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+        {filtered.map(p=>(
+          <div key={p.id} style={{background:C.surface,borderRadius:10,overflow:'hidden',border:`1px solid ${C.border}`,cursor:'pointer',transition:'transform 150ms'}} onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
+            <div style={{height:140,background:`linear-gradient(135deg,${C.primary}15,${C.accent}20)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🎭</div>
+            <div style={{padding:16}}>
+              <div style={{fontSize:14,fontWeight:700,marginBottom:6}}>{p.title}</div>
+              <div style={{display:'flex',gap:6,marginBottom:6}}>
+                <span style={{padding:'3px 8px',borderRadius:4,background:C.surfaceWarm,fontSize:11,color:C.primary,fontWeight:600}}>{p.cat}</span>
+                <Badge text={p.status}/>
+              </div>
+              <div style={{fontSize:11,color:C.textMuted}}>📷 {p.images}장 · {p.team}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContentPage(){
+  const[filter,setFilter]=useState('전체');
+  const types=['전체','매거진','채용'];
+  const filtered=filter==='전체'?CONTENTS:CONTENTS.filter(c=>c.type===filter);
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div><h2 style={{fontSize:20,fontWeight:800,marginBottom:4}}>매거진 & 채용 CMS</h2><p style={{fontSize:13,color:C.textMuted}}>매거진 아티클과 채용 공고를 통합 관리합니다</p></div>
+        <div style={{display:'flex',gap:8}}>
+          <button style={{padding:'7px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 매거진 작성</button>
+          <button style={{padding:'7px 14px',borderRadius:8,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 채용 공고</button>
+        </div>
+      </div>
+
+      <div style={{display:'flex',gap:8,marginBottom:16}}>
+        {types.map(t=><button key={t} onClick={()=>setFilter(t)} style={{padding:'6px 14px',borderRadius:8,border:`1px solid ${filter===t?C.primary:C.border}`,background:filter===t?C.primary:'transparent',color:filter===t?'#fff':C.textLight,fontSize:13,fontWeight:500,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      <div style={{background:C.surface,borderRadius:10,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['유형','제목','상태','날짜'].map(h=><th key={h} style={{padding:'10px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{filtered.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'12px 14px'}}><span style={{padding:'3px 8px',borderRadius:4,background:c.type==='매거진'?`${C.accent}15`:`${C.warning}15`,color:c.type==='매거진'?C.accent:C.warning,fontSize:11,fontWeight:600}}>{c.type}</span></td>
+            <td style={{padding:'12px 14px',fontWeight:600}}>{c.title}</td>
+            <td style={{padding:'12px 14px'}}><Badge text={c.status}/></td>
+            <td style={{padding:'12px 14px',color:C.textMuted}}>{c.date}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+
+      <div style={{marginTop:20,background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>에디터 미리보기</div>
+        <div style={{display:'flex',gap:6,marginBottom:10}}>
+          {['B','I','U','H1','H2','🔗','📷','❝','📦'].map(b=><button key={b} style={{width:30,height:30,borderRadius:6,border:`1px solid ${C.border}`,background:'#fff',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{b}</button>)}
+        </div>
+        <div style={{minHeight:80,padding:14,background:'#F8FAFC',borderRadius:6,border:`1px solid ${C.border}`,fontSize:14,lineHeight:1.7,color:C.textLight}}>
+          ESG 경영이 공연·이벤트 산업에도 확산되고 있습니다. 지속 가능한 무대 소재와 탄소 중립 이벤트 기획이 핵심 키워드로...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContactPage(){
+  const[tab,setTab]=useState('문의');
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>문의 & 팀·수상 관리</h2>
+
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {['문의','팀 멤버','수상 이력'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${tab===t?C.primary:C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.textLight,fontSize:13,fontWeight:500,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      {tab==='문의'&&<div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>문의 인박스</div>
+        {INQUIRIES.map(q=>(
+          <div key={q.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:`1px solid ${C.border}`}}>
+            <div><div style={{fontSize:14,fontWeight:600}}>{q.subject}</div><div style={{fontSize:12,color:C.textMuted}}>{q.name} · {q.date}</div></div>
+            <Badge text={q.status}/>
+          </div>
+        ))}
+      </div>}
+
+      {tab==='팀 멤버'&&<div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700}}>팀 멤버</div>
+          <button style={{padding:'6px 12px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ 멤버 추가</button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12}}>
+          {TEAM.map(m=>(
+            <div key={m.name} style={{textAlign:'center',padding:16,background:C.surfaceWarm,borderRadius:10,border:`1px solid ${C.border}`}}>
+              <div style={{width:56,height:56,borderRadius:'50%',background:`${C.primary}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 10px'}}>👤</div>
+              <div style={{fontSize:13,fontWeight:700}}>{m.name}</div>
+              <div style={{fontSize:11,color:C.textLight}}>{m.role}</div>
+              <div style={{fontSize:10,color:C.textMuted}}>{m.team} · {m.joined}~</div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {tab==='수상 이력'&&<div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700}}>수상 이력</div>
+          <button style={{padding:'6px 12px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ 수상 추가</button>
+        </div>
+        {AWARDS.map(a=>(
+          <div key={a.year} style={{marginBottom:16}}>
+            <div style={{fontSize:16,fontWeight:800,color:C.primary,marginBottom:8}}>{a.year}</div>
+            {a.items.map((item,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:C.surfaceWarm,borderRadius:8,marginBottom:6,border:`1px solid ${C.border}`}}>
+                <span style={{fontSize:18}}>🏆</span>
+                <span style={{fontSize:13}}>{item}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
+function SeoPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>SEO & 사이트 설정</h2>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>SEO 메타 설정</div>
+          {[['사이트 제목','스테이지원 — 공연·이벤트 기획 전문'],['메타 설명','페스티벌, 콘서트, BTL...'],['OG 이미지','stageone-og.png (1200×630)'],['사이트맵','자동 생성 (매일 04:00)'],['robots.txt','기본 설정 적용']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'11px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:10,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>사이트 전역 설정</div>
+          {[['도메인','stageone.co.kr'],['대표 이메일','hello@stageone.co.kr'],['대표 전화','02-1234-5678'],['Instagram','@stageone_official'],['YouTube','StageOne Official']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'11px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App Shell (bright-workspace) ─── */
+function App(){
+  const[page,setPage]=useState('통합 대시보드');
+  const menus=[
+    {name:'통합 대시보드',icon:'📊'},
+    {name:'포트폴리오 & 미디어 관리',icon:'🎨'},
+    {name:'매거진 & 채용 CMS',icon:'📰'},
+    {name:'문의 & 팀·수상 관리',icon:'📩'},
+    {name:'SEO & 사이트 설정',icon:'🔍'},
+  ];
+
+  const renderPage=()=>{
+    switch(page){
+      case '통합 대시보드':return <DashboardPage/>;
+      case '포트폴리오 & 미디어 관리':return <PortfolioPage/>;
+      case '매거진 & 채용 CMS':return <ContentPage/>;
+      case '문의 & 팀·수상 관리':return <ContactPage/>;
+      case 'SEO & 사이트 설정':return <SeoPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',height:'100vh'}}>
+      <div style={{width:240,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'18px 20px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>🎭</div>
+            <div><div style={{fontSize:15,fontWeight:800}}>StageOne</div><div style={{fontSize:10,color:C.textMuted}}>통합 CMS 플랫폼</div></div>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:'10px 12px'}}>
+          {menus.map(m=>(
+            <button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 12px',borderRadius:8,border:'none',background:page===m.name?`${C.primary}15`:'transparent',color:page===m.name?C.primary:C.textLight,fontSize:13,fontWeight:page===m.name?600:400,cursor:'pointer',marginBottom:2,transition:'all 150ms',textAlign:'left'}}>
+              <span style={{fontSize:16}}>{m.icon}</span>{m.name}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'14px 18px',borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:C.surfaceWarm,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>👤</div>
+            <div><div style={{fontSize:12,fontWeight:600}}>관리자</div><div style={{fontSize:10,color:C.textMuted}}>admin@stageone.co.kr</div></div>
+          </div>
+        </div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'12px 24px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+          <span style={{fontSize:13,fontWeight:600}}>{page}</span>
+          <span style={{fontSize:12,color:C.textMuted}}>포트폴리오 6 · 매거진 3 · 채용 3</span>
+        </div>
+        <div style={{flex:1,overflow:'auto',padding:24}}>{renderPage()}</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
