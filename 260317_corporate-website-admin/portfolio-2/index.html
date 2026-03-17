@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>에코빌드 — 친환경 건축자재 기업 홈페이지 & 어드민</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#1A365D}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0}to{width:var(--target-width)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,PieChart,Pie,Cell}=Recharts;
+
+const C={primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',bg:'#F0F9FF',surface:'#FFF',border:'#E2E8F0',text:'#1A365D',textLight:'#4A6FA5',success:'#059669',warning:'#D97706',danger:'#EF4444',gradient:'linear-gradient(135deg,#0066CC,#38BDF8)'};
+
+const PRODUCTS=[
+  {id:1,name:'에코보드 V2',category:'단열재',desc:'친환경 재생 섬유로 제작한 고성능 단열 보드',spec:'열전도율: 0.034W/mK | 두께: 50~150mm | 난연1급',cert:'KS F 4714',image:'🧱'},
+  {id:2,name:'그린타일 프로',category:'타일',desc:'폐유리 재활용 고급 인테리어 타일',spec:'규격: 600×600mm | 흡수율: 0.1% | 미끄럼 방지',cert:'KC 인증',image:'🪟'},
+  {id:3,name:'에코페인트 내추럴',category:'도료',desc:'VOC 제로 친환경 내벽 도료',spec:'VOC: 0g/L | 건조시간: 2h | 세균 억제 99%',cert:'환경표지 인증',image:'🎨'},
+  {id:4,name:'솔라패널 플렉스',category:'외장재',desc:'건물 일체형 태양광 외장 패널',spec:'효율: 19.5% | 규격: 1200×600mm | IP67',cert:'IEC 61215',image:'☀️'},
+  {id:5,name:'그린월 시스템',category:'조경',desc:'수직 정원 모듈형 설치 시스템',spec:'모듈: 500×500mm | 식재 용량: 12포트/모듈',cert:''-',image:'🌿'},
+  {id:6,name:'에코글래스 로이',category:'유리',desc:'저방사 코팅 삼중 단열 유리',spec:'U값: 0.8W/㎡K | 두께: 36mm | 차음: 40dB',cert:'KS L 2003',image:'🪟'},
+];
+const REFERENCES=[
+  {id:1,title:'강남 오피스빌딩 리모델링',type:'상업',region:'서울',products:['에코보드 V2','에코글래스 로이'],image:'🏢'},
+  {id:2,title:'판교 친환경 주택단지',type:'주거',region:'경기',products:['에코페인트 내추럴','그린월 시스템'],image:'🏡'},
+  {id:3,title:'부산 해양센터',type:'공공',region:'부산',products:['솔라패널 플렉스','그린타일 프로'],image:'🏛️'},
+  {id:4,title:'제주 에코리조트',type:'리조트',region:'제주',products:['에코보드 V2','에코페인트 내추럴'],image:'🏨'},
+  {id:5,title:'인천 물류센터',type:'산업',region:'인천',products:['솔라패널 플렉스','에코보드 V2'],image:'🏭'},
+  {id:6,title:'서울 문화센터 리노베이션',type:'공공',region:'서울',products:['그린타일 프로','에코글래스 로이'],image:'🎭'},
+];
+const INQUIRIES=[
+  {id:1,company:'(주)한화건설',name:'김민수',product:'에코보드 V2',type:'견적',date:'2025.03.15',status:'미확인'},
+  {id:2,company:'현대산업개발',name:'이지은',product:'솔라패널 플렉스',type:'기술문의',date:'2025.03.14',status:'확인'},
+  {id:3,company:'대우건설',name:'박서진',product:'그린타일 프로',type:'샘플',date:'2025.03.13',status:'답변완료'},
+];
+
+function Badge({text}){const c={'단열재':{bg:'#FEF3C7',t:'#D97706'},'타일':{bg:'#EFF6FF',t:'#3B82F6'},'도료':{bg:'#ECFDF5',t:'#059669'},'외장재':{bg:'#FAF5FF',t:'#7C3AED'},'조경':{bg:'#F0FDF4',t:'#059669'},'유리':{bg:'#F0F9FF',t:'#0066CC'},'상업':{bg:'#EFF6FF',t:'#3B82F6'},'주거':{bg:'#ECFDF5',t:'#059669'},'공공':{bg:'#FAF5FF',t:'#7C3AED'},'리조트':{bg:'#FEF3C7',t:'#D97706'},'산업':{bg:'#F3F4F6',t:'#6B7280'},'미확인':{bg:'#FEF3C7',t:'#D97706'},'확인':{bg:'#EFF6FF',t:'#3B82F6'},'답변완료':{bg:'#ECFDF5',t:'#059669'},'견적':{bg:'#EFF6FF',t:'#3B82F6'},'기술문의':{bg:'#FAF5FF',t:'#7C3AED'},'샘플':{bg:'#FEF3C7',t:'#D97706'}}[text]||{bg:'#F3F4F6',t:'#6B7280'};return <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:c.bg,color:c.t}}>{text}</span>;}
+function CountUp({end,suffix=''}){const[v,setV]=useState(0);useEffect(()=>{let s=0;const step=end/75;const t=setInterval(()=>{s+=step;if(s>=end){setV(end);clearInterval(t)}else setV(Math.floor(s))},16);return()=>clearInterval(t)},[end]);return <span>{v.toLocaleString()}{suffix}</span>;}
+function Toast({msg,onClose}){useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,.2)',fontSize:14}}>{msg}</div>;}
+function Modal({title,onClose,children,width=560}){return(<div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}><div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,.4)',animation:'fadeIn 200ms ease'}}/><div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:16,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.15)'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:`1px solid ${C.border}`}}><h3 style={{fontSize:18,fontWeight:800}}>{title}</h3><button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button></div><div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div></div></div>);}
+function Drawer({item,onClose,setToast}){if(!item)return null;return(<><div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.4)',zIndex:200,animation:'fadeIn 200ms ease'}}/><div style={{position:'fixed',top:0,right:0,bottom:0,width:480,background:C.surface,boxShadow:'-8px 0 40px rgba(0,0,0,.15)',zIndex:201,overflowY:'auto',padding:28,animation:'slideInRight 200ms ease'}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}><h3 style={{fontSize:18,fontWeight:800}}>{item.name||item.title}</h3><button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer'}}>✕</button></div>{item.spec&&<><div style={{height:180,borderRadius:12,background:`linear-gradient(135deg,${C.primary}15,${C.accent}20)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56,marginBottom:16}}>{item.image}</div><div style={{display:'flex',gap:6,marginBottom:12}}><Badge text={item.category}/></div><p style={{fontSize:14,color:C.textLight,lineHeight:1.6,marginBottom:16}}>{item.desc}</p><div style={{padding:14,background:'#F8FAFC',borderRadius:10,marginBottom:12}}><div style={{fontSize:11,color:C.textLight}}>스펙</div><div style={{fontSize:13,fontWeight:500,marginTop:4}}>{item.spec}</div></div><div style={{padding:14,background:'#F8FAFC',borderRadius:10,marginBottom:16}}><div style={{fontSize:11,color:C.textLight}}>인증</div><div style={{fontSize:13,fontWeight:500,marginTop:4}}>{item.cert}</div></div><button onClick={()=>{onClose();setToast('견적 문의 페이지로 이동합니다')}} style={{width:'100%',padding:'12px 0',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>📨 견적 문의</button></>}{item.products&&<><div style={{height:180,borderRadius:12,background:`linear-gradient(135deg,${C.primary}15,${C.accent}20)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:56,marginBottom:16}}>{item.image}</div><div style={{display:'flex',gap:6,marginBottom:12}}><Badge text={item.type}/><Badge text={item.region}/></div><div style={{marginBottom:16}}><div style={{fontSize:13,fontWeight:600,marginBottom:8}}>사용 제품</div>{item.products.map(p=><div key={p} style={{fontSize:13,color:C.textLight,padding:'4px 0'}}>• {p}</div>)}</div></>}</div></>);}
+
+const TABS=[{id:'home',label:'홈'},{id:'product-detail',label:'제품'},{id:'reference-gallery',label:'시공 사례'},{id:'contact',label:'견적 문의'},{id:'admin-content',label:'관리자'}];
+
+function TopNav({tab,setTab}){return(<header style={{position:'sticky',top:0,zIndex:100,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',height:56,padding:'0 24px',gap:4}}><div style={{display:'flex',alignItems:'center',gap:8,marginRight:24}}><div style={{width:32,height:32,borderRadius:8,background:C.gradient,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:14}}>E</div><span style={{fontWeight:800,fontSize:16}}>EcoBuild</span></div>{TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',fontFamily:'inherit',background:tab===t.id?`${C.accent}15`:'transparent',color:tab===t.id?C.primary:C.textLight,fontSize:13,fontWeight:tab===t.id?700:400,transition:'all 150ms'}}>{t.label}</button>)}<div style={{flex:1}}/><span style={{fontSize:18,cursor:'pointer'}}>🔔</span></header>);}
+function Hero({tab}){const m={home:{t:'친환경 건축의 미래',d:'지속 가능한 건축자재로 더 나은 내일을 만듭니다',k:[{l:'등록 제품',v:'86종'},{l:'시공 실적',v:'240건'},{l:'인증 보유',v:'12종'}]},
+'product-detail':{t:'제품 라인업',d:'친환경 인증을 받은 고성능 건축자재',k:[{l:'총 제품',v:'86종'},{l:'카테고리',v:'6개'},{l:'인증 보유',v:'12종'}]},
+'reference-gallery':{t:'시공 사례',d:'에코빌드 자재로 완성된 건축 프로젝트',k:[{l:'총 사례',v:'240건'},{l:'지역',v:'전국'},{l:'유형',v:'5종'}]},
+contact:{t:'견적 문의',d:'프로젝트에 맞는 최적의 자재를 제안드립니다',k:[{l:'응답 시간',v:'1~2일'},{l:'상담',v:'무료'},{l:'샘플',v:'제공'}]},
+'admin-content':{t:'관리자',d:'콘텐츠와 문의를 효율적으로 관리합니다',k:[{l:'제품',v:'86종'},{l:'문의',v:'34건'},{l:'레퍼런스',v:'240건'}]}}[tab]||{t:'',d:'',k:[]};
+  return(<div style={{background:C.gradient,padding:'28px 32px',color:'#fff'}}><h1 style={{fontSize:28,fontWeight:800,letterSpacing:'-0.03em'}}>{m.t}</h1><p style={{fontSize:14,opacity:.8,marginTop:4}}>{m.d}</p><div style={{display:'flex',gap:32,marginTop:16}}>{m.k.map(k=><div key={k.l}><div style={{fontSize:11,opacity:.7,letterSpacing:'0.05em'}}>{k.l}</div><div style={{fontSize:22,fontWeight:800,marginTop:2}}>{k.v}</div></div>)}</div></div>);}
+
+/* ══════ 페이지: 홈 ══════ */
+function HomePage({setDrawer}){
+  return(<div key="home" style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+      {PRODUCTS.slice(0,3).map((p,i)=>(<div key={p.id} onClick={()=>setDrawer(p)} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}><div style={{height:120,background:`linear-gradient(135deg,${['#0066CC','#38BDF8','#06B6D4'][i%3]}20,${C.accent}10)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:40}}>{p.image}</div><div style={{padding:14}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><Badge text={p.category}/></div><div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{p.name}</div><div style={{fontSize:12,color:C.textLight}}>{p.desc}</div></div></div>))}
+    </div>
+    <h3 style={{fontSize:16,fontWeight:700,letterSpacing:'0.05em',marginBottom:12}}>최근 시공 사례</h3>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+      {REFERENCES.slice(0,3).map((r,i)=>(<div key={r.id} onClick={()=>setDrawer(r)} style={{background:C.surface,borderRadius:16,padding:20,boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80+240}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}><div style={{fontSize:32,marginBottom:8}}>{r.image}</div><div style={{display:'flex',gap:6,marginBottom:6}}><Badge text={r.type}/><Badge text={r.region}/></div><div style={{fontSize:14,fontWeight:700}}>{r.title}</div></div>))}
+    </div>
+  </div>);
+}
+
+/* ══════ 페이지: 제품 ══════ */
+function ProductPage({setDrawer}){
+  const[cat,setCat]=useState('전체');
+  const cats=['전체','단열재','타일','도료','외장재','조경','유리'];
+  const filtered=cat==='전체'?PRODUCTS:PRODUCTS.filter(p=>p.category===cat);
+  return(<div key="product" style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>{cats.map(c=><button key={c} onClick={()=>setCat(c)} style={{padding:'6px 14px',borderRadius:20,border:cat===c?'none':`1px solid ${C.border}`,background:cat===c?C.primary:'#fff',color:cat===c?'#fff':C.textLight,fontSize:13,fontWeight:cat===c?600:400,cursor:'pointer',fontFamily:'inherit'}}>{c}</button>)}</div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+      {filtered.map((p,i)=>(<div key={p.id} onClick={()=>setDrawer(p)} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}><div style={{height:130,background:`linear-gradient(135deg,${C.primary}15,${C.accent}15)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>{p.image}</div><div style={{padding:16}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><Badge text={p.category}/><span style={{fontSize:11,color:C.textLight}}>{p.cert}</span></div><h4 style={{fontSize:15,fontWeight:700,marginBottom:4}}>{p.name}</h4><p style={{fontSize:12,color:C.textLight}}>{p.desc}</p></div></div>))}
+    </div>
+  </div>);
+}
+
+/* ══════ 페이지: 시공 사례 ══════ */
+function ReferencePage({setDrawer}){
+  const[type,setType]=useState('전체');
+  const types=['전체','상업','주거','공공','리조트','산업'];
+  const filtered=type==='전체'?REFERENCES:REFERENCES.filter(r=>r.type===type);
+  return(<div key="ref" style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>{types.map(t=><button key={t} onClick={()=>setType(t)} style={{padding:'6px 14px',borderRadius:20,border:type===t?'none':`1px solid ${C.border}`,background:type===t?C.primary:'#fff',color:type===t?'#fff':C.textLight,fontSize:13,fontWeight:type===t?600:400,cursor:'pointer',fontFamily:'inherit'}}>{t}</button>)}</div>
+    {/* Masonry-like grid */}
+    <div style={{columnCount:3,columnGap:16}}>
+      {filtered.map((r,i)=>(<div key={r.id} onClick={()=>setDrawer(r)} style={{background:C.surface,borderRadius:16,overflow:'hidden',boxShadow:'0 4px 16px rgba(0,0,0,.10)',cursor:'pointer',marginBottom:16,breakInside:'avoid',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}} onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.02)';e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,.15)'}} onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.10)'}}>
+        <div style={{height:i%2===0?180:140,background:`linear-gradient(135deg,${['#0066CC','#38BDF8','#06B6D4','#0891B2','#164E63','#1A365D'][i%6]}20,${C.accent}10)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:48}}>{r.image}</div>
+        <div style={{padding:16}}><div style={{display:'flex',gap:6,marginBottom:6}}><Badge text={r.type}/><Badge text={r.region}/></div><h4 style={{fontSize:14,fontWeight:700,marginBottom:4}}>{r.title}</h4><div style={{fontSize:11,color:C.textLight}}>{r.products.join(', ')}</div></div>
+      </div>))}
+    </div>
+  </div>);
+}
+
+/* ══════ 페이지: 견적 문의 ══════ */
+function ContactPage({setToast}){
+  return(<div key="contact" style={{animation:'fadeIn 300ms ease',maxWidth:640}}>
+    <div style={{background:C.surface,borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,.10)',padding:32}}>
+      <div style={{display:'flex',flexDirection:'column',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>회사명</label><input style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}} placeholder="회사명"/></div>
+          <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>담당자명</label><input style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}} placeholder="성함"/></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>이메일</label><input type="email" style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}} placeholder="email@company.com"/></div>
+          <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>연락처</label><input style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}} placeholder="010-0000-0000"/></div>
+        </div>
+        <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>관심 제품</label><select style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}><option>제품 선택</option>{PRODUCTS.map(p=><option key={p.id}>{p.name}</option>)}</select></div>
+        <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>문의 유형</label><select style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}><option>견적 요청</option><option>기술 문의</option><option>샘플 요청</option><option>시공 상담</option></select></div>
+        <div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>프로젝트 설명</label><textarea rows={4} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',resize:'vertical',outline:'none'}} placeholder="프로젝트 규모, 예상 수량 등을 입력하세요"/></div>
+        <button onClick={()=>setToast('견적 문의가 접수되었습니다')} style={{padding:'14px 0',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>문의 접수</button>
+      </div>
+    </div>
+  </div>);
+}
+
+/* ══════ 페이지: 관리자 ══════ */
+function AdminPage({setToast}){
+  const[atab,setAtab]=useState('products');
+  const[addModal,setAddModal]=useState(false);
+  return(<div key="admin" style={{animation:'fadeIn 300ms ease'}}>
+    <div style={{display:'flex',gap:4,marginBottom:16}}>
+      {[{id:'products',label:'제품 관리'},{id:'references',label:'시공 사례'},{id:'inquiries',label:'문의 관리'}].map(t=><button key={t.id} onClick={()=>setAtab(t.id)} style={{padding:'8px 16px',borderRadius:10,border:'none',background:atab===t.id?C.primary:'transparent',color:atab===t.id?'#fff':C.textLight,fontSize:13,fontWeight:atab===t.id?700:400,cursor:'pointer',fontFamily:'inherit'}}>{t.label}</button>)}
+      <div style={{flex:1}}/><button onClick={()=>setAddModal(true)} style={{padding:'8px 16px',borderRadius:10,border:'none',background:C.accent,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>+ 등록</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:16,boxShadow:'0 4px 16px rgba(0,0,0,.10)',overflow:'hidden'}}>
+      {atab==='products'&&<table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr style={{borderBottom:`1px solid ${C.border}`}}>{['제품명','카테고리','인증','스펙'].map(h=><th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textLight,background:'#F8FAFC'}}>{h}</th>)}</tr></thead><tbody>{PRODUCTS.map(p=><tr key={p.id} onClick={()=>setToast(`${p.name} 편집 모드`)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms'}} onMouseEnter={e=>{e.currentTarget.style.background=`${C.accent}06`;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}><td style={{padding:'14px 16px',fontSize:14,fontWeight:500}}><span style={{marginRight:8}}>{p.image}</span>{p.name}</td><td style={{padding:'14px 16px'}}><Badge text={p.category}/></td><td style={{padding:'14px 16px',fontSize:12,color:C.textLight}}>{p.cert}</td><td style={{padding:'14px 16px',fontSize:12,color:C.textLight}}>{p.spec}</td></tr>)}</tbody></table>}
+      {atab==='references'&&REFERENCES.map(r=><div key={r.id} onClick={()=>setToast(`${r.title} 편집 모드`)} style={{padding:'14px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',transition:'all 150ms'}} onMouseEnter={e=>{e.currentTarget.style.background=`${C.accent}06`;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}><div><div style={{fontSize:14,fontWeight:600}}>{r.title}</div><div style={{fontSize:12,color:C.textLight,marginTop:2}}>{r.products.join(', ')}</div></div><div style={{display:'flex',gap:6}}><Badge text={r.type}/><Badge text={r.region}/></div></div>)}
+      {atab==='inquiries'&&<table style={{width:'100%',borderCollapse:'collapse'}}><thead><tr style={{borderBottom:`1px solid ${C.border}`}}>{['회사','담당자','제품','유형','상태','접수일'].map(h=><th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textLight,background:'#F8FAFC'}}>{h}</th>)}</tr></thead><tbody>{INQUIRIES.map(q=><tr key={q.id} onClick={()=>setToast(`${q.company} 문의 상세`)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms'}} onMouseEnter={e=>{e.currentTarget.style.background=`${C.accent}06`;e.currentTarget.style.borderLeft=`3px solid ${C.accent}`}} onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.borderLeft='3px solid transparent'}}><td style={{padding:'14px 16px',fontSize:14,fontWeight:500}}>{q.company}</td><td style={{padding:'14px 16px',fontSize:13}}>{q.name}</td><td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{q.product}</td><td style={{padding:'14px 16px'}}><Badge text={q.type}/></td><td style={{padding:'14px 16px'}}><Badge text={q.status}/></td><td style={{padding:'14px 16px',fontSize:12,color:C.textLight}}>{q.date}</td></tr>)}</tbody></table>}
+    </div>
+    {addModal&&<Modal title="새 항목 등록" onClose={()=>setAddModal(false)}><div style={{display:'flex',flexDirection:'column',gap:14}}><div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>이름/제목</label><input style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',outline:'none'}}/></div><div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>카테고리</label><select style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit'}}><option>단열재</option><option>타일</option><option>도료</option><option>외장재</option></select></div><div><label style={{fontSize:13,fontWeight:600,marginBottom:4,display:'block'}}>설명</label><textarea rows={4} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:14,fontFamily:'inherit',resize:'vertical',outline:'none'}}/></div><div style={{display:'flex',gap:8,justifyContent:'flex-end'}}><button onClick={()=>setAddModal(false)} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${C.border}`,background:'#fff',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button><button onClick={()=>{setAddModal(false);setToast('등록되었습니다')}} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>등록</button></div></div></Modal>}
+  </div>);
+}
+
+function App(){
+  const[tab,setTab]=useState('home');
+  const[drawer,setDrawer]=useState(null);
+  const[toast,setToast]=useState(null);
+  const[loading,setLoading]=useState(true);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  if(loading)return(<div><div style={{height:56,background:C.surface}}/><div style={{height:120,background:C.gradient}}/><div style={{padding:24,display:'flex',flexDirection:'column',gap:16}}>{[...Array(3)].map((_,i)=><div key={i} style={{height:140,borderRadius:16,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}</div></div>);
+  return(<div style={{minHeight:'100vh',background:C.bg}}><TopNav tab={tab} setTab={setTab}/><Hero tab={tab}/><main style={{padding:'24px 32px'}}>{tab==='home'&&<HomePage setDrawer={setDrawer}/>}{tab==='product-detail'&&<ProductPage setDrawer={setDrawer}/>}{tab==='reference-gallery'&&<ReferencePage setDrawer={setDrawer}/>}{tab==='contact'&&<ContactPage setToast={setToast}/>}{tab==='admin-content'&&<AdminPage setToast={setToast}/>}</main><Drawer item={drawer} onClose={()=>setDrawer(null)} setToast={setToast}/>{toast&&<Toast msg={toast} onClose={()=>setToast(null)}/>}</div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
