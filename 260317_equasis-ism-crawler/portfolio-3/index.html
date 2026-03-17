@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MarineTrack 해운 데이터 통합 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#064E3B;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#A7F3D0;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeInScale{from{opacity:0;transform:translate(-50%,-50%) scale(.95)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,LineChart,Line,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+
+const C={
+  primary:'#059669',secondary:'#064E3B',accent:'#34D399',
+  bg:'#F0FDF4',surface:'#FFFFFF',surfaceWarm:'#ECFDF5',border:'#D1D5DB',
+  text:'#064E3B',textLight:'#4B5563',textMuted:'#9CA3AF',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  sidebarBg:'#ECFDF5',sidebarActive:'#059669',
+};
+
+/* ─── Data ─── */
+const FLEETS=[
+  {id:1,name:'아시아 벌크 선대',company:'동양해운',vessels:2400,changes:8,coverage:98,lastSync:'2025.12.15'},
+  {id:2,name:'유럽 컨테이너 선대',company:'글로벌쉽',vessels:1800,changes:5,coverage:97,lastSync:'2025.12.15'},
+  {id:3,name:'중동 탱커 선대',company:'오션에너지',vessels:3200,changes:12,coverage:96,lastSync:'2025.12.14'},
+  {id:4,name:'남미 벌크 선대',company:'파시픽물류',vessels:1600,changes:3,coverage:99,lastSync:'2025.12.15'},
+  {id:5,name:'아프리카 혼합 선대',company:'마린서비스',vessels:1000,changes:3,coverage:95,lastSync:'2025.12.13'},
+];
+
+const VESSELS=[
+  {imo:'9876543',name:'OCEAN STAR',fleet:'아시아 벌크 선대',type:'Bulk Carrier',ism:'K Shipmanagement',changed:false},
+  {imo:'9765432',name:'SEA PIONEER',fleet:'유럽 컨테이너 선대',type:'Container',ism:'Fleet Management',changed:true},
+  {imo:'9654321',name:'PACIFIC WIND',fleet:'중동 탱커 선대',type:'Tanker',ism:'Bernhard Schulte',changed:false},
+  {imo:'9543210',name:'BLUE HORIZON',fleet:'아시아 벌크 선대',type:'Bulk Carrier',ism:'Anglo-Eastern',changed:true},
+  {imo:'9432109',name:'EASTERN GRACE',fleet:'유럽 컨테이너 선대',type:'Container',ism:'V.Ships',changed:false},
+  {imo:'9321098',name:'GOLDEN WAVE',fleet:'중동 탱커 선대',type:'Tanker',ism:'Synergy Marine',changed:true},
+];
+
+const HEATMAP_DATA=[
+  {month:'7월',fleet1:2,fleet2:1,fleet3:3,fleet4:0,fleet5:1},
+  {month:'8월',fleet1:1,fleet2:2,fleet3:1,fleet4:1,fleet5:0},
+  {month:'9월',fleet1:3,fleet2:0,fleet3:4,fleet4:1,fleet5:2},
+  {month:'10월',fleet1:1,fleet2:3,fleet3:2,fleet4:0,fleet5:1},
+  {month:'11월',fleet1:4,fleet2:1,fleet3:5,fleet4:2,fleet5:0},
+  {month:'12월',fleet1:8,fleet2:5,fleet3:12,fleet4:3,fleet5:3},
+];
+
+const COVERAGE_DATA=[
+  {name:'아시아 벌크',coverage:98,color:'#059669'},
+  {name:'유럽 컨테이너',coverage:97,color:'#2563EB'},
+  {name:'중동 탱커',coverage:96,color:'#D97706'},
+  {name:'남미 벌크',coverage:99,color:'#7C3AED'},
+  {name:'아프리카 혼합',coverage:95,color:'#DC2626'},
+];
+
+const SCHEDULES=[
+  {id:1,name:'월간 전체 스캔',fleet:'전체',cron:'매월 1일 00:00',priority:'높음',status:'대기',nextRun:'2026.01.01'},
+  {id:2,name:'주간 변경 재확인',fleet:'변경 감지 선박',cron:'매주 월요일 06:00',priority:'중간',status:'완료',nextRun:'2025.12.22'},
+  {id:3,name:'VIP 선대 일일 스캔',fleet:'아시아 벌크 선대',cron:'매일 08:00',priority:'긴급',status:'진행중',nextRun:'내일 08:00'},
+];
+
+const ACCOUNTS_3=[
+  {email:'eq_auto_01@marine.co',status:'활성',used:287,cooldown:false},
+  {email:'eq_auto_02@marine.co',status:'활성',used:312,cooldown:false},
+  {email:'eq_auto_03@marine.co',status:'쿨다운',used:450,cooldown:true},
+  {email:'eq_auto_04@marine.co',status:'활성',used:198,cooldown:false},
+  {email:'eq_auto_05@marine.co',status:'차단',used:500,cooldown:false},
+];
+
+const WORKFLOWS=[
+  {id:1,name:'ISM 변경 즉시 알림',trigger:'ISM Manager 변경',steps:['변경 감지','자동 발송'],channels:['이메일','슬랙'],status:'활성'},
+  {id:2,name:'ISM 변경 검토 후 알림',trigger:'ISM Manager 변경',steps:['변경 감지','담당자 검토','승인 후 발송'],channels:['이메일'],status:'활성'},
+  {id:3,name:'데이터 품질 저하 알림',trigger:'커버리지 95% 미만',steps:['품질 감지','관리자 알림'],channels:['슬랙'],status:'활성'},
+  {id:4,name:'CAPTCHA/차단 긴급 알림',trigger:'크롤링 차단 감지',steps:['차단 감지','즉시 알림'],channels:['이메일','슬랙','인앱'],status:'활성'},
+];
+
+const ALERT_TIMELINE=[
+  {time:'2025.12.15 14:20',type:'ISM 변경',vessel:'SEA PIONEER',detail:'Fleet Management → Anglo-Eastern',channel:'이메일+슬랙',status:'발송완료'},
+  {time:'2025.12.14 09:12',type:'ISM 변경',vessel:'BLUE HORIZON',detail:'Wallem Group → Anglo-Eastern',channel:'이메일',status:'검토중'},
+  {time:'2025.12.14 09:00',type:'품질 저하',vessel:'—',detail:'아프리카 혼합 선대 커버리지 95%',channel:'슬랙',status:'발송완료'},
+  {time:'2025.12.13 16:45',type:'ISM 변경',vessel:'GOLDEN WAVE',detail:'Columbia Ship → Synergy Marine',channel:'이메일+슬랙',status:'발송완료'},
+  {time:'2025.12.13 12:30',type:'차단 감지',vessel:'—',detail:'eq_auto_05 계정 차단됨',channel:'슬랙+인앱',status:'발송완료'},
+];
+
+const QUALITY_DATA=[
+  {fleet:'아시아 벌크 선대',total:2400,complete:2352,missing:48,stale:12,score:98},
+  {fleet:'유럽 컨테이너 선대',total:1800,complete:1746,missing:54,stale:8,score:97},
+  {fleet:'중동 탱커 선대',total:3200,complete:3072,missing:128,stale:24,score:96},
+  {fleet:'남미 벌크 선대',total:1600,complete:1584,missing:16,stale:4,score:99},
+  {fleet:'아프리카 혼합 선대',total:1000,complete:950,missing:50,stale:18,score:95},
+];
+
+/* ─── Components ─── */
+function Badge({text}){
+  const colors={'활성':{bg:'#ECFDF5',c:'#059669'},'쿨다운':{bg:'#FEF3C7',c:'#D97706'},'차단':{bg:'#FEF2F2',c:'#DC2626'},'완료':{bg:'#ECFDF5',c:'#059669'},'진행중':{bg:'#EFF6FF',c:'#2563EB'},'대기':{bg:'#F3F4F6',c:'#6B7280'},'발송완료':{bg:'#ECFDF5',c:'#059669'},'검토중':{bg:'#FEF3C7',c:'#D97706'}};
+  const s=colors[text]||{bg:'#F3F4F6',c:'#6B7280'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}>{text}</span>;
+}
+
+function KpiCard({icon,label,value,sub,accent}){
+  return(
+    <div style={{background:C.surface,borderRadius:14,padding:'18px 22px',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span>
+        <span style={{fontSize:18}}>{icon}</span>
+      </div>
+      <div style={{fontSize:24,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+      {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:5}}>{sub}</div>}
+    </div>
+  );
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>통합 분석 대시보드</h2>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <KpiCard icon="🚢" label="관리 선박" value="10,000" sub="5개 선대"/>
+        <KpiCard icon="⚠️" label="이번 달 변경" value="31" sub="ISM Manager" accent={C.danger}/>
+        <KpiCard icon="📊" label="데이터 커버리지" value="97.2%" accent={C.success}/>
+        <KpiCard icon="🔔" label="알림 발송" value="28" sub="이번 달"/>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>월별 선대별 ISM 변경 건수</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={HEATMAP_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="month" tick={{fontSize:11,fill:C.textMuted}}/>
+              <YAxis tick={{fontSize:11,fill:C.textMuted}}/>
+              <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+              <Bar dataKey="fleet1" stackId="a" fill="#059669" name="아시아" radius={[0,0,0,0]}/>
+              <Bar dataKey="fleet2" stackId="a" fill="#2563EB" name="유럽"/>
+              <Bar dataKey="fleet3" stackId="a" fill="#D97706" name="중동"/>
+              <Bar dataKey="fleet4" stackId="a" fill="#7C3AED" name="남미"/>
+              <Bar dataKey="fleet5" stackId="a" fill="#DC2626" name="아프리카" radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>선대별 데이터 커버리지</div>
+          {COVERAGE_DATA.map(d=>(
+            <div key={d.name} style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                <span style={{color:C.textLight}}>{d.name}</span>
+                <span style={{fontWeight:700,color:d.color}}>{d.coverage}%</span>
+              </div>
+              <div style={{height:8,background:'#F3F4F6',borderRadius:4}}>
+                <div style={{width:`${d.coverage}%`,height:'100%',borderRadius:4,background:d.color}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>최근 알림</div>
+        {ALERT_TIMELINE.slice(0,3).map((a,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:14,padding:'10px 0',borderBottom:i<2?`1px solid ${C.border}`:'none'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:a.type==='ISM 변경'?C.danger:a.type==='차단 감지'?C.warning:C.primary,flexShrink:0}}/>
+            <div style={{flex:1}}>
+              <span style={{fontSize:13,fontWeight:600}}>{a.type}</span>
+              {a.vessel!=='—'&&<span style={{fontSize:12,color:C.textMuted}}> — {a.vessel}</span>}
+              <div style={{fontSize:11,color:C.textMuted}}>{a.detail}</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <Badge text={a.status}/>
+              <div style={{fontSize:10,color:C.textMuted,marginTop:2}}>{a.time}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FleetPage(){
+  const[selFleet,setSelFleet]=useState(null);
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div><h2 style={{fontSize:20,fontWeight:800,marginBottom:4}}>선박 플릿 관리</h2><p style={{fontSize:13,color:C.textMuted}}>선대별 선박 목록과 ISM Manager 현황</p></div>
+        <div style={{display:'flex',gap:8}}>
+          <button style={{padding:'8px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>📤 엑셀 업로드</button>
+          <button style={{padding:'8px 14px',borderRadius:8,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:13,fontWeight:600,cursor:'pointer'}}>📥 내보내기</button>
+        </div>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:16}}>
+        {/* Fleet tree */}
+        <div style={{background:C.surface,borderRadius:14,padding:18,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>선대 목록</div>
+          {FLEETS.map(f=>(
+            <div key={f.id} onClick={()=>setSelFleet(f)} style={{padding:12,borderRadius:8,marginBottom:4,cursor:'pointer',background:selFleet?.id===f.id?C.surfaceWarm:'transparent',border:`1px solid ${selFleet?.id===f.id?C.primary:'transparent'}`,transition:'all 150ms'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontSize:13,fontWeight:600}}>{f.name}</span>
+                {f.changes>0&&<span style={{padding:'2px 8px',borderRadius:10,background:'#FEF2F2',color:C.danger,fontSize:11,fontWeight:600}}>{f.changes}</span>}
+              </div>
+              <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{f.company} · {f.vessels.toLocaleString()}척 · 커버리지 {f.coverage}%</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Vessel list */}
+        <div style={{background:C.surface,borderRadius:14,padding:18,border:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{fontSize:14,fontWeight:700}}>{selFleet?`${selFleet.name} — 선박 목록`:'전체 선박 목록'}</div>
+            <input placeholder="IMO / 선박명 검색..." style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,outline:'none',width:200}}/>
+          </div>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+            <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+              {['IMO','선박명','선대','선종','ISM Manager','변경'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{(selFleet?VESSELS.filter(v=>v.fleet===selFleet.name):VESSELS).map(v=><tr key={v.imo} style={{borderBottom:`1px solid ${C.border}`}}>
+              <td style={{padding:'10px',fontFamily:'monospace',fontWeight:600,color:C.primary,fontSize:12}}>{v.imo}</td>
+              <td style={{padding:'10px',fontWeight:600}}>{v.name}</td>
+              <td style={{padding:'10px',fontSize:11,color:C.textMuted}}>{v.fleet}</td>
+              <td style={{padding:'10px',fontSize:12}}>{v.type}</td>
+              <td style={{padding:'10px',fontWeight:v.changed?700:400,color:v.changed?C.danger:C.text}}>{v.ism}</td>
+              <td style={{padding:'10px'}}>{v.changed?<span style={{color:C.danger,fontSize:12,fontWeight:600}}>⚠ 변경됨</span>:<span style={{color:C.textMuted,fontSize:12}}>—</span>}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SchedulePage(){
+  const[tab,setTab]=useState('스케줄');
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>크롤링 스케줄 관리</h2>
+
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {['스케줄','계정 풀','배치 모니터'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${tab===t?C.primary:C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.textMuted,fontSize:13,fontWeight:500,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      {tab==='스케줄'&&<div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontSize:14,fontWeight:700}}>배치 스케줄</div>
+          <button style={{padding:'7px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 스케줄 등록</button>
+        </div>
+        {SCHEDULES.map(s=>(
+          <div key={s.id} style={{padding:16,border:`1px solid ${C.border}`,borderRadius:10,marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:15,fontWeight:700}}>{s.name}</span>
+                <Badge text={s.status}/>
+                <span style={{padding:'3px 8px',borderRadius:4,background:s.priority==='긴급'?'#FEF2F2':s.priority==='높음'?'#FEF3C7':'#F3F4F6',color:s.priority==='긴급'?C.danger:s.priority==='높음'?C.warning:C.textLight,fontSize:11,fontWeight:600}}>{s.priority}</span>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:16,fontSize:12,color:C.textMuted}}>
+              <span>대상: {s.fleet}</span>
+              <span>스케줄: {s.cron}</span>
+              <span>다음 실행: {s.nextRun}</span>
+            </div>
+          </div>
+        ))}
+      </div>}
+
+      {tab==='계정 풀'&&<div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>계정 로테이션 풀</div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['계정','상태','사용 횟수','쿨다운'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{ACCOUNTS_3.map((a,i)=><tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'10px',fontFamily:'monospace',fontSize:12}}>{a.email}</td>
+            <td style={{padding:'10px'}}><Badge text={a.status}/></td>
+            <td style={{padding:'10px'}}>{a.used}</td>
+            <td style={{padding:'10px'}}>{a.cooldown?<span style={{color:C.warning,fontSize:12}}>⏳ 대기중</span>:'—'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+
+      {tab==='배치 모니터'&&<div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>현재 배치 진행 상황</div>
+        <div style={{padding:16,background:C.surfaceWarm,borderRadius:10,marginBottom:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{fontWeight:700}}>VIP 선대 일일 스캔</span>
+            <span style={{fontSize:13,color:C.primary,fontWeight:600}}>67% 완료</span>
+          </div>
+          <div style={{height:10,background:'#D1FAE5',borderRadius:5}}>
+            <div style={{width:'67%',height:'100%',borderRadius:5,background:C.primary}}/>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textMuted,marginTop:6}}>
+            <span>134 / 200건 처리</span>
+            <span>예상 완료: 08:25</span>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          {[['처리 속도','4.2건/분'],['사용 계정','eq_auto_01'],['오류 건수','0건']].map(([k,v])=>(
+            <div key={k} style={{padding:14,background:'#F9FAFB',borderRadius:8,textAlign:'center'}}>
+              <div style={{fontSize:11,color:C.textMuted}}>{k}</div>
+              <div style={{fontSize:16,fontWeight:700,color:C.primary}}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function WorkflowPage(){
+  const[tab,setTab]=useState('워크플로우');
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>알림 워크플로우</h2>
+
+      <div style={{display:'flex',gap:8,marginBottom:20}}>
+        {['워크플로우','알림 이력'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${tab===t?C.primary:C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.textMuted,fontSize:13,fontWeight:500,cursor:'pointer'}}>{t}</button>)}
+      </div>
+
+      {tab==='워크플로우'&&<div>
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
+          <button style={{padding:'7px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 워크플로우 추가</button>
+        </div>
+        {WORKFLOWS.map(w=>(
+          <div key={w.id} style={{background:C.surface,borderRadius:14,padding:20,border:`1px solid ${C.border}`,marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:15,fontWeight:700}}>{w.name}</span>
+                <Badge text={w.status}/>
+              </div>
+              <div style={{display:'flex',gap:6}}>
+                {w.channels.map(ch=><span key={ch} style={{padding:'3px 8px',borderRadius:4,background:C.surfaceWarm,fontSize:11,color:C.textLight}}>{ch}</span>)}
+              </div>
+            </div>
+            <div style={{fontSize:12,color:C.textMuted,marginBottom:10}}>트리거: {w.trigger}</div>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              {w.steps.map((s,i)=>(
+                <React.Fragment key={i}>
+                  <span style={{padding:'6px 12px',borderRadius:6,background:C.surfaceWarm,fontSize:12,fontWeight:500,color:C.text}}>{s}</span>
+                  {i<w.steps.length-1&&<span style={{color:C.textMuted}}>→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>}
+
+      {tab==='알림 이력'&&<div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        {ALERT_TIMELINE.map((a,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'flex-start',gap:14,padding:'12px 0',borderBottom:i<ALERT_TIMELINE.length-1?`1px solid ${C.border}`:'none'}}>
+            <div style={{width:10,height:10,borderRadius:'50%',background:a.type==='ISM 변경'?C.danger:a.type==='차단 감지'?C.warning:C.primary,flexShrink:0,marginTop:5}}/>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,fontWeight:600}}>{a.type}{a.vessel!=='—'?` — ${a.vessel}`:''}</span>
+                <Badge text={a.status}/>
+              </div>
+              <div style={{fontSize:12,color:C.textMuted}}>{a.detail}</div>
+              <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>채널: {a.channel} · {a.time}</div>
+            </div>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
+function QualityPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>데이터 품질 관리</h2>
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+        <KpiCard icon="📊" label="전체 커버리지" value="97.2%" accent={C.success}/>
+        <KpiCard icon="❓" label="누락 데이터" value="296" sub="전체 선박 중"/>
+        <KpiCard icon="⏰" label="오래된 데이터" value="66" sub="30일 이상 미갱신"/>
+        <KpiCard icon="🔄" label="마지막 전체 스캔" value="12월 1일"/>
+      </div>
+
+      <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:14,fontWeight:700,marginBottom:14}}>선대별 데이터 품질 현황</div>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+            {['선대','전체','완료','누락','오래됨','품질 점수'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{QUALITY_DATA.map(q=><tr key={q.fleet} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'10px',fontWeight:600}}>{q.fleet}</td>
+            <td style={{padding:'10px'}}>{q.total.toLocaleString()}</td>
+            <td style={{padding:'10px',color:C.success}}>{q.complete.toLocaleString()}</td>
+            <td style={{padding:'10px',color:C.danger}}>{q.missing}</td>
+            <td style={{padding:'10px',color:C.warning}}>{q.stale}</td>
+            <td style={{padding:'10px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:80,height:6,background:'#F3F4F6',borderRadius:3}}>
+                  <div style={{width:`${q.score}%`,height:'100%',borderRadius:3,background:q.score>=98?C.success:q.score>=96?C.warning:C.danger}}/>
+                </div>
+                <span style={{fontWeight:700,color:q.score>=98?C.success:q.score>=96?C.warning:C.danger}}>{q.score}%</span>
+              </div>
+            </td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPage(){
+  return(
+    <div style={{animation:'fadeIn 400ms ease'}}>
+      <h2 style={{fontSize:20,fontWeight:800,marginBottom:20}}>설정</h2>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+        <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>크롤링 설정</div>
+          {[['요청 딜레이','2~5초 (무작위)'],['동시 세션','3'],['로테이션 전략','라운드로빈 + 쿨다운'],['CAPTCHA 대응','즉시 계정 교체 + 알림']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'11px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:14,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>알림 채널</div>
+          {[['이메일','admin@maritrack.co'],['Slack','#ship-alerts'],['인앱 알림','WebSocket 푸시'],['알림 중복 방지','1시간 내 동일 선박 1회']].map(([k,v])=>(
+            <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'11px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+              <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── App Shell (bright-workspace) ─── */
+function App(){
+  const[page,setPage]=useState('통합 분석 대시보드');
+  const menus=[
+    {name:'통합 분석 대시보드',icon:'📊'},
+    {name:'선박 플릿 관리',icon:'🚢'},
+    {name:'크롤링 스케줄 관리',icon:'⏱️'},
+    {name:'알림 워크플로우',icon:'🔔'},
+    {name:'데이터 품질 관리',icon:'✅'},
+    {name:'설정',icon:'⚙️'},
+  ];
+
+  const renderPage=()=>{
+    switch(page){
+      case '통합 분석 대시보드':return <DashboardPage/>;
+      case '선박 플릿 관리':return <FleetPage/>;
+      case '크롤링 스케줄 관리':return <SchedulePage/>;
+      case '알림 워크플로우':return <WorkflowPage/>;
+      case '데이터 품질 관리':return <QualityPage/>;
+      case '설정':return <SettingsPage/>;
+      default:return <DashboardPage/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',height:'100vh'}}>
+      <div style={{width:240,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'18px 20px',borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>🚢</div>
+            <div><div style={{fontSize:15,fontWeight:800}}>MarineTrack</div><div style={{fontSize:10,color:C.textMuted}}>해운 데이터 통합 관리</div></div>
+          </div>
+        </div>
+        <nav style={{flex:1,padding:'10px 12px'}}>
+          {menus.map(m=>(
+            <button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 12px',borderRadius:8,border:'none',background:page===m.name?`${C.primary}18`:'transparent',color:page===m.name?C.secondary:C.textLight,fontSize:13,fontWeight:page===m.name?600:400,cursor:'pointer',marginBottom:2,transition:'all 150ms',textAlign:'left'}}>
+              <span style={{fontSize:16}}>{m.icon}</span>{m.name}
+            </button>
+          ))}
+        </nav>
+        <div style={{padding:'14px 18px',borderTop:`1px solid ${C.border}`}}>
+          <div style={{fontSize:11,color:C.textMuted}}>시스템 상태</div>
+          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:C.success}}/>
+            <span style={{fontSize:12,fontWeight:600}}>정상 운영 중</span>
+          </div>
+        </div>
+      </div>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'12px 24px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+          <span style={{fontSize:13,fontWeight:600}}>{page}</span>
+          <span style={{fontSize:12,color:C.textMuted}}>관리 선박: 10,000척 · 5개 선대</span>
+        </div>
+        <div style={{flex:1,overflow:'auto',padding:24}}>{renderPage()}</div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
