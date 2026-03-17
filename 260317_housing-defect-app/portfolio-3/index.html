@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>주거 하자 관리 & 분석 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#D4D4D8;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {ResponsiveContainer,PieChart,Pie,Cell,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,LineChart,Line,Legend,Treemap,AreaChart,Area} = Recharts;
+
+const C = {
+  primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',
+  bg:'#FAF5FF',surface:'#FFFFFF',border:'#E5E7EB',
+  text:'#1E1B4B',textLight:'#6B7280',
+  success:'#10B981',warning:'#F59E0B',danger:'#EF4444',
+};
+
+const NAV_ITEMS = [
+  {id:'dashboard',icon:'📊',label:'하자 분석 대시보드'},
+  {id:'resident-portal',icon:'📱',label:'입주민 셀프 접수 포털'},
+  {id:'notification-center',icon:'🔔',label:'자동화 알림 파이프라인'},
+  {id:'pattern-report',icon:'📈',label:'하자 패턴 리포트'},
+  {id:'workflow-board',icon:'🔄',label:'처리 워크플로우 보드'},
+];
+
+const DEFECT_TYPES = ['도배','누수','균열','타일','도장','전기','설비','창호'];
+const BUILDINGS = ['101동','102동','103동','104동','105동'];
+const FLOORS = ['1층','2층','3층','4층','5층','6층','7층','8층','9층','10층'];
+
+const DEFECTS = Array.from({length:48},(_,i)=>({
+  id:`RD-2025-${String(i+1).padStart(4,'0')}`,
+  building:BUILDINGS[i%5],
+  unit:`${Math.floor(i/5+3)}0${(i%4)+1}호`,
+  type:DEFECT_TYPES[i%8],
+  status:['접수','확인','처리중','완료','반려'][i%5],
+  statusColor:['#3B82F6','#F59E0B','#8B5CF6','#10B981','#EF4444'][i%5],
+  reporter:['김서연','이지은','박하나','정수민','최예린','강유진'][i%6],
+  assignee:['김민수','이준호','박서진','정하윤','최우진'][i%5],
+  date:`2025.${String(Math.floor(i/8)+1).padStart(2,'0')}.${String((i%28)+1).padStart(2,'0')}`,
+  aiType:DEFECT_TYPES[(i+2)%8],
+  aiConfidence:Math.floor(Math.random()*20+78),
+  description:`${BUILDINGS[i%5]} ${Math.floor(i/5+3)}0${(i%4)+1}호 ${DEFECT_TYPES[i%8]} 관련 하자 접수. 입주민이 직접 촬영한 사진과 함께 제출됨.`,
+  photos:Math.floor(Math.random()*4+1),
+  priority:['높음','보통','낮음'][i%3],
+}));
+
+const NOTIFICATIONS = Array.from({length:20},(_,i)=>({
+  id:`NTF-${String(i+1).padStart(4,'0')}`,
+  channel:['알림톡','이메일','앱 알림'][i%3],
+  channelIcon:['💬','📧','📲'][i%3],
+  event:['하자 접수 확인','처리 시작 안내','조치 완료 안내','기한 초과 알림','배정 변경 안내'][i%5],
+  recipient:['김서연','이지은','박하나','정수민','최예린'][i%5],
+  status:['발송 완료','발송 실패','대기중'][i%3===2?(i%4===0?1:2):0],
+  statusColor:['#10B981','#EF4444','#F59E0B'][i%3===2?(i%4===0?1:2):0],
+  date:`2025.${String(Math.floor(i/4)+1).padStart(2,'0')}.${String((i%28)+1).padStart(2,'0')} ${String(9+i%12).padStart(2,'0')}:${String(i*7%60).padStart(2,'0')}`,
+  defectId:`RD-2025-${String((i%10)+1).padStart(4,'0')}`,
+  retries:i%3===2&&i%4===0?3:0,
+}));
+
+const treemapData = DEFECT_TYPES.map(t=>({name:t,size:Math.floor(Math.random()*30+5),fill:['#7C3AED','#A78BFA','#C4B5FD','#DDD6FE','#8B5CF6','#6D28D9','#4C1D95','#EDE9FE'][DEFECT_TYPES.indexOf(t)]}));
+const monthlyTrend = ['9월','10월','11월','12월','1월','2월'].map(m=>({month:m,접수:Math.floor(Math.random()*25+10),완료:Math.floor(Math.random()*20+8)}));
+const channelStats = [{channel:'알림톡',sent:245,failed:3,pending:2},{channel:'이메일',sent:189,failed:8,pending:5},{channel:'앱 알림',sent:312,failed:1,pending:0}];
+
+const heatmapData = BUILDINGS.flatMap(b=>FLOORS.map(f=>({building:b,floor:f,count:Math.floor(Math.random()*8)})));
+
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:12,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({text,color,bg}){
+  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:12,fontSize:11,fontWeight:600,color:color||'#fff',background:bg||C.primary}}>{text}</span>;
+}
+
+function SideNavItem({icon,label,active,onClick}){
+  return(
+    <button onClick={onClick} title={label} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'9px 12px',borderRadius:8,border:'none',cursor:'pointer',background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',fontSize:13,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
+      <span style={{fontSize:16}}>{icon}</span>{label}
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:12,color:active?C.primary:C.textLight,fontWeight:active?700:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{label}</button>
+  );
+}
+
+// ─── Dashboard (main) ───
+function DashboardSection({selected,setSelected}){
+  const [tab,setTab]=useState(0);
+  const tabs=['개요','유형 분석','세대별 히트맵'];
+
+  const content = ()=>{
+    if(tab===0) return(
+      <div style={{display:'flex',overflow:'hidden',flex:1}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>최근 접수 하자</div>
+          {DEFECTS.slice(0,12).map((d,i)=>(
+            <div key={d.id} onClick={()=>setSelected(d)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===d.id?`${C.primary}06`:'transparent'}}
+              onMouseEnter={e=>{if(selected?.id!==d.id)e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+              onMouseLeave={e=>{if(selected?.id!==d.id)e.currentTarget.style.background='';e.currentTarget.style.borderLeft=''}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                <span style={{fontSize:12,fontWeight:700,color:C.primary}}>{d.id}</span>
+                <Badge text={d.status} bg={d.statusColor}/>
+              </div>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{d.building} {d.unit} — {d.type}</div>
+              <div style={{fontSize:11,color:C.textLight}}>{d.reporter} · {d.date}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected ? (
+            <div style={{animation:'fadeIn 200ms ease'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+                <div>
+                  <h3 style={{fontSize:18,fontWeight:700,marginBottom:4}}>{selected.id}</h3>
+                  <div style={{fontSize:13,color:C.textLight}}>{selected.building} {selected.unit}</div>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <Badge text={selected.status} bg={selected.statusColor}/>
+                  <Badge text={selected.type} bg={`${C.primary}15`} color={C.primary}/>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+                {[{l:'접수자',v:selected.reporter},{l:'담당자',v:selected.assignee},{l:'우선순위',v:selected.priority},{l:'접수일',v:selected.date},{l:'사진',v:`${selected.photos}장`},{l:'AI 분류',v:`${selected.aiType} (${selected.aiConfidence}%)`}].map(f=>(
+                  <div key={f.l} style={{padding:12,background:'#F9FAFB',borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{f.l}</div>
+                    <div style={{fontSize:13,fontWeight:600,marginTop:4}}>{f.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>상세 설명</div>
+                <div style={{fontSize:13,lineHeight:1.7,padding:14,background:'#F9FAFB',borderRadius:10,border:`1px solid ${C.border}`}}>{selected.description}</div>
+              </div>
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>관리자 메모</div>
+                <textarea rows={3} placeholder="메모 입력..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/>
+              </div>
+            </div>
+          ) : (
+            <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight,fontSize:14}}>
+              좌측 목록에서 하자를 선택하세요
+            </div>
+          )}
+        </div>
+      </div>
+    );
+    if(tab===1) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:24}}>
+          {[{l:'총 접수',v:48,c:C.primary},{l:'처리 완료',v:18,c:C.success},{l:'처리중',v:12,c:'#8B5CF6'},{l:'평균 처리일',v:3.8,c:C.warning,s:'일'}].map((k,i)=>(
+            <div key={k.l} style={{padding:16,background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.04)',animation:`slideUp 300ms ease ${i*60}ms both`}}>
+              <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{k.l}</div>
+              <div style={{fontSize:28,fontWeight:800,color:k.c,marginTop:6}}><CountUp end={k.v} suffix={k.s||''}/></div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+          <div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
+            <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>유형별 분포 (트리맵)</h4>
+            <ResponsiveContainer width="100%" height={220}>
+              <Treemap data={treemapData} dataKey="size" aspectRatio={4/3} stroke="#fff">
+                {treemapData.map((e,i)=><Cell key={i} fill={e.fill}/>)}
+              </Treemap>
+            </ResponsiveContainer>
+          </div>
+          <div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.04)'}}>
+            <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>월별 접수·완료 추이</h4>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={monthlyTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+                <XAxis dataKey="month" fontSize={11} stroke="#94A3B8"/>
+                <YAxis fontSize={11} stroke="#94A3B8"/>
+                <Tooltip contentStyle={{borderRadius:10,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.08)'}}/>
+                <Line type="monotone" dataKey="접수" stroke={C.primary} strokeWidth={2} dot={{r:4}}/>
+                <Line type="monotone" dataKey="완료" stroke={C.success} strokeWidth={2} dot={{r:4}}/>
+                <Legend/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    );
+    if(tab===2) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>동·층별 하자 밀집도</h4>
+        <div style={{overflowX:'auto'}}>
+          <table style={{borderCollapse:'collapse',width:'100%'}}>
+            <thead><tr>
+              <th style={{padding:8,fontSize:11,color:C.textLight,fontWeight:600,textAlign:'left',borderBottom:`1px solid ${C.border}`}}>층</th>
+              {BUILDINGS.map(b=><th key={b} style={{padding:8,fontSize:11,color:C.textLight,fontWeight:600,textAlign:'center',borderBottom:`1px solid ${C.border}`}}>{b}</th>)}
+            </tr></thead>
+            <tbody>
+              {FLOORS.map(f=>(
+                <tr key={f}>
+                  <td style={{padding:8,fontSize:12,fontWeight:600,borderBottom:`1px solid ${C.border}`}}>{f}</td>
+                  {BUILDINGS.map(b=>{
+                    const cell = heatmapData.find(h=>h.building===b&&h.floor===f);
+                    const count = cell?.count||0;
+                    const intensity = Math.min(count/8,1);
+                    return(
+                      <td key={b} style={{padding:4,borderBottom:`1px solid ${C.border}`,textAlign:'center'}}>
+                        <div style={{width:40,height:40,borderRadius:8,background:`rgba(124,58,237,${intensity*0.6+0.05})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:intensity>0.4?'#fff':C.text,margin:'0 auto'}}>{count||''}</div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {tabs.map((t,i)=><TabUnderline key={t} label={t} active={tab===i} onClick={()=>setTab(i)}/>)}
+      </div>
+      {content()}
+    </>
+  );
+}
+
+// ─── Resident Portal ───
+function ResidentPortalSection({selected,setSelected}){
+  const [tab,setTab]=useState(0);
+  const tabs=['접수 목록','접수 폼'];
+  const residents = DEFECTS.filter(d=>d.reporter);
+
+  const content=()=>{
+    if(tab===0) return(
+      <div style={{display:'flex',overflow:'hidden',flex:1}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>입주민 접수 내역</div>
+          {residents.slice(0,10).map(d=>(
+            <div key={d.id} onClick={()=>setSelected(d)} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===d.id?`${C.primary}06`:'transparent'}}
+              onMouseEnter={e=>{if(selected?.id!==d.id)e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+              onMouseLeave={e=>{if(selected?.id!==d.id)e.currentTarget.style.background='';e.currentTarget.style.borderLeft=''}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:12,fontWeight:600}}>{d.reporter}</span>
+                <Badge text={d.status} bg={d.statusColor}/>
+              </div>
+              <div style={{fontSize:13,fontWeight:600}}>{d.type} — {d.building} {d.unit}</div>
+              <div style={{fontSize:11,color:C.textLight,marginTop:2}}>🤖 AI: {d.aiType} ({d.aiConfidence}%) · {d.date}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected ? (
+            <div style={{animation:'fadeIn 200ms ease'}}>
+              <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>{selected.reporter} 접수 상세</h3>
+              <div style={{padding:16,background:`${C.primary}05`,borderRadius:12,border:`1px solid ${C.primary}20`,marginBottom:16}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span>🤖</span><span style={{fontWeight:700}}>Claude API 분류 결과</span>
+                  <Badge text={`${selected.aiConfidence}%`} bg={selected.aiConfidence>85?`${C.success}20`:`${C.warning}20`} color={selected.aiConfidence>85?C.success:C.warning}/>
+                </div>
+                <div style={{fontSize:13}}>유형: <strong>{selected.aiType}</strong> | 입주민 선택: <strong>{selected.type}</strong></div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                {[{l:'위치',v:`${selected.building} ${selected.unit}`},{l:'접수일',v:selected.date},{l:'상태',v:selected.status},{l:'사진',v:`${selected.photos}장`}].map(f=>(
+                  <div key={f.l} style={{padding:12,background:'#F9FAFB',borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{f.l}</div>
+                    <div style={{fontSize:13,fontWeight:600,marginTop:4}}>{f.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:13,lineHeight:1.7,padding:14,background:'#F9FAFB',borderRadius:10,border:`1px solid ${C.border}`}}>{selected.description}</div>
+            </div>
+          ) : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>접수 내역을 선택하세요</div>}
+        </div>
+      </div>
+    );
+    if(tab===1) return(
+      <div style={{padding:24,overflowY:'auto',flex:1,maxWidth:560}}>
+        <h3 style={{fontSize:16,fontWeight:700,marginBottom:20}}>하자 셀프 접수 (입주민용)</h3>
+        <div style={{display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>동</label>
+              <select style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}>{BUILDINGS.map(b=><option key={b}>{b}</option>)}</select></div>
+            <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>호수</label>
+              <input placeholder="예: 501호" style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}/></div>
+          </div>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>하자 유형</label>
+            <select style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}>{DEFECT_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>상세 설명</label>
+            <textarea rows={4} placeholder="하자 상황을 설명해 주세요..." style={{width:'100%',padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit',resize:'vertical'}}/></div>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>사진 첨부</label>
+            <div style={{padding:24,border:`2px dashed ${C.border}`,borderRadius:12,textAlign:'center',color:C.textLight,fontSize:13}}>📷 사진을 업로드하세요 (최대 5장)<br/><span style={{fontSize:11}}>Claude API가 자동으로 하자 유형을 분류합니다</span></div></div>
+          <button style={{padding:'12px',background:C.primary,color:'#fff',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',fontSize:14,fontFamily:'inherit'}}>접수하기</button>
+        </div>
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {tabs.map((t,i)=><TabUnderline key={t} label={t} active={tab===i} onClick={()=>setTab(i)}/>)}
+      </div>
+      {content()}
+    </>
+  );
+}
+
+// ─── Notification Center ───
+function NotificationSection({selected,setSelected}){
+  const [tab,setTab]=useState(0);
+  const tabs=['발송 이력','채널 현황','템플릿 관리'];
+
+  const content=()=>{
+    if(tab===0) return(
+      <div style={{display:'flex',overflow:'hidden',flex:1}}>
+        <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+          <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,fontSize:11,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>알림 발송 이력</div>
+          {NOTIFICATIONS.map(n=>(
+            <div key={n.id} onClick={()=>setSelected(n)} style={{padding:'10px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.id===n.id?`${C.primary}06`:'transparent'}}
+              onMouseEnter={e=>{if(selected?.id!==n.id)e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`2px solid ${C.primary}`}}
+              onMouseLeave={e=>{if(selected?.id!==n.id)e.currentTarget.style.background='';e.currentTarget.style.borderLeft=''}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+                <span style={{fontSize:13,fontWeight:600}}>{n.channelIcon} {n.event}</span>
+                <Badge text={n.status} bg={n.statusColor}/>
+              </div>
+              <div style={{fontSize:11,color:C.textLight}}>{n.recipient} · {n.channel} · {n.date}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:20}}>
+          {selected ? (
+            <div style={{animation:'fadeIn 200ms ease'}}>
+              <h3 style={{fontSize:16,fontWeight:700,marginBottom:16}}>알림 상세 — {selected.id}</h3>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+                {[{l:'채널',v:`${selected.channelIcon} ${selected.channel}`},{l:'이벤트',v:selected.event},{l:'수신자',v:selected.recipient},{l:'하자 ID',v:selected.defectId},{l:'발송 시각',v:selected.date},{l:'재시도',v:`${selected.retries}회`}].map(f=>(
+                  <div key={f.l} style={{padding:12,background:'#F9FAFB',borderRadius:10,border:`1px solid ${C.border}`}}>
+                    <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{f.l}</div>
+                    <div style={{fontSize:13,fontWeight:600,marginTop:4}}>{f.v}</div>
+                  </div>
+                ))}
+              </div>
+              {selected.retries>0 && <div style={{padding:14,background:`${C.danger}08`,borderRadius:10,border:`1px solid ${C.danger}20`,fontSize:13}}>⚠️ 발송 실패 — {selected.retries}회 재시도 후 DLQ(Dead Letter Queue)로 이동됨</div>}
+            </div>
+          ) : <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textLight}}>알림을 선택하세요</div>}
+        </div>
+      </div>
+    );
+    if(tab===1) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+          {channelStats.map((c,i)=>(
+            <div key={c.channel} style={{padding:20,background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,boxShadow:'0 1px 4px rgba(0,0,0,.04)',animation:`slideUp 300ms ease ${i*60}ms both`}}>
+              <div style={{fontSize:20,marginBottom:8}}>{['💬','📧','📲'][i]}</div>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{c.channel}</div>
+              <div style={{display:'flex',gap:12}}>
+                <div><div style={{fontSize:20,fontWeight:800,color:C.success}}>{c.sent}</div><div style={{fontSize:10,color:C.textLight}}>발송</div></div>
+                <div><div style={{fontSize:20,fontWeight:800,color:C.danger}}>{c.failed}</div><div style={{fontSize:10,color:C.textLight}}>실패</div></div>
+                <div><div style={{fontSize:20,fontWeight:800,color:C.warning}}>{c.pending}</div><div style={{fontSize:10,color:C.textLight}}>대기</div></div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+          <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>채널별 일간 발송량</h4>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={channelStats}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="channel" fontSize={11} stroke="#94A3B8"/>
+              <YAxis fontSize={11} stroke="#94A3B8"/>
+              <Tooltip contentStyle={{borderRadius:10,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.08)'}}/>
+              <Bar dataKey="sent" fill={C.success} radius={[4,4,0,0]} name="발송"/>
+              <Bar dataKey="failed" fill={C.danger} radius={[4,4,0,0]} name="실패"/>
+              <Legend/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+    if(tab===2) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>알림 템플릿</h4>
+        {['하자 접수 확인 안내','처리 시작 안내','조치 완료 안내','기한 초과 경고','배정 변경 안내'].map((t,i)=>(
+          <div key={t} style={{padding:16,background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,marginBottom:10,cursor:'pointer',transition:'all 150ms',animation:`slideUp 300ms ease ${i*60}ms both`}}
+            onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderLeft=''}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontWeight:600,fontSize:14}}>{t}</div>
+              <div style={{display:'flex',gap:6}}>{['💬','📧','📲'].map(ch=><span key={ch} style={{fontSize:14}}>{ch}</span>)}</div>
+            </div>
+            <div style={{fontSize:12,color:C.textLight,marginTop:4}}>활성 채널: 알림톡, 이메일, 앱 알림</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {tabs.map((t,i)=><TabUnderline key={t} label={t} active={tab===i} onClick={()=>setTab(i)}/>)}
+      </div>
+      {content()}
+    </>
+  );
+}
+
+// ─── Pattern Report ───
+function PatternReportSection({setToast}){
+  const [tab,setTab]=useState(0);
+  const tabs=['반복 하자 구역','시공사 비교','보고서 내보내기'];
+
+  const content=()=>{
+    if(tab===0) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>반복 하자 상위 구역</h4>
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:20}}>
+          {[{zone:'103동 5층',type:'누수',count:7,rank:1},{zone:'101동 3층',type:'균열',count:5,rank:2},{zone:'102동 8층',type:'도배',count:4,rank:3},{zone:'104동 2층',type:'타일',count:4,rank:4},{zone:'105동 6층',type:'전기',count:3,rank:5}].map((z,i)=>(
+            <div key={z.zone} style={{padding:16,background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:14,animation:`slideUp 300ms ease ${i*60}ms both`}}>
+              <div style={{width:36,height:36,borderRadius:10,background:`${C.primary}${i<2?'20':'10'}`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:16,color:C.primary}}>{z.rank}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14}}>{z.zone}</div>
+                <div style={{fontSize:12,color:C.textLight}}>주요 유형: {z.type}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:20,fontWeight:800,color:C.primary}}>{z.count}</div>
+                <div style={{fontSize:10,color:C.textLight}}>반복 건수</div>
+              </div>
+              <div style={{width:60}}>
+                <div style={{background:'#E5E7EB',borderRadius:4,height:6,overflow:'hidden'}}>
+                  <div style={{background:C.primary,height:'100%',width:`${z.count/7*100}%`,borderRadius:4}}/>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+          <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>동별 하자 유형 분포</h4>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={BUILDINGS.map(b=>({building:b,...Object.fromEntries(DEFECT_TYPES.slice(0,4).map(t=>[t,Math.floor(Math.random()*8+1)]))}))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="building" fontSize={11} stroke="#94A3B8"/>
+              <YAxis fontSize={11} stroke="#94A3B8"/>
+              <Tooltip contentStyle={{borderRadius:10,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,.08)'}}/>
+              <Bar dataKey="도배" stackId="a" fill="#7C3AED"/>
+              <Bar dataKey="누수" stackId="a" fill="#A78BFA"/>
+              <Bar dataKey="균열" stackId="a" fill="#C4B5FD"/>
+              <Bar dataKey="타일" stackId="a" fill="#DDD6FE"/>
+              <Legend/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+    if(tab===1) return(
+      <div style={{padding:20,overflowY:'auto',flex:1}}>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>시공사별 하자 유형 비교</h4>
+        {['A건설','B종합건설','C건설산업'].map((company,ci)=>(
+          <div key={company} style={{background:C.surface,borderRadius:12,padding:16,border:`1px solid ${C.border}`,marginBottom:12,animation:`slideUp 300ms ease ${ci*80}ms both`}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+              <div style={{fontWeight:700,fontSize:15}}>{company}</div>
+              <Badge text={`총 ${Math.floor(Math.random()*20+10)}건`} bg={`${C.primary}15`} color={C.primary}/>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              {DEFECT_TYPES.slice(0,5).map(t=>{
+                const w=Math.floor(Math.random()*80+20);
+                return(
+                  <div key={t} style={{flex:1}}>
+                    <div style={{fontSize:10,color:C.textLight,marginBottom:4,textAlign:'center'}}>{t}</div>
+                    <div style={{background:'#E5E7EB',borderRadius:4,height:w/2,display:'flex',alignItems:'flex-end'}}>
+                      <div style={{background:C.primary,height:'100%',width:'100%',borderRadius:4,opacity:w/100}}/>
+                    </div>
+                    <div style={{fontSize:10,textAlign:'center',marginTop:2,fontWeight:600}}>{Math.floor(w/10)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+    if(tab===2) return(
+      <div style={{padding:20,overflowY:'auto',flex:1,maxWidth:500}}>
+        <h4 style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textLight,marginBottom:14}}>보고서 내보내기</h4>
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>기간</label>
+            <div style={{display:'flex',gap:8}}><input type="date" style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}/><input type="date" style={{flex:1,padding:'10px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}/></div></div>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>대상 동</label>
+            <select style={{width:'100%',padding:'10px',borderRadius:10,border:`1px solid ${C.border}`,fontSize:13,fontFamily:'inherit'}}><option>전체</option>{BUILDINGS.map(b=><option key={b}>{b}</option>)}</select></div>
+          <div><label style={{fontSize:11,color:C.textLight,fontWeight:700,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>포함 항목</label>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>{['반복 하자 구역 분석','시공사별 비교','히트맵 시각화','사진 첨부'].map(opt=>(<label key={opt} style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}><input type="checkbox" defaultChecked/>{opt}</label>))}</div></div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setToast('PDF 보고서 생성이 시작되었습니다')} style={{flex:1,padding:'12px',background:C.primary,color:'#fff',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>📄 PDF 내보내기</button>
+            <button onClick={()=>setToast('Excel 파일 생성이 시작되었습니다')} style={{flex:1,padding:'12px',background:C.success,color:'#fff',border:'none',borderRadius:10,fontWeight:700,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>📊 Excel 내보내기</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return(
+    <>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        {tabs.map((t,i)=><TabUnderline key={t} label={t} active={tab===i} onClick={()=>setTab(i)}/>)}
+      </div>
+      {content()}
+    </>
+  );
+}
+
+// ─── Workflow Board ───
+function WorkflowBoardSection({selected,setSelected}){
+  const statuses = ['접수','확인','처리중','완료'];
+  const statusColors = ['#3B82F6','#F59E0B','#8B5CF6','#10B981'];
+
+  return(
+    <>
+      <div style={{height:38,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'flex-end',padding:'0 16px',background:C.surface,flexShrink:0}}>
+        <TabUnderline label="칸반 보드" active={true} onClick={()=>{}}/>
+      </div>
+      <div style={{display:'flex',overflow:'hidden',flex:1}}>
+        <div style={{flex:1,overflowX:'auto',padding:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,minWidth:800}}>
+            {statuses.map((s,si)=>{
+              const items=DEFECTS.filter(d=>d.status===s);
+              return(
+                <div key={s} style={{background:'#F9FAFB',borderRadius:12,padding:12,minHeight:400}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,padding:'0 4px'}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:statusColors[si]}}/>
+                    <span style={{fontWeight:700,fontSize:13}}>{s}</span>
+                    <Badge text={items.length} bg={`${statusColors[si]}20`} color={statusColors[si]}/>
+                  </div>
+                  {items.slice(0,5).map((d,i)=>(
+                    <div key={d.id} onClick={()=>setSelected(d)} style={{background:C.surface,borderRadius:10,padding:12,marginBottom:8,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',animation:`slideUp 300ms ease ${i*50}ms both`}}
+                      onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}04`;e.currentTarget.style.borderLeft=`3px solid ${statusColors[si]}`}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderLeft=''}}>
+                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:11,fontWeight:700,color:C.primary}}>{d.id}</span>
+                        <span style={{fontSize:10,color:C.textLight}}>{d.date}</span>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>{d.type} — {d.building}</div>
+                      <div style={{fontSize:11,color:C.textLight}}>👤 {d.assignee}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {selected && (
+          <div style={{width:320,borderLeft:`1px solid ${C.border}`,overflowY:'auto',padding:16,background:C.surface,animation:'slideInRight 200ms ease'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <h4 style={{fontSize:14,fontWeight:700}}>{selected.id}</h4>
+              <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',fontSize:16,cursor:'pointer',color:C.textLight}}>✕</button>
+            </div>
+            <div style={{display:'flex',gap:6,marginBottom:16}}>
+              <Badge text={selected.status} bg={selected.statusColor}/>
+              <Badge text={selected.type} bg={`${C.primary}15`} color={C.primary}/>
+            </div>
+            {[{l:'위치',v:`${selected.building} ${selected.unit}`},{l:'담당자',v:selected.assignee},{l:'접수자',v:selected.reporter},{l:'접수일',v:selected.date}].map(f=>(
+              <div key={f.l} style={{marginBottom:10}}>
+                <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em'}}>{f.l}</div>
+                <div style={{fontSize:13,fontWeight:600,marginTop:2}}>{f.v}</div>
+              </div>
+            ))}
+            <div style={{marginTop:12}}>
+              <div style={{fontSize:10,color:C.textLight,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>메모</div>
+              <textarea rows={3} placeholder="메모..." style={{width:'100%',padding:10,borderRadius:8,border:`1px solid ${C.border}`,fontSize:12,fontFamily:'inherit',resize:'vertical'}}/>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── Main App ───
+function App(){
+  const [section,setSection]=useState('dashboard');
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+
+  useEffect(()=>setSelected(null),[section]);
+
+  if(loading) return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:'#fff',borderRight:`1px solid #E5E7EB`}}/>
+      <div style={{flex:1,padding:20,display:'flex',flexDirection:'column',gap:12}}>
+        {[...Array(4)].map((_,i)=><div key={i} style={{height:i===0?40:180,borderRadius:12,background:'linear-gradient(90deg,#F5F3FF 25%,#EDE9FE 50%,#F5F3FF 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
+      </div>
+    </div>
+  );
+
+  const renderSection=()=>{
+    switch(section){
+      case 'dashboard':return <DashboardSection selected={selected} setSelected={setSelected}/>;
+      case 'resident-portal':return <ResidentPortalSection selected={selected} setSelected={setSelected}/>;
+      case 'notification-center':return <NotificationSection selected={selected} setSelected={setSelected}/>;
+      case 'pattern-report':return <PatternReportSection setToast={setToast}/>;
+      case 'workflow-board':return <WorkflowBoardSection selected={selected} setSelected={setSelected}/>;
+      default:return <DashboardSection selected={selected} setSelected={setSelected}/>;
+    }
+  };
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0}}>
+        <div style={{padding:'0 16px 20px',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff',fontWeight:800}}>H</div>
+          <div><div style={{fontWeight:700,fontSize:14,color:C.text}}>하자플러스</div><div style={{fontSize:10,color:C.textLight}}>관리 & 분석 플랫폼</div></div>
+        </div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV_ITEMS.map(item=>(
+            <SideNavItem key={item.id} icon={item.icon} label={item.label} active={section===item.id} onClick={()=>setSection(item.id)}/>
+          ))}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`}}>
+          <SideNavItem icon="⚙️" label="설정" active={section==='settings'} onClick={()=>{}}/>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* Appbar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textLight}}>홈</span>
+          <span style={{fontSize:12,color:C.textLight}}>/</span>
+          <span style={{fontSize:12,fontWeight:600,color:C.text}}>{NAV_ITEMS.find(n=>n.id===section)?.label||'대시보드'}</span>
+          <div style={{flex:1}}/>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'5px 12px 5px 28px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:11,width:160,outline:'none',fontFamily:'inherit'}}/>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:11}}>🔍</span>
+          </div>
+          <div style={{width:26,height:26,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:10,fontWeight:700}}>관</div>
+        </header>
+
+        {/* Section content */}
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',animation:'fadeIn 300ms ease'}}>
+          {renderSection()}
+        </div>
+      </div>
+
+      {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
