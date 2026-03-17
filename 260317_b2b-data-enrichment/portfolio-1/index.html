@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BizRadar — B2B 기업 데이터 수집·정제</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#0F172A;overflow:hidden;height:100vh}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area}=Recharts;
+const C={primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',bg:'#F0F9FF',surface:'#FFFFFF',border:'#E2E8F0',text:'#0F172A',textLight:'#475569',textMuted:'#94A3B8',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#1A365D',sidebarText:'#CBD5E1',sidebarActive:'#0066CC'};
+
+const COMPANIES=[
+  {id:1,name:'(주)테크솔루션',biz:'123-45-67890',industry:'소프트웨어 개발',employees:85,revenue:'12.4억',score:92,status:'수집완료',keywords:['SaaS','클라우드','보안']},
+  {id:2,name:'(주)그린에너지',biz:'234-56-78901',industry:'신재생에너지',employees:120,revenue:'45.2억',score:87,status:'수집완료',keywords:['태양광','ESS','에너지관리']},
+  {id:3,name:'(주)바이오메드',biz:'345-67-89012',industry:'의료기기',employees:65,revenue:'8.7억',score:78,status:'AI분석중',keywords:['진단키트','체외진단']},
+  {id:4,name:'(주)스마트팩토리',biz:'456-78-90123',industry:'산업 자동화',employees:200,revenue:'67.8억',score:95,status:'수집완료',keywords:['IoT','MES','스마트공장']},
+  {id:5,name:'(주)디자인허브',biz:'567-89-01234',industry:'디자인',employees:30,revenue:'3.2억',score:65,status:'수집완료',keywords:['UI/UX','브랜딩']},
+  {id:6,name:'(주)로지스틱스',biz:'678-90-12345',industry:'물류',employees:350,revenue:'120.5억',score:88,status:'수집완료',keywords:['3PL','풀필먼트','WMS']},
+  {id:7,name:'(주)에듀테크',biz:'789-01-23456',industry:'교육',employees:45,revenue:'5.6억',score:72,status:'크롤링중',keywords:['LMS','이러닝']},
+  {id:8,name:'(주)핀테크코리아',biz:'890-12-34567',industry:'금융 IT',employees:150,revenue:'34.1억',score:91,status:'수집완료',keywords:['PG','간편결제','대출']},
+];
+
+const COLLECT_CHART=[{date:'03.01',count:120,api:95,crawl:25},{date:'03.05',count:245,api:180,crawl:65},{date:'03.10',count:380,api:270,crawl:110},{date:'03.15',count:520,api:360,crawl:160},{date:'03.20',count:680,api:480,crawl:200},{date:'03.25',count:850,api:590,crawl:260}];
+const API_STATUS=[{name:'국세청',calls:4520,success:4498,fail:22,limit:'5,000/일',status:'정상'},{name:'DART',calls:3210,success:3195,fail:15,limit:'10,000/일',status:'정상'},{name:'중기부',calls:1850,success:1832,fail:18,limit:'3,000/일',status:'정상'}];
+const SCORE_PIE=[{name:'90+',value:245,color:C.success},{name:'70~89',value:412,color:C.primary},{name:'50~69',value:156,color:C.warning},{name:'50미만',value:37,color:C.danger}];
+const AI_RESULTS=[
+  {company:'(주)테크솔루션',keywords:['SaaS','클라우드 보안','API 게이트웨이'],confidence:94,status:'자동승인'},
+  {company:'(주)그린에너지',keywords:['태양광 모듈','ESS 솔루션','에너지 모니터링'],confidence:91,status:'자동승인'},
+  {company:'(주)바이오메드',keywords:['체외진단','POCT','진단키트'],confidence:67,status:'수동검토'},
+  {company:'(주)스마트팩토리',keywords:['MES','설비 모니터링','예지보전'],confidence:96,status:'자동승인'},
+];
+
+function Badge({text}){
+  const colors={'수집완료':{bg:'#ECFDF5',c:'#059669'},'AI분석중':{bg:'#EFF6FF',c:'#0066CC'},'크롤링중':{bg:'#FEF3C7',c:'#D97706'},'정상':{bg:'#ECFDF5',c:'#059669'},'자동승인':{bg:'#ECFDF5',c:'#059669'},'수동검토':{bg:'#FEF3C7',c:'#D97706'}};
+  const s=colors[text]||{bg:'#F1F5F9',c:'#475569'};
+  return <span style={{display:'inline-block',padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}>{text}</span>;
+}
+function KpiCard({icon,label,value,sub,accent}){
+  return(<div style={{background:C.surface,borderRadius:8,padding:'20px 24px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}><span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span><span style={{fontSize:20}}>{icon}</span></div>
+    <div style={{fontSize:28,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:6}}>{sub}</div>}
+  </div>);
+}
+
+function DashboardPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>통합 대시보드</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+      <KpiCard icon="🏢" label="수집 기업" value="850" sub="이번 달 +230"/>
+      <KpiCard icon="🔗" label="API 호출" value="9,580" sub="국세청+DART+중기부"/>
+      <KpiCard icon="🤖" label="AI 분석 완료" value="742" sub="신뢰도 90%+" accent={C.success}/>
+      <KpiCard icon="⚠️" label="수동 검토 대기" value="23" accent={C.warning}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>일별 데이터 수집 현황</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={COLLECT_CHART}>
+            <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="date" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:12,fill:C.textMuted}}/>
+            <Tooltip contentStyle={{borderRadius:8,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+            <Area type="monotone" dataKey="api" stroke={C.primary} fill="url(#cg)" strokeWidth={2} name="API 수집"/>
+            <Area type="monotone" dataKey="crawl" stroke={C.accent} fill="transparent" strokeWidth={2} name="크롤링"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>디지털 활성도 분포</div>
+        <ResponsiveContainer width="100%" height={160}>
+          <PieChart><Pie data={SCORE_PIE} cx="50%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={3}>{SCORE_PIE.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip/></PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:10,marginTop:8}}>
+          {SCORE_PIE.map(d=><div key={d.name} style={{display:'flex',alignItems:'center',gap:4,fontSize:11}}><div style={{width:8,height:8,borderRadius:'50%',background:d.color}}/>{d.name}: {d.value}</div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>공공 API 호출 현황</div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>{['API','호출 수','성공','실패','일일 한도','상태'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}</tr></thead>
+        <tbody>{API_STATUS.map(a=><tr key={a.name} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'10px 12px',fontWeight:600}}>{a.name}</td>
+          <td style={{padding:'10px 12px'}}>{a.calls.toLocaleString()}</td>
+          <td style={{padding:'10px 12px',color:C.success}}>{a.success.toLocaleString()}</td>
+          <td style={{padding:'10px 12px',color:C.danger}}>{a.fail}</td>
+          <td style={{padding:'10px 12px',color:C.textMuted}}>{a.limit}</td>
+          <td style={{padding:'10px 12px'}}><Badge text={a.status}/></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function CollectionPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>공공 API 수집</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}}>
+      {API_STATUS.map(a=>(
+        <div key={a.name} style={{background:C.surface,borderRadius:8,padding:22,border:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <span style={{fontSize:16,fontWeight:700}}>{a.name} API</span><Badge text={a.status}/>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:12}}>
+            <div style={{padding:8,background:'#F8FAFC',borderRadius:6}}><div style={{color:C.textMuted}}>성공</div><div style={{fontSize:16,fontWeight:800,color:C.success}}>{a.success.toLocaleString()}</div></div>
+            <div style={{padding:8,background:'#F8FAFC',borderRadius:6}}><div style={{color:C.textMuted}}>실패</div><div style={{fontSize:16,fontWeight:800,color:C.danger}}>{a.fail}</div></div>
+          </div>
+          <div style={{fontSize:11,color:C.textMuted,marginTop:8}}>일일 한도: {a.limit}</div>
+        </div>
+      ))}
+    </div>
+    <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <span style={{fontSize:15,fontWeight:700}}>수집 작업 실행</span>
+        <div style={{display:'flex',gap:8}}>
+          <button style={{padding:'8px 16px',borderRadius:6,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>전체 수집 시작</button>
+          <button style={{padding:'8px 16px',borderRadius:6,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:13,fontWeight:600,cursor:'pointer'}}>스케줄 등록</button>
+        </div>
+      </div>
+      <div style={{padding:16,background:'#F8FAFC',borderRadius:6,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}><span style={{fontWeight:600}}>배치 수집 진행 중</span><span style={{color:C.primary,fontWeight:600}}>67% 완료</span></div>
+        <div style={{height:8,background:'#E2E8F0',borderRadius:4}}><div style={{width:'67%',height:'100%',borderRadius:4,background:C.primary}}/></div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:C.textMuted,marginTop:6}}><span>570 / 850건 처리</span><span>예상 완료: 14:30</span></div>
+      </div>
+    </div>
+  </div>);
+}
+
+function GridPage(){
+  const[filter,setFilter]=useState('전체');
+  const filtered=filter==='전체'?COMPANIES:COMPANIES.filter(c=>c.status===filter);
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>데이터 그리드</h2>
+      <div style={{display:'flex',gap:8}}>
+        <button style={{padding:'8px 16px',borderRadius:6,background:C.primary,color:'#fff',border:'none',fontSize:13,fontWeight:600,cursor:'pointer'}}>📥 엑셀 다운로드</button>
+        <button style={{padding:'8px 16px',borderRadius:6,background:C.surface,color:C.primary,border:`1px solid ${C.primary}`,fontSize:13,fontWeight:600,cursor:'pointer'}}>🔄 중복 병합</button>
+      </div>
+    </div>
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {['전체','수집완료','AI분석중','크롤링중'].map(f=><button key={f} onClick={()=>setFilter(f)} style={{padding:'6px 14px',borderRadius:6,border:`1px solid ${filter===f?C.primary:C.border}`,background:filter===f?C.primary:'transparent',color:filter===f?'#fff':C.textLight,fontSize:12,fontWeight:500,cursor:'pointer'}}>{f}</button>)}
+      <div style={{flex:1}}/>
+      <input placeholder="기업명 또는 사업자번호 검색..." style={{padding:'6px 12px',borderRadius:6,border:`1px solid ${C.border}`,fontSize:12,outline:'none',width:240}}/>
+    </div>
+    <div style={{background:C.surface,borderRadius:8,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`,background:'#F8FAFC'}}>
+          {['기업명','사업자번호','업종','종업원','매출','활성도','상태','키워드'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:11}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{filtered.map(c=><tr key={c.id} style={{borderBottom:`1px solid ${C.border}`}}>
+          <td style={{padding:'10px 12px',fontWeight:600}}>{c.name}</td>
+          <td style={{padding:'10px 12px',fontFamily:'monospace',fontSize:11}}>{c.biz}</td>
+          <td style={{padding:'10px 12px'}}>{c.industry}</td>
+          <td style={{padding:'10px 12px'}}>{c.employees}명</td>
+          <td style={{padding:'10px 12px'}}>{c.revenue}</td>
+          <td style={{padding:'10px 12px'}}><span style={{fontWeight:700,color:c.score>=90?C.success:c.score>=70?C.primary:C.warning}}>{c.score}</span></td>
+          <td style={{padding:'10px 12px'}}><Badge text={c.status}/></td>
+          <td style={{padding:'10px 12px'}}><div style={{display:'flex',gap:4,flexWrap:'wrap'}}>{c.keywords.map(k=><span key={k} style={{padding:'2px 6px',borderRadius:4,background:'#EFF6FF',fontSize:10,color:C.primary}}>{k}</span>)}</div></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function AIExtractPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>AI 키워드 추출</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:20}}>
+      <KpiCard icon="🤖" label="AI 분석 완료" value="742" accent={C.success}/>
+      <KpiCard icon="✅" label="자동 승인" value="719" sub="신뢰도 80%+"/>
+      <KpiCard icon="👁️" label="수동 검토" value="23" accent={C.warning}/>
+    </div>
+    <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>AI 추출 결과</div>
+      {AI_RESULTS.map(r=>(
+        <div key={r.company} style={{padding:16,border:`1px solid ${C.border}`,borderRadius:8,marginBottom:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+            <span style={{fontSize:14,fontWeight:700}}>{r.company}</span>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <span style={{fontSize:12,color:r.confidence>=80?C.success:C.warning,fontWeight:700}}>신뢰도 {r.confidence}%</span>
+              <Badge text={r.status}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6}}>{r.keywords.map(k=><span key={k} style={{padding:'4px 10px',borderRadius:6,background:'#EFF6FF',fontSize:12,color:C.primary,fontWeight:500}}>{k}</span>)}</div>
+        </div>
+      ))}
+    </div>
+  </div>);
+}
+
+function ExcelPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>엑셀 업로드</h2>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>엑셀 파일 업로드</div>
+        <div style={{padding:40,border:`2px dashed ${C.border}`,borderRadius:8,textAlign:'center',marginBottom:16}}>
+          <div style={{fontSize:32,marginBottom:8}}>📤</div>
+          <div style={{fontSize:14,color:C.textLight}}>엑셀 파일을 드래그하거나 클릭하여 업로드</div>
+          <div style={{fontSize:12,color:C.textMuted,marginTop:4}}>.xlsx, .xls, .csv 지원</div>
+        </div>
+        <button style={{width:'100%',padding:'10px',borderRadius:6,background:C.primary,color:'#fff',border:'none',fontSize:14,fontWeight:600,cursor:'pointer'}}>업로드 후 데이터 보강 실행</button>
+      </div>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>보강 작업 현황</div>
+        {[['총 업로드 기업','1,245건'],['공공 API 보강 완료','1,120건'],['AI 키워드 추출 완료','987건'],['중복 병합 처리','45건'],['개인정보 마스킹','328건']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>);
+}
+
+function SettingsPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>시스템 설정</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:20}}>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>API 연동 설정</div>
+        {[['국세청 API 키','****-****-ABCD'],['DART API 키','****-****-EFGH'],['중기부 API 키','****-****-IJKL'],['OpenAI API 키','sk-****-****']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600,fontFamily:'monospace',fontSize:12}}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{background:C.surface,borderRadius:8,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>개인정보 필터링</div>
+        {[['이메일 패턴 감지','켜짐 (저장 차단)'],['010 번호 감지','켜짐 (저장 차단)'],['대표자명 마스킹','성 제외 마스킹'],['크롤링 딜레이','2~5초 무작위']].map(([k,v])=>(
+          <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:`1px solid ${C.border}`,fontSize:14}}>
+            <span style={{color:C.textMuted}}>{k}</span><span style={{fontWeight:600,color:C.primary}}>{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>);
+}
+
+function App(){
+  const[page,setPage]=useState('통합 대시보드');
+  const menus=[{name:'통합 대시보드',icon:'📊'},{name:'공공 API 수집',icon:'🔗'},{name:'데이터 그리드',icon:'📋'},{name:'AI 키워드 추출',icon:'🤖'},{name:'엑셀 업로드',icon:'📤'},{name:'시스템 설정',icon:'⚙️'}];
+  const renderPage=()=>{switch(page){case '통합 대시보드':return <DashboardPage/>;case '공공 API 수집':return <CollectionPage/>;case '데이터 그리드':return <GridPage/>;case 'AI 키워드 추출':return <AIExtractPage/>;case '엑셀 업로드':return <ExcelPage/>;case '시스템 설정':return <SettingsPage/>;default:return <DashboardPage/>;}};
+  return(<div style={{display:'flex',height:'100vh'}}>
+    <div style={{width:260,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'20px 24px',borderBottom:'1px solid rgba(255,255,255,0.1)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:36,height:36,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📡</div><div><div style={{fontSize:16,fontWeight:800,color:'#fff'}}>BizRadar</div><div style={{fontSize:11,color:C.sidebarText}}>B2B 데이터 수집·정제</div></div></div>
+      </div>
+      <nav style={{flex:1,padding:'12px 14px'}}>{menus.map(m=>(<button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:8,border:'none',background:page===m.name?C.sidebarActive:'transparent',color:page===m.name?'#fff':C.sidebarText,fontSize:14,fontWeight:page===m.name?600:400,cursor:'pointer',marginBottom:4,textAlign:'left'}}><span style={{fontSize:18}}>{m.icon}</span>{m.name}</button>))}</nav>
+      <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.1)'}}><div style={{fontSize:11,color:C.sidebarText}}>수집 기업: 850 · AI 완료: 742</div></div>
+    </div>
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'14px 28px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:13,fontWeight:600}}>{page}</span><span style={{padding:'4px 10px',borderRadius:6,background:'#ECFDF5',color:C.success,fontSize:12,fontWeight:600}}>● 시스템 정상</span></div>
+      <div style={{flex:1,overflow:'auto',padding:28}}>{renderPage()}</div>
+    </div>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
