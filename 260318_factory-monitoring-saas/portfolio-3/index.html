@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>통합 제조 운영 플랫폼 — FactoryOS</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#F0FDF4;color:#064E3B;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#A7F3D0;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+const {BarChart,Bar,AreaChart,Area,PieChart,Pie,Cell,LineChart,Line:RLine,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,Legend} = Recharts;
+
+const C = {
+  primary:'#059669',secondary:'#064E3B',accent:'#34D399',
+  bg:'#F0FDF4',surface:'#FFFFFF',border:'#D1FAE5',
+  text:'#064E3B',textLight:'#6B7280',textMuted:'#9CA3AF',
+  success:'#059669',warning:'#D97706',danger:'#DC2626',
+  info:'#3B82F6',
+};
+
+// === Data ===
+const LINES_KPI = [
+  {id:'L1',name:'A라인',uptime:94.2,production:1284,target:1350,defect:1.2,maintenance:2},
+  {id:'L2',name:'B라인',uptime:89.7,production:876,target:900,defect:2.1,maintenance:1},
+  {id:'L3',name:'C라인',uptime:78.4,production:562,target:720,defect:3.8,maintenance:3},
+  {id:'L4',name:'D라인',uptime:96.1,production:1580,target:1600,defect:0.5,maintenance:0},
+];
+
+const MAINTENANCE_JOBS = [
+  {id:'M001',equipment:'PR-301 프레스',line:'C라인',type:'긴급',status:'진행중',assignee:'박서진',dueDate:'2026-03-18',priority:'high',desc:'진동 센서 임계값 초과. 베어링 교체 필요.',history:'2026-02-20 유압 오일 교체\n2026-01-15 정기 점검'},
+  {id:'M002',equipment:'AS-102 용접로봇',line:'A라인',type:'정기',status:'대기',assignee:'이준호',dueDate:'2026-03-20',priority:'medium',desc:'정기 정비 D-2. 서보모터 점검 및 그리스 주입.',history:'2026-02-18 그리스 주입\n2026-01-10 서보모터 교체'},
+  {id:'M003',equipment:'QC-401 검사장비',line:'D라인',type:'정기',status:'완료',assignee:'정하윤',dueDate:'2026-03-17',priority:'low',desc:'자가 진단 완료. 모든 센서 정상.',history:'2026-03-17 자가진단 완료\n2026-02-15 센서 캘리브레이션'},
+  {id:'M004',equipment:'CV-501 컨베이어',line:'E라인',type:'긴급',status:'진행중',assignee:'강민재',dueDate:'2026-03-18',priority:'high',desc:'컨베이어 벨트 이탈. 벨트 교체 및 텐션 조정 필요.',history:'2026-03-01 벨트 텐션 조정\n2026-02-10 롤러 교체'},
+  {id:'M005',equipment:'PT-201 도장건',line:'C라인',type:'예방',status:'대기',assignee:'김서연',dueDate:'2026-03-22',priority:'medium',desc:'도장 불량률 상승. 노즐 점검 및 도료 점도 확인.',history:'2026-02-25 노즐 세척\n2026-02-01 도료 교체'},
+  {id:'M006',equipment:'PR-205 프레스',line:'B라인',type:'정기',status:'완료',assignee:'이지은',dueDate:'2026-03-16',priority:'low',desc:'유압 오일 교체 및 실린더 점검 완료.',history:'2026-03-16 유압 오일 교체\n2026-02-14 정기 점검'},
+];
+
+const PRODUCTION_LOGS = [
+  {lot:'LOT-2026-0318-001',line:'A라인',product:'브레이크 패드',qty:420,defect:5,result:'합격',date:'2026-03-18',shift:'주간',operator:'김민수'},
+  {lot:'LOT-2026-0318-002',line:'A라인',product:'디스크 로터',qty:280,defect:3,result:'합격',date:'2026-03-18',shift:'주간',operator:'최우진'},
+  {lot:'LOT-2026-0318-003',line:'B라인',product:'서스펜션 암',qty:195,defect:8,result:'부분합격',date:'2026-03-18',shift:'주간',operator:'이준호'},
+  {lot:'LOT-2026-0317-001',line:'C라인',product:'도어 패널',qty:156,defect:12,result:'불합격',date:'2026-03-17',shift:'야간',operator:'박서진'},
+  {lot:'LOT-2026-0317-002',line:'D라인',product:'범퍼 어셈블리',qty:380,defect:2,result:'합격',date:'2026-03-17',shift:'주간',operator:'정하윤'},
+  {lot:'LOT-2026-0317-003',line:'A라인',product:'브레이크 패드',qty:400,defect:4,result:'합격',date:'2026-03-17',shift:'야간',operator:'강민재'},
+  {lot:'LOT-2026-0316-001',line:'B라인',product:'서스펜션 암',qty:210,defect:6,result:'합격',date:'2026-03-16',shift:'주간',operator:'김서연'},
+  {lot:'LOT-2026-0316-002',line:'D라인',product:'범퍼 어셈블리',qty:350,defect:1,result:'합격',date:'2026-03-16',shift:'주간',operator:'이지은'},
+];
+
+const QC_RESULTS = [
+  {id:'QC001',lot:'LOT-2026-0318-001',line:'A라인',product:'브레이크 패드',inspector:'정하윤',date:'2026-03-18',result:'합격',defectType:'-',defectCount:0,note:'기준 범위 내'},
+  {id:'QC002',lot:'LOT-2026-0318-003',line:'B라인',product:'서스펜션 암',inspector:'정하윤',date:'2026-03-18',result:'부분합격',defectType:'치수 불량',defectCount:3,note:'용접부 치수 초과 3건'},
+  {id:'QC003',lot:'LOT-2026-0317-001',line:'C라인',product:'도어 패널',inspector:'김서연',date:'2026-03-17',result:'불합격',defectType:'도장 불량',defectCount:12,note:'도장 기포·벗겨짐 다수'},
+  {id:'QC004',lot:'LOT-2026-0317-002',line:'D라인',product:'범퍼 어셈블리',inspector:'이지은',date:'2026-03-17',result:'합격',defectType:'-',defectCount:0,note:'전 항목 합격'},
+  {id:'QC005',lot:'LOT-2026-0316-001',line:'B라인',product:'서스펜션 암',inspector:'정하윤',date:'2026-03-16',result:'합격',defectType:'-',defectCount:0,note:'기준 범위 내'},
+];
+
+const DEFECT_DIST = [{type:'도장 불량',count:18},{type:'치수 불량',count:11},{type:'용접 결함',count:7},{type:'표면 스크래치',count:5},{type:'기타',count:3}];
+const DEFECT_COLORS = [C.danger,C.warning,'#8B5CF6',C.info,C.textMuted];
+
+const STATUS_COLOR = {진행중:C.warning,대기:C.info,완료:C.success};
+const PRIORITY_COLOR = {high:C.danger,medium:C.warning,low:C.success};
+const RESULT_COLOR = {합격:C.success,부분합격:C.warning,불합격:C.danger};
+
+const WEEKLY_PROD = ['3/12','3/13','3/14','3/15','3/16','3/17','3/18'].map(d=>({date:d,production:Math.floor(700+Math.random()*400),defect:Math.floor(3+Math.random()*12)}));
+
+// === Components ===
+function CountUp({end,duration=1200,suffix=''}){
+  const [val,setVal]=useState(0);
+  useEffect(()=>{let s=0;const step=end/(duration/16);const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t)}else setVal(Math.floor(s))},16);return()=>clearInterval(t)},[end]);
+  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
+}
+
+function Toast({message,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t)},[]);
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:10,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
+}
+
+function Badge({color,children}){
+  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:8,fontSize:12,fontWeight:600,background:color+'15',color,border:`1px solid ${color}30`}}>{children}</span>;
+}
+
+function Btn({onClick,children,variant='primary',size='md'}){
+  const base={border:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:600,borderRadius:10,transition:'all 200ms',display:'inline-flex',alignItems:'center',gap:6};
+  const sizes={sm:{padding:'5px 12px',fontSize:12},md:{padding:'7px 16px',fontSize:13}};
+  const variants={primary:{background:C.primary,color:'#fff'},secondary:{background:C.bg,color:C.primary,border:`1px solid ${C.border}`}};
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant]}} onMouseEnter={e=>e.currentTarget.style.opacity='0.85'} onMouseLeave={e=>e.currentTarget.style.opacity='1'}>{children}</button>;
+}
+
+function Modal({title,onClose,children,width=560}){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.35)',animation:'fadeIn 200ms ease'}}/>
+      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:20,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.12)',border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'18px 24px',borderBottom:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:17,fontWeight:700}}>{title}</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textMuted}}>&#10005;</button>
+        </div>
+        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Sidebar Nav Item
+function SideNavItem({icon,label,active,onClick,badge}){
+  return(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'8px 12px',borderRadius:8,border:'none',cursor:'pointer',background:active?`${C.primary}10`:'transparent',color:active?C.primary:C.textLight,borderLeft:active?`3px solid ${C.primary}`:'3px solid transparent',fontSize:14,fontWeight:active?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}
+      onMouseEnter={e=>{if(!active)e.currentTarget.style.background=C.primary+'06'}}
+      onMouseLeave={e=>{if(!active)e.currentTarget.style.background='transparent'}}>
+      <span style={{fontSize:16,width:22,textAlign:'center'}}>{icon}</span>
+      {label}
+      {badge>0&&<span style={{marginLeft:'auto',background:C.danger,color:'#fff',borderRadius:10,padding:'1px 6px',fontSize:10,fontWeight:700}}>{badge}</span>}
+    </button>
+  );
+}
+
+function TabUnderline({label,active,onClick}){
+  return(
+    <button onClick={onClick} style={{padding:'8px 14px 6px',border:'none',cursor:'pointer',background:'transparent',fontFamily:'inherit',fontSize:13,color:active?C.primary:C.textLight,fontWeight:active?600:400,borderBottom:active?`2px solid ${C.primary}`:'2px solid transparent',marginBottom:-1,transition:'all 150ms'}}>{label}</button>
+  );
+}
+
+// === Section: Dashboard ===
+function DashboardSection({setSelected}){
+  const totalProd = LINES_KPI.reduce((a,l)=>a+l.production,0);
+  const avgUptime = (LINES_KPI.reduce((a,l)=>a+l.uptime,0)/LINES_KPI.length).toFixed(1);
+  const pendingMaint = MAINTENANCE_JOBS.filter(j=>j.status!=='완료').length;
+  const totalDefect = QC_RESULTS.reduce((a,q)=>a+q.defectCount,0);
+
+  return(
+    <div style={{animation:'fadeIn 300ms ease',padding:20}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+        {[
+          {label:'평균 가동률',value:avgUptime,suffix:'%',color:C.success,icon:'&#9881;'},
+          {label:'금일 생산량',value:totalProd,suffix:'개',color:C.primary,icon:'&#128230;'},
+          {label:'진행 중 정비',value:pendingMaint,suffix:'건',color:C.warning,icon:'&#128295;'},
+          {label:'품질 불량',value:totalDefect,suffix:'건',color:C.danger,icon:'&#128200;'},
+        ].map((k,i)=>(
+          <div key={i} style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`,animation:`slideUp 400ms ease ${i*80}ms both`,cursor:'pointer',transition:'all 150ms'}}
+            onMouseEnter={e=>{e.currentTarget.style.background=C.primary+'06';e.currentTarget.style.borderLeft=`3px solid ${C.primary}`}}
+            onMouseLeave={e=>{e.currentTarget.style.background=C.surface;e.currentTarget.style.borderLeft=`1px solid ${C.border}`}}
+            onClick={()=>setSelected({type:'kpi',data:k})}>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <span style={{fontSize:12,color:C.textMuted}}>{k.label}</span>
+              <span dangerouslySetInnerHTML={{__html:k.icon}} style={{fontSize:18}}/>
+            </div>
+            <div style={{fontSize:28,fontWeight:800,color:k.color,marginTop:6}}><CountUp end={parseFloat(k.value)} suffix={k.suffix}/></div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>라인별 가동률</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={LINES_KPI}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="name" tick={{fontSize:12,fill:C.textMuted}}/>
+              <YAxis tick={{fontSize:11,fill:C.textMuted}} domain={[0,100]}/>
+              <Tooltip contentStyle={{borderRadius:10,fontSize:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.08)'}}/>
+              <Bar dataKey="uptime" fill={C.primary} radius={[8,8,0,0]} name="가동률 (%)"/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>주간 생산 추이</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={WEEKLY_PROD}>
+              <defs><linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.primary} stopOpacity={0.25}/><stop offset="100%" stopColor={C.primary} stopOpacity={0.02}/></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="date" tick={{fontSize:11,fill:C.textMuted}}/>
+              <YAxis tick={{fontSize:11,fill:C.textMuted}}/>
+              <Tooltip contentStyle={{borderRadius:10,fontSize:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.08)'}}/>
+              <Area type="monotone" dataKey="production" stroke={C.primary} fill="url(#gp)" strokeWidth={2} name="생산량"/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Section: Maintenance ===
+function MaintenanceSection({selected,setSelected,setToast}){
+  const [tab,setTab]=useState(0);
+  const tabs = [{label:'전체'},{label:'진행중'},{label:'대기'},{label:'완료'}];
+  const filtered = tab===0?MAINTENANCE_JOBS:MAINTENANCE_JOBS.filter(j=>j.status===tabs[tab].label);
+
+  return(
+    <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
+      {/* Master List */}
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:0}}>
+          {tabs.map((t,i)=><TabUnderline key={i} label={t.label} active={tab===i} onClick={()=>setTab(i)}/>)}
+        </div>
+        {filtered.map((job,i)=>(
+          <div key={job.id} onClick={()=>setSelected({type:'maintenance',data:job})} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.data?.id===job.id?C.primary+'08':'transparent',borderLeft:selected?.data?.id===job.id?`3px solid ${C.primary}`:'3px solid transparent',animation:`slideUp 300ms ease ${i*50}ms both`}}
+            onMouseEnter={e=>{if(selected?.data?.id!==job.id)e.currentTarget.style.background=C.primary+'04'}}
+            onMouseLeave={e=>{if(selected?.data?.id!==job.id)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:700}}>{job.equipment}</span>
+              <Badge color={STATUS_COLOR[job.status]}>{job.status}</Badge>
+              <Badge color={PRIORITY_COLOR[job.priority]}>{job.priority==='high'?'긴급':job.priority==='medium'?'보통':'낮음'}</Badge>
+            </div>
+            <div style={{fontSize:12,color:C.textLight}}>{job.line} | {job.type} | 기한: {job.dueDate}</div>
+          </div>
+        ))}
+      </div>
+      {/* Detail */}
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?.type==='maintenance'?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>{selected.data.equipment}</h3>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:16}}>
+              <div style={{background:C.bg,borderRadius:12,padding:12}}><div style={{fontSize:11,color:C.textMuted}}>라인</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{selected.data.line}</div></div>
+              <div style={{background:C.bg,borderRadius:12,padding:12}}><div style={{fontSize:11,color:C.textMuted}}>유형</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{selected.data.type}</div></div>
+              <div style={{background:C.bg,borderRadius:12,padding:12}}><div style={{fontSize:11,color:C.textMuted}}>담당자</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{selected.data.assignee}</div></div>
+            </div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>설명</div>
+            <div style={{fontSize:13,color:C.textLight,lineHeight:1.7,marginBottom:16,background:C.bg,borderRadius:12,padding:14}}>{selected.data.desc}</div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>정비 이력</div>
+            <div style={{fontSize:13,color:C.textLight,lineHeight:1.8,marginBottom:16,whiteSpace:'pre-line'}}>{selected.data.history}</div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>작업 메모</div>
+            <textarea placeholder="작업 내용 기록..." style={{width:'100%',minHeight:80,padding:12,borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13,resize:'vertical'}}/>
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <Btn onClick={()=>setToast('작업이 완료 처리되었습니다.')}>완료 처리</Btn>
+              <Btn variant="secondary" onClick={()=>setToast('메모가 저장되었습니다.')}>메모 저장</Btn>
+            </div>
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측 목록에서 정비 작업을 선택하세요</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === Section: Production History ===
+function ProductionSection({selected,setSelected}){
+  const [tab,setTab]=useState(0);
+  const tabs = [{label:'전체'},{label:'합격'},{label:'부분합격'},{label:'불합격'}];
+  const filtered = tab===0?PRODUCTION_LOGS:PRODUCTION_LOGS.filter(l=>l.result===tabs[tab].label);
+
+  return(
+    <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:0}}>
+          {tabs.map((t,i)=><TabUnderline key={i} label={t.label} active={tab===i} onClick={()=>setTab(i)}/>)}
+        </div>
+        {filtered.map((log,i)=>(
+          <div key={log.lot} onClick={()=>setSelected({type:'production',data:log})} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.data?.lot===log.lot?C.primary+'08':'transparent',borderLeft:selected?.data?.lot===log.lot?`3px solid ${C.primary}`:'3px solid transparent',animation:`slideUp 300ms ease ${i*50}ms both`}}
+            onMouseEnter={e=>{if(selected?.data?.lot!==log.lot)e.currentTarget.style.background=C.primary+'04'}}
+            onMouseLeave={e=>{if(selected?.data?.lot!==log.lot)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:700}}>{log.lot}</span>
+              <Badge color={RESULT_COLOR[log.result]}>{log.result}</Badge>
+            </div>
+            <div style={{fontSize:12,color:C.textLight}}>{log.line} | {log.product} | {log.qty}개 | {log.date}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?.type==='production'?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>{selected.data.lot}</h3>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              {[{l:'제품',v:selected.data.product},{l:'라인',v:selected.data.line},{l:'생산 수량',v:`${selected.data.qty}개`},{l:'불량 수',v:`${selected.data.defect}건`},{l:'검사 결과',v:selected.data.result,badge:true},{l:'생산일',v:selected.data.date},{l:'근무조',v:selected.data.shift},{l:'작업자',v:selected.data.operator}].map((f,i)=>(
+                <div key={i} style={{background:C.bg,borderRadius:12,padding:12}}>
+                  <div style={{fontSize:11,color:C.textMuted}}>{f.l}</div>
+                  {f.badge?<div style={{marginTop:2}}><Badge color={RESULT_COLOR[f.v]}>{f.v}</Badge></div>:<div style={{fontSize:14,fontWeight:600,marginTop:2}}>{f.v}</div>}
+                </div>
+              ))}
+            </div>
+            <Btn variant="secondary" onClick={()=>{}}>CSV 다운로드</Btn>
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측 목록에서 생산 이력을 선택하세요</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === Section: Quality ===
+function QualitySection({selected,setSelected,setToast}){
+  const [tab,setTab]=useState(0);
+  const [showCreate,setShowCreate]=useState(false);
+  const tabs = [{label:'검사 결과'},{label:'불량 분석'}];
+
+  if(tab===1) return(
+    <div style={{padding:20,animation:'fadeIn 300ms ease'}}>
+      <div style={{padding:'0 0 12px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:0,marginBottom:20}}>
+        {tabs.map((t,i)=><TabUnderline key={i} label={t.label} active={tab===i} onClick={()=>setTab(i)}/>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>불량 유형 분포</div>
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie data={DEFECT_DIST} dataKey="count" nameKey="type" cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3}>
+                {DEFECT_DIST.map((_,i)=><Cell key={i} fill={DEFECT_COLORS[i]}/>)}
+              </Pie>
+              <Tooltip contentStyle={{borderRadius:10,fontSize:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.08)'}}/>
+              <Legend wrapperStyle={{fontSize:12}}/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:13,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.06em',color:C.textMuted,marginBottom:14}}>라인별 불량 건수</div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={[{line:'A라인',defect:9},{line:'B라인',defect:17},{line:'C라인',defect:30},{line:'D라인',defect:3}]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/>
+              <XAxis dataKey="line" tick={{fontSize:12,fill:C.textMuted}}/>
+              <YAxis tick={{fontSize:11,fill:C.textMuted}}/>
+              <Tooltip contentStyle={{borderRadius:10,fontSize:12,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.08)'}}/>
+              <Bar dataKey="defect" fill={C.danger} radius={[8,8,0,0]} name="불량 건수"/>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{display:'flex',height:'100%',overflow:'hidden'}}>
+      <div style={{width:'42%',borderRight:`1px solid ${C.border}`,overflowY:'auto'}}>
+        <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center'}}>
+          {tabs.map((t,i)=><TabUnderline key={i} label={t.label} active={tab===i} onClick={()=>setTab(i)}/>)}
+          <div style={{flex:1}}/>
+          <Btn size="sm" onClick={()=>setShowCreate(true)}>+ 검사 등록</Btn>
+        </div>
+        {QC_RESULTS.map((qc,i)=>(
+          <div key={qc.id} onClick={()=>setSelected({type:'quality',data:qc})} style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'all 150ms',background:selected?.data?.id===qc.id?C.primary+'08':'transparent',borderLeft:selected?.data?.id===qc.id?`3px solid ${C.primary}`:'3px solid transparent',animation:`slideUp 300ms ease ${i*50}ms both`}}
+            onMouseEnter={e=>{if(selected?.data?.id!==qc.id)e.currentTarget.style.background=C.primary+'04'}}
+            onMouseLeave={e=>{if(selected?.data?.id!==qc.id)e.currentTarget.style.background='transparent'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:700}}>{qc.lot}</span>
+              <Badge color={RESULT_COLOR[qc.result]}>{qc.result}</Badge>
+            </div>
+            <div style={{fontSize:12,color:C.textLight}}>{qc.line} | {qc.product} | {qc.date}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:20}}>
+        {selected?.type==='quality'?(
+          <div style={{animation:'fadeIn 200ms ease'}}>
+            <h3 style={{fontSize:18,fontWeight:700,marginBottom:16}}>검사 결과 — {selected.data.lot}</h3>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              {[{l:'라인',v:selected.data.line},{l:'제품',v:selected.data.product},{l:'검사자',v:selected.data.inspector},{l:'검사일',v:selected.data.date},{l:'결과',v:selected.data.result,badge:true},{l:'불량 유형',v:selected.data.defectType},{l:'불량 수',v:`${selected.data.defectCount}건`},{l:'비고',v:selected.data.note}].map((f,i)=>(
+                <div key={i} style={{background:C.bg,borderRadius:12,padding:12}}>
+                  <div style={{fontSize:11,color:C.textMuted}}>{f.l}</div>
+                  {f.badge?<div style={{marginTop:2}}><Badge color={RESULT_COLOR[f.v]}>{f.v}</Badge></div>:<div style={{fontSize:14,fontWeight:600,marginTop:2}}>{f.v}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ):(
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:C.textMuted,fontSize:14}}>좌측 목록에서 검사 결과를 선택하세요</div>
+        )}
+      </div>
+      {showCreate&&(
+        <Modal title="품질 검사 등록" onClose={()=>setShowCreate(false)} width={520}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>LOT 번호</label><input placeholder="LOT-2026-" style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13}}/></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>라인</label><select style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13,background:'#fff'}}>{LINES_KPI.map(l=><option key={l.id}>{l.name}</option>)}</select></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>제품</label><input placeholder="제품명" style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13}}/></div>
+            </div>
+            <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>검사 결과</label><select style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13,background:'#fff'}}><option>합격</option><option>부분합격</option><option>불합격</option></select></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>불량 유형</label><input placeholder="불량 유형" style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>불량 수</label><input type="number" placeholder="0" style={{width:'100%',padding:'9px 12px',borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13}}/></div>
+            </div>
+            <div><label style={{fontSize:12,fontWeight:600,color:C.textMuted,display:'block',marginBottom:4}}>비고</label><textarea placeholder="검사 메모..." style={{width:'100%',minHeight:60,padding:10,borderRadius:10,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:13,resize:'vertical'}}/></div>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <Btn variant="secondary" onClick={()=>setShowCreate(false)}>취소</Btn>
+              <Btn onClick={()=>{setShowCreate(false);setToast('검사 결과가 등록되었습니다.')}}>등록</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// === Main App ===
+function App(){
+  const [section,setSection]=useState('dashboard');
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  useEffect(()=>{setTimeout(()=>setLoading(false),1200)},[]);
+  useEffect(()=>{setSelected(null)},[section]);
+
+  const NAV = [
+    {id:'dashboard',icon:'&#128202;',label:'통합 운영 대시보드'},
+    {id:'maintenance',icon:'&#128295;',label:'예방정비 스케줄러',badge:MAINTENANCE_JOBS.filter(j=>j.status!=='완료').length},
+    {id:'production-history',icon:'&#128230;',label:'생산 이력 추적'},
+    {id:'quality-inspection',icon:'&#128200;',label:'품질 검사 관리'},
+  ];
+
+  const breadcrumb = NAV.find(n=>n.id===section)?.label||'';
+
+  if(loading) return(
+    <div style={{display:'flex',minHeight:'100vh'}}>
+      <div style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`}}/>
+      <div style={{flex:1,padding:20}}>
+        {[...Array(3)].map((_,i)=>(<div key={i} style={{height:100,borderRadius:20,marginBottom:16,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>))}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{display:'flex',minHeight:'100vh',background:C.bg}}>
+      {/* Bright Sidebar */}
+      <nav style={{width:240,background:'#fff',borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',paddingTop:16,flexShrink:0,position:'sticky',top:0,height:'100vh'}}>
+        <div style={{padding:'0 16px 16px',fontWeight:800,fontSize:16,display:'flex',alignItems:'center',gap:8,color:C.secondary}}>
+          <span style={{fontSize:20}}>&#9881;</span> FactoryOS
+        </div>
+        <div style={{fontSize:11,color:C.textMuted,padding:'0 16px 12px'}}>통합 제조 운영 플랫폼</div>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:2,padding:'0 8px'}}>
+          {NAV.map(item=>(
+            <SideNavItem key={item.id} icon={<span dangerouslySetInnerHTML={{__html:item.icon}}/>} label={item.label} active={section===item.id} onClick={()=>setSection(item.id)} badge={item.badge}/>
+          ))}
+        </div>
+        <div style={{padding:'12px 16px',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:13,fontWeight:700}}>K</div>
+          <div><div style={{fontSize:13,fontWeight:600,color:C.text}}>김민수</div><div style={{fontSize:11,color:C.textMuted}}>시스템 관리자</div></div>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        {/* App Bar */}
+        <header style={{height:40,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',padding:'0 16px',gap:8,background:C.surface,flexShrink:0}}>
+          <span style={{fontSize:12,color:C.textMuted}}>FactoryOS</span>
+          <span style={{fontSize:12,color:C.textMuted}}>&gt;</span>
+          <span style={{fontSize:12,fontWeight:600,color:C.text}}>{breadcrumb}</span>
+          <div style={{flex:1}}/>
+          <div style={{position:'relative'}}>
+            <input placeholder="검색..." style={{padding:'5px 10px 5px 28px',borderRadius:8,border:`1px solid ${C.border}`,fontFamily:'inherit',fontSize:12,width:160,background:C.bg}}/>
+            <span style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',fontSize:12,color:C.textMuted}}>&#128269;</span>
+          </div>
+          <div style={{width:28,height:28,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:11,fontWeight:700}}>K</div>
+        </header>
+
+        {/* Content */}
+        <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+          {section==='dashboard'&&<DashboardSection setSelected={setSelected}/>}
+          {section==='maintenance'&&<MaintenanceSection selected={selected} setSelected={setSelected} setToast={setToast}/>}
+          {section==='production-history'&&<ProductionSection selected={selected} setSelected={setSelected}/>}
+          {section==='quality-inspection'&&<QualitySection selected={selected} setSelected={setSelected} setToast={setToast}/>}
+        </div>
+      </div>
+
+      {toast&&<Toast message={toast} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
