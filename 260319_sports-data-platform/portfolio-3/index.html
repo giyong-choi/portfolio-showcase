@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>스포츠랩 — 스포츠 데이터 통합 분석</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#F0FDF4;color:#1A2E23;overflow:hidden;height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#86EFAC;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area,RadarChart,Radar,PolarGrid,PolarAngleAxis,PolarRadiusAxis,ScatterChart,Scatter,ComposedChart}=Recharts;
+
+const C={primary:'#059669',secondary:'#064E3B',accent:'#34D399',bg:'#F0FDF4',surface:'#FFFFFF',border:'#D1FAE5',text:'#1A2E23',textLight:'#6B7280',textMuted:'#9CA3AF',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#FFFFFF',sidebarText:'#6B7280',sidebarActive:'#059669',sidebarActiveBg:'#ECFDF5'};
+
+/* ─── Data ─── */
+const NBA_GAMES=[
+  {time:'10:00',home:'LA 레이커스',away:'보스턴 셀틱스',hScore:108,aScore:112,status:'종료'},
+  {time:'12:30',home:'골든스테이트',away:'마이애미',hScore:98,aScore:95,status:'4Q'},
+  {time:'14:00',home:'필라델피아',away:'밀워키',hScore:0,aScore:0,status:'예정'},
+];
+const EPL_GAMES=[
+  {time:'04:00',home:'맨체스터 시티',away:'리버풀',hScore:2,aScore:1,status:'종료'},
+  {time:'22:30',home:'아스널',away:'첼시',hScore:0,aScore:0,status:'예정'},
+];
+const MLB_GAMES=[
+  {time:'09:00',home:'LA 다저스',away:'뉴욕 양키스',hScore:5,aScore:3,status:'7회'},
+  {time:'10:30',home:'보스턴 레드삭스',away:'휴스턴',hScore:2,aScore:4,status:'5회'},
+];
+
+const RANKING_CHANGES=[
+  {team:'셀틱스',prev:2,curr:1,change:1},{team:'OKC',prev:1,curr:2,change:-1},{team:'너겟츠',prev:3,curr:3,change:0},
+  {team:'벅스',prev:5,curr:4,change:1},{team:'시티',prev:1,curr:1,change:0},{team:'리버풀',prev:2,curr:2,change:0},
+];
+
+const TOP_SCORERS=[
+  {name:'테이텀',team:'셀틱스',value:27.8,league:'NBA'},{name:'커리',team:'워리어스',value:26.1,league:'NBA'},
+  {name:'홀란드',team:'시티',value:28,league:'EPL'},{name:'살라',team:'리버풀',value:22,league:'EPL'},
+  {name:'오타니',team:'다저스',value:'.312',league:'MLB'},
+];
+
+const COMPARE_TEAMS=[
+  {stat:'공격력',teamA:85,teamB:92,teamC:78},
+  {stat:'수비력',teamA:78,teamB:88,teamC:82},
+  {stat:'홈 승률',teamA:72,teamB:85,teamC:68},
+  {stat:'원정 승률',teamA:55,teamB:70,teamC:62},
+  {stat:'최근 폼',teamA:80,teamB:90,teamC:75},
+  {stat:'득실차',teamA:65,teamB:85,teamC:70},
+  {stat:'연승 기록',teamA:60,teamB:78,teamC:55},
+  {stat:'클러치',teamA:72,teamB:82,teamC:68},
+];
+
+const TEAM_MONTHLY=[
+  {month:'1월',teamA:8,teamB:10,teamC:6},{month:'2월',teamA:9,teamB:11,teamC:7},{month:'3월',teamA:7,teamB:12,teamC:8},
+  {month:'4월',teamA:10,teamB:9,teamC:7},{month:'5월',teamA:8,teamB:11,teamC:9},{month:'6월',teamA:11,teamB:10,teamC:8},
+];
+
+const PLAYER_SCATTER=[
+  {name:'테이텀',pts:27.8,ast:4.8,x:27.8,y:4.8},{name:'르브론',pts:25.4,ast:8.2,x:25.4,y:8.2},
+  {name:'커리',pts:26.1,ast:5.3,x:26.1,y:5.3},{name:'요키치',pts:24.8,ast:9.5,x:24.8,y:9.5},
+  {name:'둔칫',pts:22.5,ast:6.1,x:22.5,y:6.1},{name:'에드워즈',pts:25.9,ast:5.0,x:25.9,y:5.0},
+  {name:'SGA',pts:30.1,ast:6.2,x:30.1,y:6.2},{name:'엠비드',pts:23.4,ast:3.8,x:23.4,y:3.8},
+  {name:'데빈 부커',pts:27.1,ast:6.9,x:27.1,y:6.9},{name:'브런슨',pts:28.7,ast:6.7,x:28.7,y:6.7},
+];
+
+const PLAYER_HEATMAP=[
+  {day:'3/1',pts:32},{day:'3/3',pts:18},{day:'3/5',pts:28},{day:'3/7',pts:35},
+  {day:'3/9',pts:22},{day:'3/11',pts:40},{day:'3/13',pts:15},{day:'3/15',pts:30},
+  {day:'3/17',pts:28},{day:'3/19',pts:25},{day:'3/21',pts:33},{day:'3/23',pts:19},
+  {day:'3/25',pts:38},{day:'3/27',pts:27},{day:'3/29',pts:42},{day:'3/31',pts:20},
+];
+
+const PLAYER_PERCENTILE=[
+  {stat:'득점',value:92},{stat:'어시스트',value:88},{stat:'리바운드',value:65},{stat:'스틸',value:70},{stat:'블록',value:45},{stat:'3점 성공률',value:78},{stat:'자유투',value:85},{stat:'효율',value:90},
+];
+
+const COLLECT_SOURCES=[
+  {name:'NBA Stats API',league:'NBA',lastSync:'2분 전',status:'정상',success:1248,fail:3,rate:99.8},
+  {name:'ESPN NBA',league:'NBA',lastSync:'5분 전',status:'정상',success:986,fail:12,rate:98.8},
+  {name:'Premier League API',league:'EPL',lastSync:'8분 전',status:'정상',success:562,fail:5,rate:99.1},
+  {name:'BBC Sport',league:'EPL',lastSync:'12분 전',status:'지연',success:423,fail:28,rate:93.8},
+  {name:'MLB Stats API',league:'MLB',lastSync:'3분 전',status:'정상',success:874,fail:7,rate:99.2},
+  {name:'Baseball Reference',league:'MLB',lastSync:'15분 전',status:'경고',success:612,fail:45,rate:93.2},
+  {name:'Transfermarkt',league:'EPL',lastSync:'30분 전',status:'오류',success:156,fail:89,rate:63.7},
+];
+
+const COLLECT_DAILY=[
+  {day:'월',success:2400,fail:35},{day:'화',success:2350,fail:42},{day:'수',success:2500,fail:28},
+  {day:'목',success:2380,fail:55},{day:'금',success:2420,fail:38},{day:'토',success:2600,fail:22},{day:'일',success:2550,fail:30},
+];
+
+/* ─── Components ─── */
+function Badge({text}){
+  const colors={'종료':{bg:'#F1F5F9',c:'#475569'},'4Q':{bg:'#FEF2F2',c:'#DC2626'},'예정':{bg:'#ECFDF5',c:'#059669'},'7회':{bg:'#FEF2F2',c:'#DC2626'},'5회':{bg:'#FEF2F2',c:'#DC2626'},
+    '정상':{bg:'#ECFDF5',c:'#059669'},'지연':{bg:'#FEF3C7',c:'#D97706'},'경고':{bg:'#FEF3C7',c:'#D97706'},'오류':{bg:'#FEF2F2',c:'#DC2626'}};
+  const s=colors[text]||{bg:'#F1F5F9',c:'#475569'};
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:8,fontSize:11,fontWeight:600,background:s.bg,color:s.c}}><span style={{width:6,height:6,borderRadius:'50%',background:s.c}}/>{text}</span>;
+}
+
+function KpiCard({icon,label,value,sub,accent}){
+  return(<div style={{background:C.surface,borderRadius:12,padding:'18px 22px',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:12,color:C.textLight,fontWeight:500}}>{label}</span><span style={{fontSize:18}}>{icon}</span></div>
+    <div style={{fontSize:26,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:11,color:C.textMuted,marginTop:5}}>{sub}</div>}
+  </div>);
+}
+
+function LeagueGames({title,emoji,games}){
+  return(<div style={{background:C.surface,borderRadius:12,padding:20,border:`1px solid ${C.border}`}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}><span style={{fontSize:18}}>{emoji}</span><span style={{fontSize:15,fontWeight:700}}>{title}</span></div>
+    {games.map((g,i)=><div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:i<games.length-1?`1px solid ${C.border}`:'none'}}>
+      <span style={{fontSize:12,color:C.textMuted,width:50}}>{g.time}</span>
+      <span style={{fontSize:13,fontWeight:600,flex:1,textAlign:'right'}}>{g.home}</span>
+      <span style={{fontSize:16,fontWeight:800,margin:'0 12px',color:g.status==='예정'?C.textMuted:C.text,minWidth:60,textAlign:'center'}}>{g.status==='예정'?'vs':`${g.hScore} : ${g.aScore}`}</span>
+      <span style={{fontSize:13,fontWeight:600,flex:1}}>{g.away}</span>
+      <Badge text={g.status}/>
+    </div>)}
+  </div>);
+}
+
+/* ─── Pages ─── */
+function DashboardPage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>멀티 리그 대시보드</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:22}}>
+      <KpiCard icon="🏀" label="NBA 오늘" value="3경기" sub="정규시즌 진행 중"/>
+      <KpiCard icon="⚽" label="EPL 오늘" value="2경기" sub="프리미어리그 30R" accent={C.warning}/>
+      <KpiCard icon="⚾" label="MLB 오늘" value="2경기" sub="아메리칸/내셔널 리그"/>
+      <KpiCard icon="📡" label="수집 상태" value="정상" sub="7개 소스 가동 중" accent={C.success}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:22}}>
+      <LeagueGames title="NBA" emoji="🏀" games={NBA_GAMES}/>
+      <LeagueGames title="EPL" emoji="⚽" games={EPL_GAMES}/>
+      <LeagueGames title="MLB" emoji="⚾" games={MLB_GAMES}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <div style={{background:C.surface,borderRadius:12,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>순위 변동</div>
+        {RANKING_CHANGES.map(r=><div key={r.team} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+          <span style={{fontSize:13,fontWeight:600}}>{r.team}</span>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:12,color:C.textMuted}}>{r.prev}위 →</span>
+            <span style={{fontSize:14,fontWeight:700}}>{r.curr}위</span>
+            <span style={{fontSize:12,fontWeight:700,color:r.change>0?C.success:r.change<0?C.danger:C.textMuted}}>{r.change>0?`▲${r.change}`:r.change<0?`▼${Math.abs(r.change)}`:'—'}</span>
+          </div>
+        </div>)}
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:22,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>득점 리더보드</div>
+        {TOP_SCORERS.map((s,i)=><div key={s.name} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom:`1px solid ${C.border}`}}>
+          <span style={{width:22,height:22,borderRadius:6,background:i<3?C.primary:'#E2E8F0',color:i<3?'#fff':C.textMuted,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700}}>{i+1}</span>
+          <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{s.name}</div><div style={{fontSize:11,color:C.textMuted}}>{s.team} · {s.league}</div></div>
+          <span style={{fontSize:16,fontWeight:800,color:C.primary}}>{s.value}</span>
+        </div>)}
+      </div>
+    </div>
+  </div>);
+}
+
+function TeamComparePage(){
+  const teams=['보스턴 셀틱스','OKC 썬더','밀워키 벅스'];
+  const colors=[C.primary,'#D97706','#7C3AED'];
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>팀 성적 비교 분석</h2>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>
+      {teams.map((t,i)=><span key={t} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:8,border:`2px solid ${colors[i]}`,background:`${colors[i]}10`,fontSize:13,fontWeight:600,color:colors[i]}}><span style={{width:10,height:10,borderRadius:'50%',background:colors[i]}}/>{t}</span>)}
+      <button style={{padding:'6px 16px',borderRadius:8,border:`1px dashed ${C.border}`,background:'transparent',fontSize:12,color:C.textMuted,cursor:'pointer'}}>+ 팀 추가</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>8항목 방사형 비교</div>
+        <ResponsiveContainer width="100%" height={280}>
+          <RadarChart data={COMPARE_TEAMS}><PolarGrid stroke={C.border}/><PolarAngleAxis dataKey="stat" tick={{fontSize:11,fill:C.textMuted}}/><PolarRadiusAxis domain={[0,100]} tick={false} axisLine={false}/>
+            <Radar name={teams[0]} dataKey="teamA" stroke={colors[0]} fill={colors[0]} fillOpacity={0.15} strokeWidth={2}/>
+            <Radar name={teams[1]} dataKey="teamB" stroke={colors[1]} fill={colors[1]} fillOpacity={0.1} strokeWidth={2}/>
+            <Radar name={teams[2]} dataKey="teamC" stroke={colors[2]} fill={colors[2]} fillOpacity={0.1} strokeWidth={2} strokeDasharray="5 5"/>
+            <Tooltip/>
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 승수 추이</div>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={TEAM_MONTHLY}><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="month" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:12,fill:C.textMuted}}/><Tooltip/>
+            <Line type="monotone" dataKey="teamA" stroke={colors[0]} strokeWidth={2} dot={{fill:colors[0],r:4}} name={teams[0]}/>
+            <Line type="monotone" dataKey="teamB" stroke={colors[1]} strokeWidth={2} dot={{fill:colors[1],r:4}} name={teams[1]}/>
+            <Line type="monotone" dataKey="teamC" stroke={colors[2]} strokeWidth={2} dot={{fill:colors[2],r:4}} name={teams[2]} strokeDasharray="5 5"/>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:16}}>항목별 상세 비교</div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          <th style={{padding:'10px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>항목</th>
+          {teams.map((t,i)=><th key={t} style={{padding:'10px 14px',textAlign:'center',color:colors[i],fontWeight:700,fontSize:12}}>{t}</th>)}
+        </tr></thead>
+        <tbody>{COMPARE_TEAMS.map(row=>{
+          const vals=[row.teamA,row.teamB,row.teamC];
+          const maxVal=Math.max(...vals);
+          return <tr key={row.stat} style={{borderBottom:`1px solid ${C.border}`}}>
+            <td style={{padding:'12px 14px',fontWeight:600}}>{row.stat}</td>
+            {vals.map((v,i)=><td key={i} style={{padding:'12px 14px',textAlign:'center'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                <div style={{width:60,height:6,background:'#E2E8F0',borderRadius:3}}><div style={{width:`${v}%`,height:'100%',borderRadius:3,background:v===maxVal?colors[i]:C.textMuted}}/></div>
+                <span style={{fontWeight:v===maxVal?800:500,color:v===maxVal?colors[i]:C.textLight}}>{v}</span>
+              </div>
+            </td>)}
+          </tr>;
+        })}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function PlayerDeepPage(){
+  const [selPlayer]=useState('제이슨 테이텀');
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>선수 심층 스탯</h2>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 2fr',gap:16,marginBottom:20}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:20,fontWeight:800,marginBottom:4}}>{selPlayer}</div>
+        <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>보스턴 셀틱스 · SF · NBA</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
+          {[{l:'PPG',v:'27.8',c:C.primary},{l:'RPG',v:'8.4',c:C.warning},{l:'APG',v:'4.8',c:'#7C3AED'},{l:'GP',v:'70',c:C.textLight}].map(s=>
+            <div key={s.l} style={{padding:12,background:C.bg,borderRadius:10,textAlign:'center'}}><div style={{fontSize:10,color:C.textMuted}}>{s.l}</div><div style={{fontSize:22,fontWeight:800,color:s.c}}>{s.v}</div></div>
+          )}
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>포지션 내 백분위</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+          {PLAYER_PERCENTILE.map(p=><div key={p.stat} style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{width:70,fontSize:12,color:C.textMuted}}>{p.stat}</span>
+            <div style={{flex:1,height:8,background:'#E2E8F0',borderRadius:4}}>
+              <div style={{width:`${p.value}%`,height:'100%',borderRadius:4,background:p.value>=85?C.primary:p.value>=70?C.accent:p.value>=50?C.warning:C.danger}}/>
+            </div>
+            <span style={{width:30,fontSize:12,fontWeight:700,textAlign:'right',color:p.value>=85?C.primary:p.value>=70?C.accent:C.textMuted}}>{p.value}</span>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>경기별 득점 히트맵</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:4}}>
+          {PLAYER_HEATMAP.map(d=>{
+            const intensity=Math.min(1,(d.pts-10)/35);
+            return <div key={d.day} title={`${d.day}: ${d.pts}점`} style={{aspectRatio:'1',borderRadius:6,background:`rgba(5,150,105,${0.1+intensity*0.7})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:intensity>0.5?'#fff':'#064E3B',cursor:'default'}}>{d.pts}</div>;
+          })}
+        </div>
+        <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:10,color:C.textMuted}}>
+          <span>낮은 득점</span>
+          <div style={{display:'flex',gap:2}}>
+            {[0.15,0.3,0.5,0.7,0.85].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(5,150,105,${o})`}}/>)}
+          </div>
+          <span>높은 득점</span>
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>SF 포지션 득점-어시스트 분포</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <ScatterChart><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="x" name="득점" tick={{fontSize:11,fill:C.textMuted}} label={{value:'PPG',position:'bottom',fontSize:11,fill:C.textMuted}}/><YAxis dataKey="y" name="어시스트" tick={{fontSize:11,fill:C.textMuted}} label={{value:'APG',angle:-90,position:'left',fontSize:11,fill:C.textMuted}}/><Tooltip cursor={{strokeDasharray:'3 3'}} formatter={(v,name)=>[v,name==='x'?'PPG':'APG']}/>
+            <Scatter data={PLAYER_SCATTER} fill={C.accent}>
+              {PLAYER_SCATTER.map((e,i)=><Cell key={i} fill={e.name==='테이텀'?C.primary:C.accent} r={e.name==='테이텀'?8:5}/>)}
+            </Scatter>
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>최근 경기별 복합 스탯</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={[{g:'vs 히트',pts:32,ast:6,reb:8},{g:'vs 벅스',pts:28,ast:8,reb:10},{g:'vs 닉스',pts:35,ast:5,reb:7},{g:'vs 76ers',pts:22,ast:9,reb:12},{g:'vs 인디애나',pts:30,ast:7,reb:9},{g:'vs 넷츠',pts:38,ast:4,reb:6},{g:'vs 매직',pts:25,ast:8,reb:11},{g:'vs 캐브스',pts:33,ast:6,reb:8}]}>
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="g" tick={{fontSize:10,fill:C.textMuted}}/><YAxis tick={{fontSize:11,fill:C.textMuted}}/><Tooltip contentStyle={{borderRadius:10,border:'none',boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+          <Bar dataKey="pts" fill={C.primary} radius={[4,4,0,0]} name="득점" barSize={22}/>
+          <Line type="monotone" dataKey="ast" stroke="#7C3AED" strokeWidth={2} dot={{fill:'#7C3AED',r:3}} name="어시스트"/>
+          <Line type="monotone" dataKey="reb" stroke={C.warning} strokeWidth={2} dot={{fill:C.warning,r:3}} name="리바운드"/>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  </div>);
+}
+
+function AdminMonitorPage(){
+  const ok=COLLECT_SOURCES.filter(s=>s.status==='정상').length;
+  const warn=COLLECT_SOURCES.filter(s=>['지연','경고'].includes(s.status)).length;
+  const err=COLLECT_SOURCES.filter(s=>s.status==='오류').length;
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>수집 모니터링 관리자</h2>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:22}}>
+      <KpiCard icon="📡" label="수집 소스" value={`${COLLECT_SOURCES.length}개`} sub={`정상 ${ok} · 경고 ${warn} · 오류 ${err}`}/>
+      <KpiCard icon="✅" label="오늘 수집 성공" value="4,861건" accent={C.success}/>
+      <KpiCard icon="❌" label="오늘 수집 실패" value="189건" sub="실패율 3.7%" accent={C.danger}/>
+      <KpiCard icon="🔄" label="마지막 동기화" value="2분 전" sub="NBA Stats API"/>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',marginBottom:20}}>
+      <div style={{padding:'14px 20px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:15,fontWeight:700}}>수집 소스 현황</span>
+        <button style={{padding:'6px 14px',borderRadius:8,background:C.primary,color:'#fff',border:'none',fontSize:12,fontWeight:600,cursor:'pointer'}}>🔄 전체 재수집</button>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`,background:'#F0FDF408'}}>
+          {['소스명','리그','마지막 동기화','상태','성공','실패','성공률','작업'].map(h=><th key={h} style={{padding:'10px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{COLLECT_SOURCES.map(s=><tr key={s.name} style={{borderBottom:`1px solid ${C.border}`,background:s.status==='오류'?'#FEF2F208':s.status==='경고'?'#FEF3C708':'transparent'}}>
+          <td style={{padding:'12px 14px',fontWeight:600}}>{s.name}</td>
+          <td style={{padding:'12px 14px'}}><span style={{padding:'3px 8px',borderRadius:6,background:'#ECFDF5',fontSize:11,fontWeight:600,color:C.primary}}>{s.league}</span></td>
+          <td style={{padding:'12px 14px',color:C.textMuted}}>{s.lastSync}</td>
+          <td style={{padding:'12px 14px'}}><Badge text={s.status}/></td>
+          <td style={{padding:'12px 14px',color:C.success,fontWeight:600}}>{s.success.toLocaleString()}</td>
+          <td style={{padding:'12px 14px',color:s.fail>20?C.danger:C.textMuted,fontWeight:s.fail>20?600:400}}>{s.fail}</td>
+          <td style={{padding:'12px 14px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{width:50,height:5,background:'#E2E8F0',borderRadius:3}}><div style={{width:`${s.rate}%`,height:'100%',borderRadius:3,background:s.rate>=98?C.success:s.rate>=90?C.warning:C.danger}}/></div>
+              <span style={{fontSize:11,fontWeight:600,color:s.rate>=98?C.success:s.rate>=90?C.warning:C.danger}}>{s.rate}%</span>
+            </div>
+          </td>
+          <td style={{padding:'12px 14px'}}><button style={{padding:'4px 10px',borderRadius:6,border:`1px solid ${C.border}`,background:'transparent',fontSize:11,cursor:'pointer',color:C.textLight}}>재수집</button></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>일별 수집 성공/실패</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={COLLECT_DAILY}><CartesianGrid strokeDasharray="3 3" stroke={C.border}/><XAxis dataKey="day" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:11,fill:C.textMuted}}/><Tooltip/>
+            <Bar dataKey="success" stackId="a" fill={C.primary} name="성공" radius={[0,0,0,0]}/>
+            <Bar dataKey="fail" stackId="a" fill={C.danger} name="실패" radius={[4,4,0,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:12,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:14}}>최근 수집 로그</div>
+        {[
+          {time:'14:32:05',msg:'NBA Stats API 수집 완료 — 248건',type:'success'},
+          {time:'14:30:12',msg:'MLB Stats API 수집 완료 — 186건',type:'success'},
+          {time:'14:28:45',msg:'Transfermarkt 수집 실패 — 503 Server Error',type:'error'},
+          {time:'14:25:30',msg:'BBC Sport 수집 완료 (지연) — 92건',type:'warning'},
+          {time:'14:22:18',msg:'Premier League API 수집 완료 — 124건',type:'success'},
+          {time:'14:20:00',msg:'ESPN NBA 수집 완료 — 210건',type:'success'},
+        ].map((log,i)=><div key={i} style={{display:'flex',gap:10,padding:'8px 0',borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+          <span style={{color:C.textMuted,fontFamily:'monospace',fontSize:11}}>{log.time}</span>
+          <span style={{width:6,height:6,borderRadius:'50%',marginTop:5,flexShrink:0,background:log.type==='success'?C.success:log.type==='error'?C.danger:C.warning}}/>
+          <span style={{color:log.type==='error'?C.danger:C.text}}>{log.msg}</span>
+        </div>)}
+      </div>
+    </div>
+  </div>);
+}
+
+/* ─── App Shell ─── */
+function App(){
+  const[page,setPage]=useState('멀티 리그 대시보드');
+  const menus=[{name:'멀티 리그 대시보드',icon:'🏟️'},{name:'팀 성적 비교 분석',icon:'📊'},{name:'선수 심층 스탯',icon:'👤'},{name:'수집 모니터링 관리자',icon:'📡'}];
+  const renderPage=()=>{switch(page){case '멀티 리그 대시보드':return <DashboardPage/>;case '팀 성적 비교 분석':return <TeamComparePage/>;case '선수 심층 스탯':return <PlayerDeepPage/>;case '수집 모니터링 관리자':return <AdminMonitorPage/>;default:return <DashboardPage/>;}};
+
+  return(<div style={{display:'flex',height:'100vh'}}>
+    <div style={{width:240,background:C.sidebarBg,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'20px 20px',borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>⚡</div>
+          <div><div style={{fontSize:16,fontWeight:800,color:C.secondary}}>스포츠랩</div><div style={{fontSize:11,color:C.textMuted}}>통합 분석 플랫폼</div></div>
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'12px 12px'}}>
+        {menus.map(m=>(<button key={m.name} onClick={()=>setPage(m.name)} title={m.name} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'11px 14px',borderRadius:10,border:'none',background:page===m.name?C.sidebarActiveBg:'transparent',color:page===m.name?C.primary:C.sidebarText,fontSize:13,fontWeight:page===m.name?700:500,cursor:'pointer',marginBottom:3,transition:'all 150ms',textAlign:'left'}}><span style={{fontSize:16}}>{m.icon}</span>{m.name}</button>))}
+      </nav>
+      <div style={{padding:'14px 18px',borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:C.success}}/>
+          <span style={{fontSize:11,color:C.textMuted}}>수집 엔진 가동 중</span>
+        </div>
+        <div style={{fontSize:11,color:C.textMuted}}>NBA · EPL · MLB 3개 리그</div>
+        <div style={{fontSize:10,color:C.textMuted,marginTop:4}}>소스 7개 · 일 수집 ~5,000건</div>
+      </div>
+    </div>
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'12px 24px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontSize:13,fontWeight:600,color:C.text}}>{page}</span>
+        </div>
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <span style={{fontSize:12,color:C.textMuted}}>최근 동기화: 2분 전</span>
+          <span style={{padding:'4px 10px',borderRadius:6,background:'#ECFDF5',color:C.success,fontSize:11,fontWeight:600}}>● 정상 운영</span>
+        </div>
+      </div>
+      <div style={{flex:1,overflow:'auto',padding:24}}>{renderPage()}</div>
+    </div>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

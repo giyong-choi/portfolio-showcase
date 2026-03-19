@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>플라이인포 — 항공편 실시간 정보 조회</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script src="https://unpkg.com/recharts@2.15.0/umd/Recharts.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Pretendard',sans-serif;background:#FAF5FF;color:#1E1B4B;overflow-x:hidden;min-height:100vh}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#C4B5FD;border-radius:3px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+const {BarChart,Bar,PieChart,Pie,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,AreaChart,Area,ComposedChart}=Recharts;
+
+const C={primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',bg:'#FAF5FF',surface:'#FFFFFF',border:'#E9D5FF',text:'#1E1B4B',textLight:'#6B7280',textMuted:'#9CA3AF',success:'#059669',warning:'#D97706',danger:'#DC2626',heroBg:'linear-gradient(135deg,#1E1B4B,#7C3AED)'};
+
+/* ─── Data ─── */
+const FLIGHTS_DEPARTURES=[
+  {id:'KE651',airline:'대한항공',dest:'도쿄 나리타(NRT)',scheduled:'08:30',estimated:'08:35',gate:'12',status:'정시',terminal:'T1'},
+  {id:'OZ201',airline:'아시아나',dest:'로스앤젤레스(LAX)',scheduled:'09:00',estimated:'09:45',gate:'28',status:'지연',terminal:'T1'},
+  {id:'JL92',airline:'일본항공',dest:'오사카 간사이(KIX)',scheduled:'10:15',estimated:'10:15',gate:'35',status:'정시',terminal:'T1'},
+  {id:'SQ603',airline:'싱가포르항공',dest:'싱가포르(SIN)',scheduled:'10:50',estimated:'—',gate:'—',status:'결항',terminal:'T2'},
+  {id:'KE853',airline:'대한항공',dest:'방콕(BKK)',scheduled:'11:20',estimated:'11:25',gate:'42',status:'정시',terminal:'T2'},
+  {id:'NH862',airline:'전일본공수',dest:'도쿄 하네다(HND)',scheduled:'12:00',estimated:'12:40',gate:'18',status:'지연',terminal:'T1'},
+  {id:'CX439',airline:'캐세이퍼시픽',dest:'홍콩(HKG)',scheduled:'13:30',estimated:'13:30',gate:'51',status:'탑승중',terminal:'T2'},
+  {id:'TG659',airline:'타이항공',dest:'방콕(BKK)',scheduled:'14:10',estimated:'14:10',gate:'—',status:'예정',terminal:'T1'},
+];
+
+const FLIGHTS_ARRIVALS=[
+  {id:'KE652',airline:'대한항공',from:'도쿄 나리타(NRT)',scheduled:'11:30',estimated:'11:25',gate:'A3',status:'도착',terminal:'T1'},
+  {id:'OZ202',airline:'아시아나',from:'로스앤젤레스(LAX)',scheduled:'15:00',estimated:'15:35',gate:'B7',status:'지연',terminal:'T1'},
+  {id:'SQ604',airline:'싱가포르항공',from:'싱가포르(SIN)',scheduled:'17:20',estimated:'17:20',gate:'—',status:'예정',terminal:'T2'},
+  {id:'DL194',airline:'델타항공',from:'디트로이트(DTW)',scheduled:'16:45',estimated:'16:50',gate:'C2',status:'접근중',terminal:'T2'},
+  {id:'LH713',airline:'루프트한자',from:'프랑크푸르트(FRA)',scheduled:'06:30',estimated:'06:28',gate:'A1',status:'도착',terminal:'T1'},
+  {id:'AF264',airline:'에어프랑스',from:'파리(CDG)',scheduled:'07:10',estimated:'07:45',gate:'B5',status:'도착',terminal:'T1'},
+];
+
+const AIRLINE_STATS=[
+  {airline:'대한항공',ontime:88,delayed:8,cancelled:1,avgDelay:12},
+  {airline:'아시아나',ontime:85,delayed:11,cancelled:2,avgDelay:18},
+  {airline:'일본항공',ontime:94,delayed:5,cancelled:0.5,avgDelay:6},
+  {airline:'싱가포르항공',ontime:92,delayed:6,cancelled:1,avgDelay:8},
+  {airline:'전일본공수',ontime:93,delayed:5,cancelled:0.5,avgDelay:7},
+  {airline:'캐세이퍼시픽',ontime:87,delayed:9,cancelled:2,avgDelay:15},
+  {airline:'델타항공',ontime:82,delayed:13,cancelled:3,avgDelay:22},
+  {airline:'루프트한자',ontime:84,delayed:12,cancelled:2,avgDelay:19},
+];
+
+const MONTHLY_ONTIME=[
+  {month:'1월',ke:86,oz:83,jl:92},{month:'2월',ke:88,oz:85,jl:94},{month:'3월',ke:90,oz:87,jl:93},
+  {month:'4월',ke:87,oz:84,jl:95},{month:'5월',ke:89,oz:86,jl:93},{month:'6월',ke:88,oz:85,jl:94},
+];
+
+const DELAY_REASONS=[
+  {name:'기상',value:35,color:C.primary},{name:'기체 정비',value:25,color:C.accent},{name:'공항 혼잡',value:20,color:C.warning},{name:'승무원',value:10,color:C.success},{name:'기타',value:10,color:C.textMuted},
+];
+
+const ROUTES=[
+  {route:'ICN → NRT',flights:42,airlines:['대한항공','아시아나','일본항공','전일본공수'],minTime:'2h 10m',maxTime:'2h 30m',peak:'08:00-10:00'},
+  {route:'ICN → LAX',flights:14,airlines:['대한항공','아시아나','델타항공'],minTime:'11h 30m',maxTime:'12h 40m',peak:'09:00-11:00'},
+  {route:'ICN → SIN',flights:10,airlines:['싱가포르항공','대한항공','아시아나'],minTime:'6h 20m',maxTime:'6h 50m',peak:'10:00-13:00'},
+  {route:'ICN → BKK',flights:12,airlines:['대한항공','타이항공','아시아나'],minTime:'5h 40m',maxTime:'6h 10m',peak:'10:00-14:00'},
+  {route:'ICN → HKG',flights:8,airlines:['캐세이퍼시픽','대한항공'],minTime:'3h 40m',maxTime:'4h 10m',peak:'13:00-15:00'},
+  {route:'ICN → FRA',flights:7,airlines:['루프트한자','대한항공','아시아나'],minTime:'11h 50m',maxTime:'12h 30m',peak:'12:00-14:00'},
+  {route:'ICN → HND',flights:18,airlines:['대한항공','전일본공수','아시아나'],minTime:'2h 20m',maxTime:'2h 40m',peak:'07:00-09:00'},
+  {route:'ICN → CDG',flights:5,airlines:['에어프랑스','대한항공'],minTime:'12h 10m',maxTime:'12h 50m',peak:'19:00-22:00'},
+];
+
+const HOURLY_FLIGHTS=[
+  {hour:'06',count:8},{hour:'07',count:12},{hour:'08',count:18},{hour:'09',count:22},{hour:'10',count:20},
+  {hour:'11',count:15},{hour:'12',count:14},{hour:'13',count:16},{hour:'14',count:13},{hour:'15',count:10},
+  {hour:'16',count:8},{hour:'17',count:11},{hour:'18',count:14},{hour:'19',count:16},{hour:'20',count:12},
+  {hour:'21',count:9},{hour:'22',count:6},{hour:'23',count:4},
+];
+
+const PRICE_TREND=[
+  {date:'3/1',price:185000},{date:'3/5',price:198000},{date:'3/10',price:175000},{date:'3/15',price:210000},
+  {date:'3/20',price:195000},{date:'3/25',price:165000},{date:'3/30',price:220000},
+];
+
+/* ─── Components ─── */
+function StatusBadge({status}){
+  const styles={
+    '정시':{bg:'#ECFDF5',c:'#059669'},'지연':{bg:'#FEF3C7',c:'#D97706'},'결항':{bg:'#FEF2F2',c:'#DC2626'},
+    '탑승중':{bg:'#EDE9FE',c:'#7C3AED'},'예정':{bg:'#F1F5F9',c:'#475569'},'도착':{bg:'#ECFDF5',c:'#059669'},'접근중':{bg:'#EDE9FE',c:'#7C3AED'},
+  };
+  const s=styles[status]||{bg:'#F1F5F9',c:'#475569'};
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:s.bg,color:s.c}}><span style={{width:6,height:6,borderRadius:'50%',background:s.c}}/>{status}</span>;
+}
+
+function StatCard({icon,label,value,sub,accent}){
+  return(<div style={{background:C.surface,borderRadius:20,padding:'24px 28px',boxShadow:'0 4px 16px rgba(124,58,237,0.08)',border:`1px solid ${C.border}`,animation:'slideUp 500ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><span style={{fontSize:13,color:C.textLight,fontWeight:500}}>{label}</span><span style={{fontSize:22}}>{icon}</span></div>
+    <div style={{fontSize:30,fontWeight:800,color:accent||C.primary,lineHeight:1.2}}>{value}</div>
+    {sub&&<div style={{fontSize:12,color:C.textMuted,marginTop:8}}>{sub}</div>}
+  </div>);
+}
+
+/* ─── Pages ─── */
+function SearchHomePage(){
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{background:C.heroBg,borderRadius:24,padding:'40px 36px',marginBottom:28,color:'#fff'}}>
+      <h2 style={{fontSize:26,fontWeight:800,marginBottom:8}}>항공편 검색</h2>
+      <p style={{fontSize:14,opacity:0.8,marginBottom:24}}>출발지, 목적지, 날짜를 입력하여 항공편을 검색하세요</p>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+        <input placeholder="출발지 (예: 인천 ICN)" style={{flex:1,minWidth:180,padding:'14px 18px',borderRadius:14,border:'none',fontSize:14,background:'rgba(255,255,255,0.15)',color:'#fff',outline:'none'}}/>
+        <input placeholder="목적지 (예: 도쿄 NRT)" style={{flex:1,minWidth:180,padding:'14px 18px',borderRadius:14,border:'none',fontSize:14,background:'rgba(255,255,255,0.15)',color:'#fff',outline:'none'}}/>
+        <input type="date" style={{padding:'14px 18px',borderRadius:14,border:'none',fontSize:14,background:'rgba(255,255,255,0.15)',color:'#fff',outline:'none'}}/>
+        <button style={{padding:'14px 28px',borderRadius:14,background:'#fff',color:C.primary,border:'none',fontSize:14,fontWeight:700,cursor:'pointer'}}>검색</button>
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:28}}>
+      <StatCard icon="✈️" label="오늘 총 출발편" value="128편" sub="인천국제공항 기준"/>
+      <StatCard icon="🛬" label="오늘 총 도착편" value="115편" sub="T1: 72 · T2: 43"/>
+      <StatCard icon="⏱️" label="평균 지연 시간" value="14분" sub="전일 대비 -3분" accent={C.success}/>
+      <StatCard icon="❌" label="결항편" value="2편" sub="기상 악화 1 · 기체 정비 1" accent={C.danger}/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20}}>
+      <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>ICN → NRT 최저가 추이</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={PRICE_TREND}>
+            <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.primary} stopOpacity={.15}/><stop offset="95%" stopColor={C.primary} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF"/><XAxis dataKey="date" tick={{fontSize:12,fill:C.textMuted}}/><YAxis tick={{fontSize:11,fill:C.textMuted}} tickFormatter={v=>`${(v/10000).toFixed(0)}만`}/>
+            <Tooltip formatter={v=>[`${v.toLocaleString()}원`,'가격']} contentStyle={{borderRadius:12,border:'none',boxShadow:'0 4px 16px rgba(0,0,0,0.1)'}}/><Area type="monotone" dataKey="price" stroke={C.primary} fill="url(#pg)" strokeWidth={2}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>시간대별 출발편 수</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={HOURLY_FLIGHTS}><CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF"/><XAxis dataKey="hour" tick={{fontSize:11,fill:C.textMuted}} tickFormatter={v=>`${v}시`}/><YAxis tick={{fontSize:11,fill:C.textMuted}}/><Tooltip/><Bar dataKey="count" name="편수" radius={[6,6,0,0]}>{HOURLY_FLIGHTS.map((e,i)=><Cell key={i} fill={e.count>=18?C.primary:C.accent}/>)}</Bar></BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>);
+}
+
+function LiveStatusPage(){
+  const [tab,setTab]=useState('출발');
+  const data=tab==='출발'?FLIGHTS_DEPARTURES:FLIGHTS_ARRIVALS;
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+      <h2 style={{fontSize:22,fontWeight:800}}>실시간 운항 현황</h2>
+      <div style={{display:'flex',gap:8}}>
+        {['출발','도착'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'8px 20px',borderRadius:20,border:tab===t?'none':`1px solid ${C.border}`,background:tab===t?C.primary:C.surface,color:tab===t?'#fff':C.textLight,fontSize:13,fontWeight:600,cursor:'pointer'}}>{t}</button>)}
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:24}}>
+      <StatCard icon="✅" label="정시 운항" value={data.filter(f=>['정시','도착'].includes(f.status)).length+'편'} accent={C.success}/>
+      <StatCard icon="⏱️" label="지연" value={data.filter(f=>f.status==='지연').length+'편'} accent={C.warning}/>
+      <StatCard icon="❌" label="결항" value={data.filter(f=>f.status==='결항').length+'편'} accent={C.danger}/>
+    </div>
+    <div style={{background:C.surface,borderRadius:20,boxShadow:'0 4px 16px rgba(124,58,237,0.06)',overflow:'hidden'}}>
+      <div style={{padding:'16px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:15,fontWeight:700}}>인천국제공항 {tab} 현황판</span>
+        <span style={{fontSize:12,color:C.textMuted}}>30초마다 자동 새로고침</span>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`,background:'#FDFAFF'}}>
+          {(tab==='출발'?['편명','항공사','목적지','예정','예상','게이트','터미널','상태']:['편명','항공사','출발지','예정','예상','게이트','터미널','상태']).map(h=>
+            <th key={h} style={{padding:'12px 16px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>
+          )}
+        </tr></thead>
+        <tbody>{data.map(f=><tr key={f.id} style={{borderBottom:`1px solid ${C.border}`,background:f.status==='결항'?'#FEF2F208':f.status==='지연'?'#FEF3C708':'transparent'}}>
+          <td style={{padding:'14px 16px',fontWeight:700,color:C.primary}}>{f.id}</td>
+          <td style={{padding:'14px 16px',fontWeight:500}}>{f.airline}</td>
+          <td style={{padding:'14px 16px'}}>{tab==='출발'?f.dest:f.from}</td>
+          <td style={{padding:'14px 16px'}}>{f.scheduled}</td>
+          <td style={{padding:'14px 16px',fontWeight:600,color:f.estimated!==f.scheduled&&f.estimated!=='—'?C.warning:C.text}}>{f.estimated}</td>
+          <td style={{padding:'14px 16px'}}>{f.gate||'—'}</td>
+          <td style={{padding:'14px 16px'}}><span style={{padding:'3px 8px',borderRadius:10,background:'#F1F5F9',fontSize:11,fontWeight:600}}>{f.terminal}</span></td>
+          <td style={{padding:'14px 16px'}}><StatusBadge status={f.status}/></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function AirlineStatsPage(){
+  const [selected,setSelected]=useState(['대한항공','일본항공']);
+  const toggleAirline=(a)=>{
+    if(selected.includes(a))setSelected(selected.filter(x=>x!==a));
+    else if(selected.length<3)setSelected([...selected,a]);
+  };
+  const colors=['#7C3AED','#059669','#D97706'];
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>항공사별 통계</h2>
+    <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+      {AIRLINE_STATS.map(a=><button key={a.airline} onClick={()=>toggleAirline(a.airline)} style={{padding:'6px 16px',borderRadius:20,border:selected.includes(a.airline)?`2px solid ${C.primary}`:`1px solid ${C.border}`,background:selected.includes(a.airline)?'#EDE9FE':C.surface,color:selected.includes(a.airline)?C.primary:C.textLight,fontSize:12,fontWeight:600,cursor:'pointer'}}>{a.airline}</button>)}
+      <span style={{fontSize:11,color:C.textMuted,alignSelf:'center',marginLeft:8}}>최대 3개 선택</span>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>정시율 비교</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={AIRLINE_STATS.filter(a=>selected.includes(a.airline))}><CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF"/><XAxis dataKey="airline" tick={{fontSize:11,fill:C.textMuted}}/><YAxis domain={[70,100]} tick={{fontSize:11,fill:C.textMuted}} tickFormatter={v=>v+'%'}/><Tooltip formatter={v=>[v+'%']}/><Bar dataKey="ontime" name="정시율" radius={[8,8,0,0]}>{AIRLINE_STATS.filter(a=>selected.includes(a.airline)).map((e,i)=><Cell key={i} fill={colors[i%3]}/>)}</Bar></BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+        <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>지연 원인 분포</div>
+        <ResponsiveContainer width="100%" height={180}>
+          <PieChart><Pie data={DELAY_REASONS} cx="50%" cy="50%" innerRadius={50} outerRadius={70} dataKey="value" paddingAngle={3}>{DELAY_REASONS.map((e,i)=><Cell key={i} fill={e.color}/>)}</Pie><Tooltip formatter={v=>[v+'%']}/></PieChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:12,marginTop:8}}>
+          {DELAY_REASONS.map(d=><div key={d.name} style={{display:'flex',alignItems:'center',gap:4,fontSize:11}}><div style={{width:8,height:8,borderRadius:'50%',background:d.color}}/>{d.name} {d.value}%</div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>월별 정시율 추이</div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={MONTHLY_ONTIME}><CartesianGrid strokeDasharray="3 3" stroke="#E9D5FF"/><XAxis dataKey="month" tick={{fontSize:12,fill:C.textMuted}}/><YAxis domain={[78,100]} tick={{fontSize:11,fill:C.textMuted}} tickFormatter={v=>v+'%'}/><Tooltip formatter={v=>[v+'%']}/>
+          <Line type="monotone" dataKey="ke" stroke="#7C3AED" strokeWidth={2} dot={{fill:'#7C3AED',r:4}} name="대한항공"/>
+          <Line type="monotone" dataKey="oz" stroke="#D97706" strokeWidth={2} dot={{fill:'#D97706',r:4}} name="아시아나"/>
+          <Line type="monotone" dataKey="jl" stroke="#059669" strokeWidth={2} dot={{fill:'#059669',r:4}} name="일본항공"/>
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+    <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)',marginTop:20}}>
+      <div style={{fontSize:16,fontWeight:700,marginBottom:16}}>항공사 성적표</div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
+          {['항공사','정시율','지연율','결항율','평균 지연'].map(h=><th key={h} style={{padding:'10px 14px',textAlign:'left',color:C.textMuted,fontWeight:600,fontSize:12}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{AIRLINE_STATS.map(a=><tr key={a.airline} style={{borderBottom:`1px solid ${C.border}`,background:selected.includes(a.airline)?'#EDE9FE08':'transparent'}}>
+          <td style={{padding:'12px 14px',fontWeight:700}}>{a.airline}</td>
+          <td style={{padding:'12px 14px'}}><div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:80,height:6,background:'#E9D5FF',borderRadius:3}}><div style={{width:`${a.ontime}%`,height:'100%',borderRadius:3,background:a.ontime>=90?C.success:a.ontime>=85?C.warning:C.danger}}/></div><span style={{fontWeight:600,color:a.ontime>=90?C.success:a.ontime>=85?C.warning:C.danger}}>{a.ontime}%</span></div></td>
+          <td style={{padding:'12px 14px',color:C.warning}}>{a.delayed}%</td>
+          <td style={{padding:'12px 14px',color:C.danger}}>{a.cancelled}%</td>
+          <td style={{padding:'12px 14px',fontWeight:600}}>{a.avgDelay}분</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function RoutesPage(){
+  const [selectedRoute,setSelectedRoute]=useState(null);
+  return(<div style={{animation:'fadeIn 400ms ease'}}>
+    <h2 style={{fontSize:22,fontWeight:800,marginBottom:20}}>노선 운항 정보</h2>
+    <div style={{display:'grid',gridTemplateColumns:selectedRoute?'1fr 1fr':'1fr',gap:20}}>
+      <div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:14}}>
+          {ROUTES.map(r=><div key={r.route} onClick={()=>setSelectedRoute(r)} style={{background:C.surface,borderRadius:20,padding:24,boxShadow:'0 4px 16px rgba(124,58,237,0.06)',cursor:'pointer',border:selectedRoute?.route===r.route?`2px solid ${C.primary}`:`1px solid ${C.border}`,transition:'all 200ms'}}>
+            <div style={{fontSize:16,fontWeight:800,color:C.primary,marginBottom:8}}>{r.route}</div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+              <span style={{fontSize:12,color:C.textMuted}}>주간 편수</span><span style={{fontSize:14,fontWeight:700}}>{r.flights}편</span>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+              <span style={{fontSize:12,color:C.textMuted}}>소요 시간</span><span style={{fontSize:12,fontWeight:600}}>{r.minTime} ~ {r.maxTime}</span>
+            </div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:8}}>
+              {r.airlines.map(a=><span key={a} style={{padding:'2px 8px',borderRadius:10,background:'#EDE9FE',fontSize:10,color:C.primary,fontWeight:500}}>{a}</span>)}
+            </div>
+          </div>)}
+        </div>
+      </div>
+      {selectedRoute&&<div>
+        <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)',marginBottom:16}}>
+          <div style={{fontSize:20,fontWeight:800,color:C.primary,marginBottom:16}}>{selectedRoute.route}</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}}>
+            <div style={{padding:16,background:'#FDFAFF',borderRadius:14,textAlign:'center'}}><div style={{fontSize:11,color:C.textMuted}}>주간 편수</div><div style={{fontSize:24,fontWeight:800,color:C.primary}}>{selectedRoute.flights}</div></div>
+            <div style={{padding:16,background:'#FDFAFF',borderRadius:14,textAlign:'center'}}><div style={{fontSize:11,color:C.textMuted}}>피크 시간대</div><div style={{fontSize:16,fontWeight:700,color:C.secondary}}>{selectedRoute.peak}</div></div>
+          </div>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>운항 항공사</div>
+          {selectedRoute.airlines.map(a=>{
+            const stat=AIRLINE_STATS.find(s=>s.airline===a);
+            return stat?<div key={a} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+              <span style={{fontSize:13,fontWeight:600}}>{a}</span>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:12,color:C.textMuted}}>정시율</span>
+                <div style={{width:60,height:6,background:'#E9D5FF',borderRadius:3}}><div style={{width:`${stat.ontime}%`,height:'100%',borderRadius:3,background:stat.ontime>=90?C.success:C.warning}}/></div>
+                <span style={{fontSize:12,fontWeight:700}}>{stat.ontime}%</span>
+              </div>
+            </div>:null;
+          })}
+        </div>
+        <div style={{background:C.surface,borderRadius:20,padding:28,boxShadow:'0 4px 16px rgba(124,58,237,0.06)'}}>
+          <div style={{fontSize:14,fontWeight:700,marginBottom:12}}>항공사별 점유율</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart><Pie data={selectedRoute.airlines.map((a,i)=>({name:a,value:Math.round(100/selectedRoute.airlines.length)+((i===0)?100%selectedRoute.airlines.length:0)}))} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>{selectedRoute.airlines.map((a,i)=><Cell key={i} fill={['#7C3AED','#A78BFA','#059669','#D97706'][i%4]}/>)}</Pie><Tooltip formatter={v=>[v+'%']}/></PieChart>
+          </ResponsiveContainer>
+          <div style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:10,marginTop:8}}>
+            {selectedRoute.airlines.map((a,i)=><div key={a} style={{display:'flex',alignItems:'center',gap:4,fontSize:11}}><div style={{width:8,height:8,borderRadius:'50%',background:['#7C3AED','#A78BFA','#059669','#D97706'][i%4]}}/>{a}</div>)}
+          </div>
+        </div>
+      </div>}
+    </div>
+  </div>);
+}
+
+/* ─── App Shell ─── */
+function App(){
+  const[page,setPage]=useState('항공편 검색 홈');
+  const tabs=[{name:'항공편 검색 홈',icon:'🔍'},{name:'실시간 운항 현황',icon:'📡'},{name:'항공사별 통계',icon:'📊'},{name:'노선 운항 정보',icon:'🗺️'}];
+  const renderPage=()=>{switch(page){case '항공편 검색 홈':return <SearchHomePage/>;case '실시간 운항 현황':return <LiveStatusPage/>;case '항공사별 통계':return <AirlineStatsPage/>;case '노선 운항 정보':return <RoutesPage/>;default:return <SearchHomePage/>;}};
+
+  return(<div style={{minHeight:'100vh',background:C.bg}}>
+    <header style={{background:C.surface,borderBottom:`1px solid ${C.border}`,boxShadow:'0 2px 8px rgba(124,58,237,0.06)',position:'sticky',top:0,zIndex:100}}>
+      <div style={{maxWidth:1280,margin:'0 auto',padding:'0 32px',display:'flex',justifyContent:'space-between',alignItems:'center',height:64}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:12,background:C.heroBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>✈️</div>
+          <span style={{fontSize:18,fontWeight:800,color:C.secondary}}>플라이인포</span>
+        </div>
+        <nav style={{display:'flex',gap:4}}>
+          {tabs.map(t=>(<button key={t.name} onClick={()=>setPage(t.name)} title={t.name} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 18px',borderRadius:20,border:'none',background:page===t.name?'#EDE9FE':'transparent',color:page===t.name?C.primary:C.textLight,fontSize:13,fontWeight:page===t.name?700:500,cursor:'pointer',transition:'all 150ms'}}><span>{t.icon}</span>{t.name}</button>))}
+        </nav>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:C.success}}/>
+          <span style={{fontSize:12,color:C.textMuted}}>실시간 수집 중</span>
+        </div>
+      </div>
+    </header>
+    <main style={{maxWidth:1280,margin:'0 auto',padding:'28px 32px'}}>{renderPage()}</main>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
