@@ -12,664 +12,466 @@
 <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Pretendard',sans-serif;background:#F0F9FF;color:#1A365D}
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes fadeInScale{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
-@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
-@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#F0F4FF;color:#1A1A2E;overflow-x:hidden;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#E2E8F0;}::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:3px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-@keyframes barGrow{from{width:0%}to{width:var(--target-width)}}
-@keyframes slideDown{from{opacity:0;transform:translateY(-10px);max-height:0}to{opacity:1;transform:translateY(0);max-height:500px}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes scanLine{0%{top:10%}100%{top:85%}}
+.skeleton{background:linear-gradient(90deg,#DBEAFE 25%,#EFF6FF 50%,#DBEAFE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useCallback} = React;
-const {BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,LineChart,Line,PieChart,Pie,Cell,Legend} = Recharts;
+const {useState,useEffect}=React;
+const {BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,CartesianGrid}=Recharts;
 
-// ===== Colors =====
-const C = {
-  primary:'#0066CC',secondary:'#1A365D',accent:'#38BDF8',
-  bg:'#F0F9FF',surface:'#FFFFFF',border:'#E2E8F0',
-  text:'#1A365D',textLight:'#64748B',
-  success:'#059669',warning:'#D97706',danger:'#EF4444',
-  sidebarBg:'#0F172A',sidebarText:'#94A3B8',sidebarActive:'#38BDF8',
-};
+const C={primary:'#2563EB',secondary:'#1E3A5C',accent:'#06B6D4',bg:'#F0F4FF',surface:'#FFFFFF',text:'#1A1A2E',textSec:'#64748B',border:'#E2E8F0',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#0F172A',sidebarHover:'#1E293B',sidebarActive:'#1D4ED8'};
 
-// ===== Dummy Data =====
-const TRANSACTIONS = [
-  {id:'TXN-001',date:'2025.03.15 14:32',merchant:'서울카페 강남점',amount:4500,type:'결제',status:'완료',user:'김민수',method:'QR스캔'},
-  {id:'TXN-002',date:'2025.03.15 13:18',merchant:'맛나분식',amount:8000,type:'결제',status:'완료',user:'이지은',method:'QR스캔'},
-  {id:'TXN-003',date:'2025.03.15 12:05',merchant:'편의마트 역삼점',amount:3200,type:'결제',status:'완료',user:'박서진',method:'바코드'},
-  {id:'TXN-004',date:'2025.03.15 11:42',merchant:'-',amount:50000,type:'충전',status:'완료',user:'김서연',method:'직접충전'},
-  {id:'TXN-005',date:'2025.03.15 10:30',merchant:'꽃집 해피플라워',amount:25000,type:'결제',status:'취소',user:'정하윤',method:'QR스캔'},
-  {id:'TXN-006',date:'2025.03.14 18:55',merchant:'치킨더맛 홍대점',amount:22000,type:'결제',status:'완료',user:'최우진',method:'QR스캔'},
-  {id:'TXN-007',date:'2025.03.14 16:20',merchant:'-',amount:100000,type:'충전',status:'완료',user:'강민재',method:'직접충전'},
-  {id:'TXN-008',date:'2025.03.14 15:10',merchant:'약국 건강해',amount:15000,type:'결제',status:'완료',user:'박하나',method:'바코드'},
+// ── 사용자 앱 데이터 (중국어) ──
+const userBalance=128500;
+const chargeAmounts=[10000,30000,50000,100000];
+const transactions=[
+  {id:'T001',type:'결제',desc:'星巴克 咖啡 (스타벅스)',amount:-4500,date:'03/20 14:32',merchant:'星巴克 明洞店'},
+  {id:'T002',type:'충전',desc:'虚拟充值 (가상 충전)',amount:50000,date:'03/20 10:15',merchant:'-'},
+  {id:'T003',type:'결제',desc:'CU 便利店 (편의점)',amount:-3200,date:'03/19 18:45',merchant:'CU 明洞中央店'},
+  {id:'T004',type:'결제',desc:'药妆店 (드럭스토어)',amount:-15800,date:'03/19 16:20',merchant:'OLIVE YOUNG'},
+  {id:'T005',type:'충전',desc:'虚拟充值 (가상 충전)',amount:100000,date:'03/19 09:00',merchant:'-'},
+  {id:'T006',type:'결제',desc:'餐厅 (음식점)',amount:-12000,date:'03/18 19:30',merchant:'景福宫 韩食堂'},
+  {id:'T007',type:'결제',desc:'出租车 (택시)',amount:-8500,date:'03/18 15:10',merchant:'首尔出租车'}
 ];
 
-const MERCHANTS = [
-  {id:'M-001',name:'서울카페 강남점',category:'카페',status:'활성',owner:'김민수',phone:'010-1234-5678',sales:1250000,txCount:342,joinDate:'2025.01.15'},
-  {id:'M-002',name:'맛나분식',category:'음식점',status:'활성',owner:'이준호',phone:'010-2345-6789',sales:2180000,txCount:512,joinDate:'2025.01.20'},
-  {id:'M-003',name:'편의마트 역삼점',category:'편의점',status:'활성',owner:'박서진',phone:'010-3456-7890',sales:3450000,txCount:1024,joinDate:'2024.12.10'},
-  {id:'M-004',name:'꽃집 해피플라워',category:'꽃/선물',status:'일시정지',owner:'정수민',phone:'010-4567-8901',sales:580000,txCount:87,joinDate:'2025.02.05'},
-  {id:'M-005',name:'치킨더맛 홍대점',category:'음식점',status:'활성',owner:'최예린',phone:'010-5678-9012',sales:4200000,txCount:876,joinDate:'2024.11.22'},
-  {id:'M-006',name:'약국 건강해',category:'약국',status:'활성',owner:'강유진',phone:'010-6789-0123',sales:1870000,txCount:298,joinDate:'2025.01.08'},
+// ── 가맹점 데이터 ──
+const merchants=[
+  {id:1,name:'星巴克 明洞店',nameKo:'스타벅스 명동점',qrCode:'STB-MD-001',category:'카페',status:'활성',todaySales:245000,todayCount:18},
+  {id:2,name:'CU 明洞中央店',nameKo:'CU 명동중앙점',qrCode:'CU-MD-002',category:'편의점',status:'활성',todaySales:182000,todayCount:34},
+  {id:3,name:'OLIVE YOUNG',nameKo:'올리브영 명동',qrCode:'OY-MD-003',category:'드럭스토어',status:'활성',todaySales:520000,todayCount:12},
+  {id:4,name:'景福宫 韩食堂',nameKo:'경복궁 한식당',qrCode:'KBG-MD-004',category:'음식점',status:'활성',todaySales:380000,todayCount:8},
+  {id:5,name:'首尔出租车',nameKo:'서울택시',qrCode:'TAXI-005',category:'교통',status:'비활성',todaySales:0,todayCount:0}
 ];
 
-const USERS = [
-  {id:'U-001',name:'김민수',phone:'010-1111-2222',balance:45000,totalSpent:234000,status:'활성',joinDate:'2025.01.10',txCount:42},
-  {id:'U-002',name:'이지은',phone:'010-2222-3333',balance:12000,totalSpent:567000,status:'활성',joinDate:'2025.01.12',txCount:78},
-  {id:'U-003',name:'박서진',phone:'010-3333-4444',balance:88000,totalSpent:123000,status:'활성',joinDate:'2025.01.15',txCount:28},
-  {id:'U-004',name:'김서연',phone:'010-4444-5555',balance:150000,totalSpent:89000,status:'활성',joinDate:'2025.02.01',txCount:15},
-  {id:'U-005',name:'정하윤',phone:'010-5555-6666',balance:0,totalSpent:456000,status:'정지',joinDate:'2025.01.22',txCount:62},
-  {id:'U-006',name:'최우진',phone:'010-6666-7777',balance:32000,totalSpent:345000,status:'활성',joinDate:'2025.02.10',txCount:55},
+const merchantSales=[
+  {day:'3/14',sales:120},{day:'3/15',sales:185},{day:'3/16',sales:210},{day:'3/17',sales:165},
+  {day:'3/18',sales:240},{day:'3/19',sales:195},{day:'3/20',sales:245}
 ];
 
-const dailySales = [
-  {day:'3/9',amount:420},{day:'3/10',amount:580},{day:'3/11',amount:350},
-  {day:'3/12',amount:720},{day:'3/13',amount:640},{day:'3/14',amount:890},{day:'3/15',amount:530},
+// ── 관리자 데이터 ──
+const demoUsers=[
+  {id:1,name:'张伟 (장웨이)',phone:'+86 138****1234',balance:128500,transactions:7,status:'활성',created:'2025-03-18'},
+  {id:2,name:'李娜 (리나)',phone:'+86 139****5678',balance:85000,transactions:12,status:'활성',created:'2025-03-17'},
+  {id:3,name:'王强 (왕치앙)',phone:'+86 136****9012',balance:200000,transactions:3,status:'활성',created:'2025-03-19'},
+  {id:4,name:'刘芳 (류팡)',phone:'+86 137****3456',balance:42000,transactions:9,status:'비활성',created:'2025-03-16'}
 ];
 
-const categoryData = [
-  {name:'음식점',value:42,color:'#0066CC'},
-  {name:'카페',value:25,color:'#38BDF8'},
-  {name:'편의점',value:18,color:'#059669'},
-  {name:'기타',value:15,color:'#D97706'},
+const allTransactions=[
+  {id:'T001',user:'张伟',merchant:'星巴克 明洞店',amount:4500,type:'결제',status:'완료',date:'03/20 14:32'},
+  {id:'T002',user:'张伟',merchant:'-',amount:50000,type:'충전',status:'완료',date:'03/20 10:15'},
+  {id:'T003',user:'李娜',merchant:'CU 明洞中央店',amount:8200,type:'결제',status:'완료',date:'03/20 09:45'},
+  {id:'T004',user:'王强',merchant:'OLIVE YOUNG',amount:32000,type:'결제',status:'완료',date:'03/19 16:20'},
+  {id:'T005',user:'李娜',merchant:'-',amount:100000,type:'충전',status:'완료',date:'03/19 12:00'},
+  {id:'T006',user:'刘芳',merchant:'景福宫 韩食堂',amount:15000,type:'결제',status:'승인대기',date:'03/19 19:30'},
+  {id:'T007',user:'张伟',merchant:'首尔出租车',amount:8500,type:'결제',status:'완료',date:'03/18 15:10'}
 ];
+const catDist=[{name:'카페',value:22},{name:'편의점',value:35},{name:'드럭스토어',value:15},{name:'음식점',value:18},{name:'교통',value:10}];
+const pieColors=['#2563EB','#06B6D4','#059669','#D97706','#94A3B8'];
 
-// ===== Components =====
-function CountUp({end,duration=1200,suffix=''}){
-  const [val,setVal]=useState(0);
-  useEffect(()=>{
-    let s=0;const step=end/(duration/16);
-    const t=setInterval(()=>{s+=step;if(s>=end){setVal(end);clearInterval(t);}else setVal(Math.floor(s));},16);
-    return()=>clearInterval(t);
-  },[end]);
-  return <span style={{animation:'countUp 400ms ease'}}>{val.toLocaleString()}{suffix}</span>;
-}
+// ── Components ──
+function Skeleton(){return(<div style={{display:'flex',minHeight:'100vh'}}><div style={{width:260,background:C.sidebarBg}}/><div style={{flex:1,padding:32}}><div className="skeleton" style={{width:'50%',height:24,marginBottom:20}}/><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}><div className="skeleton" style={{height:400}}/><div className="skeleton" style={{height:400}}/></div></div></div>);}
 
-function Toast({message,onClose}){
-  useEffect(()=>{const t=setTimeout(onClose,3000);return()=>clearTimeout(t);},[]);
-  return <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:C.secondary,color:'#fff',padding:'12px 24px',borderRadius:8,animation:'slideUp 300ms ease',boxShadow:'0 4px 16px rgba(0,0,0,0.2)',fontSize:14}}>{message}</div>;
-}
-
-function Modal({title,onClose,children,width=560}){
-  return(
-    <div style={{position:'fixed',inset:0,zIndex:500,display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div onClick={onClose} style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.4)',animation:'fadeIn 200ms ease'}}/>
-      <div style={{position:'relative',width,maxHeight:'85vh',background:'#fff',borderRadius:12,zIndex:501,animation:'fadeInScale 200ms ease',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'20px 24px',borderBottom:'1px solid #E2E8F0'}}>
-          <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textLight}}>✕</button>
-        </div>
-        <div style={{padding:24,overflowY:'auto',flex:1}}>{children}</div>
+function Modal({open,onClose,title,children}){
+  if(!open)return null;
+  return(<div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,animation:'fadeIn .2s'}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:16,width:'90%',maxWidth:560,maxHeight:'85vh',overflow:'auto',boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
+      <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <h3 style={{fontSize:18,fontWeight:700}}>{title}</h3>
+        <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:C.textSec}}>✕</button>
       </div>
+      <div style={{padding:24}}>{children}</div>
     </div>
-  );
+  </div>);
 }
 
-function Badge({text,color}){
-  const colors={완료:{bg:'#ECFDF5',fg:'#059669'},취소:{bg:'#FEF2F2',fg:'#EF4444'},활성:{bg:'#ECFDF5',fg:'#059669'},일시정지:{bg:'#FEF3C7',fg:'#D97706'},정지:{bg:'#FEF2F2',fg:'#EF4444'},결제:{bg:'#EFF6FF',fg:'#0066CC'},충전:{bg:'#F0FDF4',fg:'#059669'}};
-  const c=colors[text]||{bg:'#F1F5F9',fg:'#64748B'};
-  return <span style={{display:'inline-block',padding:'3px 10px',borderRadius:12,fontSize:12,fontWeight:600,background:c.bg,color:c.fg}}>{text}</span>;
+function Badge({text}){
+  const colors={활성:{bg:'#D1FAE5',t:'#065F46'},비활성:{bg:'#FEE2E2',t:'#991B1B'},완료:{bg:'#D1FAE5',t:'#065F46'},승인대기:{bg:'#FEF3C7',t:'#92400E'}};
+  const c=colors[text]||{bg:'#F3F4F6',t:'#374151'};
+  return <span style={{padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.t}}>{text}</span>;
 }
 
-function InputField({label,value,onChange,type='text',placeholder=''}){
-  return(
-    <div style={{marginBottom:16}}>
-      <label style={{display:'block',fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>{label}</label>
-      <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none'}}/>
-    </div>
-  );
-}
+// ── 모바일 앱 프리뷰 (중국어 UI) ──
+function MobileAppPreview({setModal}){
+  const [balance,setBalance]=useState(userBalance);
+  const [appScreen,setAppScreen]=useState('home');
+  const [scanning,setScanning]=useState(false);
+  const [payStep,setPayStep]=useState(0);
+  const [payAmount,setPayAmount]=useState('');
 
-function SelectField({label,value,onChange,options}){
-  return(
-    <div style={{marginBottom:16}}>
-      <label style={{display:'block',fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>{label}</label>
-      <select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'inherit',outline:'none',background:'#fff'}}>
-        {options.map(o=><option key={o} value={o}>{o}</option>)}
-      </select>
-    </div>
-  );
-}
+  const doCharge=(amount)=>{setBalance(b=>b+amount);setModal({type:'charge-success',data:{amount}});};
+  const startScan=()=>{setScanning(true);setTimeout(()=>{setScanning(false);setPayStep(1);},2000);};
 
-// ===== QR Payment Simulation =====
-function QRPaymentPage(){
-  const [step,setStep]=useState(0); // 0: ready, 1: scan, 2: amount, 3: pin, 4: done
-  const [amount,setAmount]=useState('');
-  const [pin,setPin]=useState('');
-  const [selectedMerchant,setSelectedMerchant]=useState(null);
+  const phoneStyle={width:320,background:'#000',borderRadius:36,padding:'12px 8px',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'};
+  const screenStyle={background:'#fff',borderRadius:28,overflow:'hidden',height:580,display:'flex',flexDirection:'column'};
 
-  const qrMerchants = MERCHANTS.filter(m=>m.status==='활성');
-
-  function resetPayment(){setStep(0);setAmount('');setPin('');setSelectedMerchant(null);}
-
-  return(
-    <div style={{animation:'fadeIn 300ms ease'}}>
-      <div style={{display:'flex',gap:24,marginBottom:24}}>
-        {/* QR 시뮬레이터 */}
-        <div style={{flex:1,background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-          <h3 style={{fontSize:18,fontWeight:600,marginBottom:20}}>💳 QR 결제 시뮬레이션</h3>
-          {step===0 && (
-            <div style={{textAlign:'center',padding:'40px 0'}}>
-              <div style={{width:200,height:200,margin:'0 auto 24px',background:`linear-gradient(135deg,${C.primary},${C.accent})`,borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:64,color:'#fff'}}>📱</span>
-              </div>
-              <p style={{fontSize:16,color:C.text,marginBottom:8}}>QR 코드를 스캔하여 결제를 시작하세요</p>
-              <p style={{fontSize:14,color:C.textLight,marginBottom:24}}>가맹점 QR 또는 아래 목록에서 선택</p>
-              <button onClick={()=>setStep(1)} style={{padding:'12px 32px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:600,cursor:'pointer'}}>
-                결제 시작
-              </button>
-            </div>
-          )}
-          {step===1 && (
-            <div style={{animation:'fadeIn 300ms ease'}}>
-              <p style={{fontSize:14,color:C.textLight,marginBottom:16}}>결제할 가맹점을 선택하세요</p>
-              <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                {qrMerchants.map(m=>(
-                  <div key={m.id} onClick={()=>{setSelectedMerchant(m);setStep(2);}}
-                    style={{padding:16,border:`1px solid ${C.border}`,borderRadius:10,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',transition:'all 200ms'}}
-                    onMouseEnter={e=>{e.currentTarget.style.background=`${C.primary}08`;e.currentTarget.style.borderColor=C.primary;}}
-                    onMouseLeave={e=>{e.currentTarget.style.background='';e.currentTarget.style.borderColor=C.border;}}>
-                    <div>
-                      <div style={{fontWeight:600}}>{m.name}</div>
-                      <div style={{fontSize:12,color:C.textLight}}>{m.category} · {m.owner}</div>
-                    </div>
-                    <span style={{fontSize:20}}>→</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {step===2 && (
-            <div style={{animation:'fadeIn 300ms ease',textAlign:'center'}}>
-              <div style={{padding:16,background:`${C.primary}08`,borderRadius:10,marginBottom:20}}>
-                <div style={{fontSize:14,color:C.textLight}}>결제 가맹점</div>
-                <div style={{fontSize:18,fontWeight:700,color:C.primary}}>{selectedMerchant?.name}</div>
-              </div>
-              <InputField label="결제 금액 (원)" value={amount} onChange={setAmount} type="number" placeholder="결제 금액을 입력하세요"/>
-              <button onClick={()=>{if(amount>0)setStep(3);}} style={{padding:'12px 40px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:600,cursor:'pointer',marginTop:8}}>
-                다음
-              </button>
-            </div>
-          )}
-          {step===3 && (
-            <div style={{animation:'fadeIn 300ms ease',textAlign:'center'}}>
-              <div style={{marginBottom:24}}>
-                <div style={{fontSize:14,color:C.textLight}}>결제 금액</div>
-                <div style={{fontSize:28,fontWeight:800,color:C.primary}}>₩{Number(amount).toLocaleString()}</div>
-                <div style={{fontSize:13,color:C.textLight,marginTop:4}}>{selectedMerchant?.name}</div>
-              </div>
-              <InputField label="결제 비밀번호 (6자리)" value={pin} onChange={v=>setPin(v.slice(0,6))} type="password" placeholder="••••••"/>
-              <button onClick={()=>{if(pin.length===6)setStep(4);}} style={{padding:'12px 40px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:15,fontWeight:600,cursor:'pointer'}}>
-                결제 승인
-              </button>
-            </div>
-          )}
-          {step===4 && (
-            <div style={{animation:'fadeInScale 400ms ease',textAlign:'center',padding:'30px 0'}}>
-              <div style={{width:80,height:80,borderRadius:'50%',background:'#ECFDF5',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 20px'}}>
-                <span style={{fontSize:40}}>✓</span>
-              </div>
-              <h3 style={{fontSize:22,fontWeight:700,color:C.success,marginBottom:8}}>결제 완료</h3>
-              <p style={{fontSize:14,color:C.textLight,marginBottom:4}}>{selectedMerchant?.name}</p>
-              <p style={{fontSize:24,fontWeight:800,color:C.text}}>₩{Number(amount).toLocaleString()}</p>
-              <p style={{fontSize:12,color:C.textLight,marginTop:12}}>거래번호: TXN-{Math.floor(Math.random()*9000+1000)}</p>
-              <button onClick={resetPayment} style={{padding:'10px 32px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',marginTop:24}}>
-                새 결제
-              </button>
-            </div>
-          )}
+  return(<div style={{display:'flex',justifyContent:'center',alignItems:'flex-start',gap:32}}>
+    <div style={phoneStyle}>
+      {/* Notch */}
+      <div style={{display:'flex',justifyContent:'center',marginBottom:4}}><div style={{width:100,height:6,background:'#333',borderRadius:3}}/></div>
+      <div style={screenStyle}>
+        {/* App Header */}
+        <div style={{background:`linear-gradient(135deg, ${C.primary} 0%, #1D4ED8 100%)`,padding:'16px 20px',color:'#fff'}}>
+          <div style={{fontSize:11,opacity:0.8,marginBottom:4}}>中国游客专用 · 시연용 데모</div>
+          <div style={{fontSize:20,fontWeight:800}}>快捷支付</div>
+          <div style={{fontSize:11,opacity:0.7}}>간편결제 데모 앱</div>
         </div>
 
-        {/* QR Code Preview */}
-        <div style={{width:320,background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-          <h3 style={{fontSize:16,fontWeight:600,marginBottom:16}}>📷 가맹점 QR 코드</h3>
-          <div style={{background:'#F8FAFC',borderRadius:10,padding:20,textAlign:'center'}}>
-            <div style={{width:180,height:180,margin:'0 auto 12px',background:'#fff',borderRadius:8,border:'2px solid #E2E8F0',display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:'repeat(7,1fr)',gap:2,padding:12}}>
-              {[...Array(49)].map((_,i)=><div key={i} style={{background:Math.random()>0.5?C.secondary:'transparent',borderRadius:1}}/>)}
+        {appScreen==='home'&&<div style={{flex:1,overflow:'auto',padding:16}}>
+          {/* Balance Card */}
+          <div style={{background:`linear-gradient(135deg, #1E3A5C 0%, ${C.primary} 100%)`,borderRadius:16,padding:20,color:'#fff',marginBottom:16}}>
+            <div style={{fontSize:12,opacity:0.8}}>余额 (잔액)</div>
+            <div style={{fontSize:32,fontWeight:800,margin:'8px 0'}}>¥{(balance/170).toFixed(0)} <span style={{fontSize:14,fontWeight:400,opacity:0.7}}>≈ ₩{balance.toLocaleString()}</span></div>
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              {chargeAmounts.slice(0,2).map(a=><button key={a} onClick={()=>doCharge(a)} style={{flex:1,padding:'8px',borderRadius:8,border:'1px solid rgba(255,255,255,0.3)',background:'rgba(255,255,255,0.1)',color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer'}}>+₩{(a/1000)}K 充值</button>)}
             </div>
-            <p style={{fontSize:13,fontWeight:600,color:C.text}}>{selectedMerchant?.name||'서울카페 강남점'}</p>
-            <p style={{fontSize:11,color:C.textLight}}>M-001 · 카페</p>
           </div>
-          <div style={{marginTop:16,fontSize:13,color:C.textLight}}>
-            <p style={{marginBottom:8}}>💡 <strong>시연 안내</strong></p>
-            <p>• QR 코드 스캔 → 가맹점 자동 인식</p>
-            <p>• 결제 금액 입력 → 비밀번호 확인</p>
-            <p>• 결제 완료 → 가맹점/사용자 알림</p>
+          {/* QR Payment Button */}
+          <button onClick={()=>{setAppScreen('qr');startScan();}} style={{width:'100%',padding:'16px',borderRadius:14,border:'none',background:C.primary,color:'#fff',fontSize:16,fontWeight:700,cursor:'pointer',marginBottom:16,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+            <span style={{fontSize:20}}>📱</span> 扫码支付 (QR 결제)
+          </button>
+          {/* Quick Actions */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:16}}>
+            {[['💰','充值','충전'],['📋','记录','내역'],['🏪','商户','가맹점'],['⚙️','设置','설정']].map(([icon,zh,ko])=>
+              <div key={zh} onClick={()=>{if(zh==='记录')setAppScreen('history')}} style={{textAlign:'center',padding:'12px 4px',background:'#F8FAFC',borderRadius:10,cursor:'pointer'}}>
+                <div style={{fontSize:20,marginBottom:4}}>{icon}</div>
+                <div style={{fontSize:11,fontWeight:600}}>{zh}</div>
+                <div style={{fontSize:9,color:C.textSec}}>{ko}</div>
+              </div>
+            )}
+          </div>
+          {/* Recent */}
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8}}>最近交易 (최근 거래)</div>
+          {transactions.slice(0,4).map(t=><div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${C.border}`}}>
+            <div><div style={{fontSize:13,fontWeight:600}}>{t.desc}</div><div style={{fontSize:10,color:C.textSec}}>{t.date}</div></div>
+            <span style={{fontSize:14,fontWeight:700,color:t.amount>0?C.success:C.text}}>{t.amount>0?'+':''}₩{Math.abs(t.amount).toLocaleString()}</span>
+          </div>)}
+        </div>}
+
+        {appScreen==='qr'&&<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'#000',position:'relative'}}>
+          {scanning?<>
+            <div style={{width:220,height:220,border:'3px solid rgba(255,255,255,0.3)',borderRadius:16,position:'relative',overflow:'hidden'}}>
+              <div style={{position:'absolute',width:'100%',height:3,background:C.primary,boxShadow:`0 0 10px ${C.primary}`,animation:'scanLine 1.5s ease-in-out infinite'}}/>
+              <div style={{position:'absolute',top:0,left:0,width:24,height:24,borderTop:'3px solid #fff',borderLeft:'3px solid #fff',borderRadius:'4px 0 0 0'}}/>
+              <div style={{position:'absolute',top:0,right:0,width:24,height:24,borderTop:'3px solid #fff',borderRight:'3px solid #fff',borderRadius:'0 4px 0 0'}}/>
+              <div style={{position:'absolute',bottom:0,left:0,width:24,height:24,borderBottom:'3px solid #fff',borderLeft:'3px solid #fff',borderRadius:'0 0 0 4px'}}/>
+              <div style={{position:'absolute',bottom:0,right:0,width:24,height:24,borderBottom:'3px solid #fff',borderRight:'3px solid #fff',borderRadius:'0 0 4px 0'}}/>
+            </div>
+            <div style={{color:'#fff',marginTop:16,fontSize:14}}>扫描商户二维码...</div>
+            <div style={{color:'rgba(255,255,255,0.6)',fontSize:11,marginTop:4}}>가맹점 QR 코드를 스캔하세요</div>
+          </>
+          :payStep===1?<div style={{background:'#fff',borderRadius:20,padding:24,width:280,textAlign:'center'}}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:4}}>星巴克 明洞店</div>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:16}}>스타벅스 명동점</div>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>支付金额 (결제 금액)</div>
+            <input value={payAmount} onChange={e=>setPayAmount(e.target.value)} placeholder="₩ 0" style={{width:'100%',padding:'14px',border:`2px solid ${C.primary}`,borderRadius:12,fontSize:24,fontWeight:700,textAlign:'center',outline:'none',fontFamily:'Pretendard'}}/>
+            <button onClick={()=>setPayStep(2)} style={{width:'100%',marginTop:16,padding:'14px',borderRadius:12,border:'none',background:C.primary,color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>确认 (확인)</button>
+            <button onClick={()=>{setAppScreen('home');setPayStep(0);setPayAmount('')}} style={{width:'100%',marginTop:8,padding:'10px',borderRadius:8,border:'none',background:'transparent',color:C.textSec,fontSize:13,cursor:'pointer'}}>取消 (취소)</button>
+          </div>
+          :payStep===2?<div style={{background:'#fff',borderRadius:20,padding:24,width:280,textAlign:'center'}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>请输入密码 (비밀번호 입력)</div>
+            <div style={{display:'flex',gap:12,justifyContent:'center',marginBottom:20}}>
+              {[1,2,3,4,5,6].map(i=><div key={i} style={{width:14,height:14,borderRadius:'50%',background:i<=4?C.primary:C.border}}/>)}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+              {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((n,i)=><button key={i} onClick={()=>{if(n!=='')setPayStep(3)}} style={{padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:n===''?'transparent':C.surface,fontSize:18,fontWeight:600,cursor:n===''?'default':'pointer'}}>{n}</button>)}
+            </div>
+          </div>
+          :<div style={{background:'#fff',borderRadius:20,padding:32,width:280,textAlign:'center'}}>
+            <div style={{fontSize:56,marginBottom:12}}>✅</div>
+            <div style={{fontSize:20,fontWeight:800,color:C.success,marginBottom:4}}>支付成功!</div>
+            <div style={{fontSize:14,color:C.textSec,marginBottom:16}}>결제 완료</div>
+            <div style={{fontSize:28,fontWeight:800,marginBottom:4}}>₩{payAmount||'4,500'}</div>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:20}}>星巴克 明洞店</div>
+            <button onClick={()=>{setAppScreen('home');setPayStep(0);setPayAmount('')}} style={{width:'100%',padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>返回首页 (홈으로)</button>
+          </div>}
+          {scanning&&<button onClick={()=>{setAppScreen('home');setScanning(false)}} style={{position:'absolute',bottom:30,padding:'10px 24px',borderRadius:8,border:'1px solid rgba(255,255,255,0.3)',background:'transparent',color:'#fff',fontSize:13,cursor:'pointer'}}>取消</button>}
+        </div>}
+
+        {appScreen==='history'&&<div style={{flex:1,overflow:'auto',padding:16}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+            <button onClick={()=>setAppScreen('home')} style={{background:'none',border:'none',fontSize:18,cursor:'pointer'}}>←</button>
+            <span style={{fontSize:16,fontWeight:700}}>交易记录 (거래 내역)</span>
+          </div>
+          {transactions.map(t=><div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:`1px solid ${C.border}`}}>
+            <div style={{display:'flex',gap:10,alignItems:'center'}}>
+              <div style={{width:36,height:36,borderRadius:10,background:t.amount>0?`${C.success}14`:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>{t.amount>0?'💰':'🛒'}</div>
+              <div><div style={{fontSize:13,fontWeight:600}}>{t.desc}</div><div style={{fontSize:10,color:C.textSec}}>{t.date}{t.merchant!=='-'?` · ${t.merchant}`:''}</div></div>
+            </div>
+            <span style={{fontSize:14,fontWeight:700,color:t.amount>0?C.success:C.text}}>{t.amount>0?'+':''}₩{Math.abs(t.amount).toLocaleString()}</span>
+          </div>)}
+        </div>}
+
+        {/* Bottom Nav */}
+        <div style={{display:'flex',borderTop:`1px solid ${C.border}`,background:'#fff',flexShrink:0}}>
+          {[['🏠','首页',appScreen==='home'],['📱','扫码',false],['📋','记录',appScreen==='history'],['👤','我的',false]].map(([icon,label,active])=>
+            <button key={label} onClick={()=>{if(label==='首页')setAppScreen('home');if(label==='记录')setAppScreen('history');if(label==='扫码'){setAppScreen('qr');startScan();}}} style={{flex:1,padding:'8px 0',border:'none',background:'transparent',cursor:'pointer',textAlign:'center'}}>
+              <div style={{fontSize:16}}>{icon}</div>
+              <div style={{fontSize:10,color:active?C.primary:C.textSec,fontWeight:active?700:400}}>{label}</div>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>);
+}
+
+// ── Pages ──
+function QRPaymentPage({setModal}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}>
+      <h2 style={{fontSize:22,fontWeight:700}}>QR 결제</h2>
+      <p style={{color:C.textSec,fontSize:14,marginTop:4}}>중국 관광객 대상 QR 결제 시뮬레이션 — 사용자 앱 프리뷰</p>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'380px 1fr',gap:32}}>
+      <MobileAppPreview setModal={setModal}/>
+      <div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 10px rgba(0,0,0,0.04)',marginBottom:16}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>시연 시나리오</h3>
+          <div style={{fontSize:13,color:C.textSec,lineHeight:1.8}}>
+            ① 잔액 확인 → ② 가상 충전 (+₩10K/30K) 클릭<br/>
+            ③ "扫码支付" 버튼 → QR 스캔 시뮬레이션<br/>
+            ④ 결제 금액 입력 → 비밀번호 입력<br/>
+            ⑤ 결제 완료 화면 → 거래 내역 확인
+          </div>
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 10px rgba(0,0,0,0.04)',marginBottom:16}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>가맹점 결제 승인 (Mock)</h3>
+          <div style={{background:`${C.success}08`,borderRadius:12,padding:16,display:'flex',gap:12,alignItems:'center'}}>
+            <div style={{fontSize:28}}>🔔</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:C.success}}>新支付通知 (결제 알림)</div>
+              <div style={{fontSize:13,marginTop:4}}>张伟 님이 ₩4,500 결제 — 星巴克 明洞店</div>
+              <div style={{fontSize:11,color:C.textSec,marginTop:2}}>03/20 14:32 · 자동 승인</div>
+            </div>
+          </div>
+        </div>
+        <div style={{background:C.surface,borderRadius:16,padding:24,boxShadow:'0 2px 10px rgba(0,0,0,0.04)'}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12}}>구현 기술 요약</h3>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {[['프론트엔드','React Native (Android APK)'],['백엔드','Firebase Auth + Firestore'],['QR 처리','react-native-camera + QR 파싱'],['다국어','중국어 UI + 한국어 관리자']].map(([k,v])=>
+              <div key={k} style={{background:'#F8FAFC',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:12,fontWeight:600,marginTop:2}}>{v}</div></div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* 최근 결제 */}
-      <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-        <h3 style={{fontSize:18,fontWeight:600,marginBottom:16}}>최근 결제 내역</h3>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{borderBottom:`2px solid ${C.border}`}}>
-              {['거래번호','일시','가맹점','금액','유형','상태'].map(h=><th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:13,color:C.textLight,fontWeight:600}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {TRANSACTIONS.slice(0,5).map((tx,i)=>(
-              <tr key={tx.id} style={{borderBottom:`1px solid ${C.border}`,animation:`slideUp 400ms ease ${i*60}ms both`,cursor:'pointer',transition:'background 150ms'}}
-                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`}
-                onMouseLeave={e=>e.currentTarget.style.background=''}>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:500}}>{tx.id}</td>
-                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{tx.date}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>{tx.merchant}</td>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600}}>₩{tx.amount.toLocaleString()}</td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.type}/></td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.status}/></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
-  );
+  </div>);
 }
 
-// ===== Transaction History Page =====
-function TransactionPage({onDetail}){
-  const [filter,setFilter]=useState('전체');
-  const filtered = filter==='전체'?TRANSACTIONS:TRANSACTIONS.filter(t=>t.type===filter);
-  return(
-    <div style={{animation:'fadeIn 300ms ease'}}>
-      <div style={{display:'flex',gap:8,marginBottom:20}}>
-        {['전체','결제','충전'].map(f=>(
-          <button key={f} onClick={()=>setFilter(f)} style={{padding:'8px 20px',borderRadius:8,border:`1px solid ${filter===f?C.primary:C.border}`,background:filter===f?C.primary:'#fff',color:filter===f?'#fff':C.text,fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 200ms',fontFamily:'inherit'}}>{f}</button>
-        ))}
-      </div>
-      <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{borderBottom:`2px solid ${C.border}`}}>
-              {['거래번호','일시','가맹점','사용자','금액','방식','유형','상태'].map(h=><th key={h} style={{padding:'14px 16px',textAlign:'left',fontSize:13,color:C.textLight,fontWeight:600}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((tx,i)=>(
-              <tr key={tx.id} onClick={()=>onDetail(tx)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 400ms ease ${i*60}ms both`}}
-                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`}
-                onMouseLeave={e=>e.currentTarget.style.background=''}>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:500,color:C.primary}}>{tx.id}</td>
-                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{tx.date}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>{tx.merchant}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>{tx.user}</td>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600}}>₩{tx.amount.toLocaleString()}</td>
-                <td style={{padding:'14px 16px',fontSize:12,color:C.textLight}}>{tx.method}</td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.type}/></td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.status}/></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ===== Merchant Management Page =====
-function MerchantPage({onDetail,setToast}){
-  const [showCreate,setShowCreate]=useState(false);
-  const [form,setForm]=useState({name:'',category:'카페',owner:'',phone:''});
-  return(
-    <div style={{animation:'fadeIn 300ms ease'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <div style={{fontSize:14,color:C.textLight}}>총 <strong style={{color:C.text}}>{MERCHANTS.length}개</strong> 가맹점</div>
-        <button onClick={()=>setShowCreate(true)} style={{padding:'10px 20px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer'}}>+ 가맹점 등록</button>
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:20}}>
-        {MERCHANTS.map((m,i)=>(
-          <div key={m.id} onClick={()=>onDetail(m)} style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:20,cursor:'pointer',transition:'all 200ms',animation:`slideUp 400ms ease ${i*80}ms both`}}
-            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';}}
-            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.08)';}}>
-            <div style={{display:'flex',justifyContent:'space-between',marginBottom:12}}>
-              <span style={{fontSize:15,fontWeight:700}}>{m.name}</span>
-              <Badge text={m.status}/>
-            </div>
-            <div style={{fontSize:13,color:C.textLight,marginBottom:4}}>📁 {m.category} · 👤 {m.owner}</div>
-            <div style={{fontSize:13,color:C.textLight,marginBottom:12}}>📞 {m.phone}</div>
-            <div style={{display:'flex',justifyContent:'space-between',borderTop:`1px solid ${C.border}`,paddingTop:12}}>
-              <div>
-                <div style={{fontSize:11,color:C.textLight}}>총 매출</div>
-                <div style={{fontSize:15,fontWeight:700}}>₩{m.sales.toLocaleString()}</div>
-              </div>
-              <div style={{textAlign:'right'}}>
-                <div style={{fontSize:11,color:C.textLight}}>거래 건수</div>
-                <div style={{fontSize:15,fontWeight:700}}>{m.txCount}건</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      {showCreate && (
-        <Modal title="가맹점 등록" onClose={()=>setShowCreate(false)}>
-          <InputField label="가맹점명" value={form.name} onChange={v=>setForm({...form,name:v})} placeholder="가맹점 이름"/>
-          <SelectField label="업종" value={form.category} onChange={v=>setForm({...form,category:v})} options={['카페','음식점','편의점','약국','꽃/선물','기타']}/>
-          <InputField label="대표자명" value={form.owner} onChange={v=>setForm({...form,owner:v})} placeholder="대표자 이름"/>
-          <InputField label="연락처" value={form.phone} onChange={v=>setForm({...form,phone:v})} placeholder="010-0000-0000"/>
-          <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:24}}>
-            <button onClick={()=>setShowCreate(false)} style={{padding:'10px 24px',border:`1px solid ${C.border}`,borderRadius:8,background:'#fff',fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
-            <button onClick={()=>{setShowCreate(false);setToast('가맹점이 등록되었습니다');}} style={{padding:'10px 24px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>등록</button>
-          </div>
-        </Modal>
+function TransactionPage({setModal}){
+  const [search,setSearch]=useState('');
+  const [typeFilter,setTypeFilter]=useState('전체');
+  const filtered=allTransactions.filter(t=>(typeFilter==='전체'||t.type===typeFilter)&&(search===''||t.user.includes(search)||t.merchant.includes(search)));
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>거래 내역</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>시스템 전체 가상 거래 내역 조회 및 검색</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:20}}>
+      {[['💳','오늘 거래','7건','전체 가상 거래'],['💰','충전 합계','₩150,000','가상 충전 총액'],['🛒','결제 합계','₩44,000','가상 결제 총액'],['👥','활성 사용자','3명','오늘 거래 발생']].map(([icon,label,value,sub])=>
+        <div key={label} style={{background:C.surface,borderRadius:12,padding:'18px 20px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',display:'flex',gap:12,alignItems:'center'}}>
+          <div style={{width:42,height:42,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{icon}</div>
+          <div><div style={{fontSize:12,color:C.textSec}}>{label}</div><div style={{fontSize:18,fontWeight:700}}>{value}</div><div style={{fontSize:11,color:C.textSec}}>{sub}</div></div>
+        </div>
       )}
     </div>
-  );
-}
-
-// ===== User Management Page =====
-function UserPage({onDetail,setToast}){
-  const [showCreate,setShowCreate]=useState(false);
-  const [form,setForm]=useState({name:'',phone:'',balance:''});
-  return(
-    <div style={{animation:'fadeIn 300ms ease'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-        <div style={{fontSize:14,color:C.textLight}}>총 <strong style={{color:C.text}}>{USERS.length}명</strong> 사용자</div>
-        <button onClick={()=>setShowCreate(true)} style={{padding:'10px 20px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer'}}>+ 사용자 추가</button>
-      </div>
-      <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)'}}>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{borderBottom:`2px solid ${C.border}`}}>
-              {['ID','이름','연락처','잔액','총 결제액','거래 수','상태','가입일'].map(h=><th key={h} style={{padding:'14px 16px',textAlign:'left',fontSize:13,color:C.textLight,fontWeight:600}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {USERS.map((u,i)=>(
-              <tr key={u.id} onClick={()=>onDetail(u)} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background 150ms',animation:`slideUp 400ms ease ${i*60}ms both`}}
-                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`}
-                onMouseLeave={e=>e.currentTarget.style.background=''}>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:500,color:C.primary}}>{u.id}</td>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600}}>{u.name}</td>
-                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{u.phone}</td>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600}}>₩{u.balance.toLocaleString()}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>₩{u.totalSpent.toLocaleString()}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>{u.txCount}건</td>
-                <td style={{padding:'14px 16px'}}><Badge text={u.status}/></td>
-                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{u.joinDate}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {showCreate && (
-        <Modal title="사용자 추가" onClose={()=>setShowCreate(false)}>
-          <InputField label="이름" value={form.name} onChange={v=>setForm({...form,name:v})} placeholder="이름"/>
-          <InputField label="연락처" value={form.phone} onChange={v=>setForm({...form,phone:v})} placeholder="010-0000-0000"/>
-          <InputField label="초기 잔액" value={form.balance} onChange={v=>setForm({...form,balance:v})} type="number" placeholder="0"/>
-          <div style={{display:'flex',gap:12,justifyContent:'flex-end',marginTop:24}}>
-            <button onClick={()=>setShowCreate(false)} style={{padding:'10px 24px',border:`1px solid ${C.border}`,borderRadius:8,background:'#fff',fontSize:14,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
-            <button onClick={()=>{setShowCreate(false);setToast('사용자가 추가되었습니다');}} style={{padding:'10px 24px',background:C.primary,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>추가</button>
-          </div>
-        </Modal>
-      )}
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {['전체','결제','충전'].map(t=><button key={t} onClick={()=>setTypeFilter(t)} style={{padding:'8px 16px',borderRadius:20,border:typeFilter===t?'none':`1px solid ${C.border}`,background:typeFilter===t?C.primary:'transparent',color:typeFilter===t?'#fff':C.text,fontSize:13,fontWeight:500,cursor:'pointer'}}>{t}</button>)}
+      <div style={{flex:1}}/>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="사용자 / 가맹점 검색..." style={{padding:'8px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:220,outline:'none',fontFamily:'Pretendard'}}/>
     </div>
-  );
+    <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+          {['거래ID','사용자','가맹점','금액','유형','상태','일시'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:13,fontWeight:600,color:C.textSec}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{filtered.map(t=><tr key={t.id} onClick={()=>setModal({type:'tx-detail',data:t})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600,color:C.primary}}>{t.id}</td>
+          <td style={{padding:'14px',fontSize:13}}>{t.user}</td>
+          <td style={{padding:'14px',fontSize:13}}>{t.merchant}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600,color:t.type==='충전'?C.success:C.text}}>₩{t.amount.toLocaleString()}</td>
+          <td style={{padding:'14px',fontSize:13}}>{t.type}</td>
+          <td style={{padding:'14px'}}><Badge text={t.status}/></td>
+          <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{t.date}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
 }
 
-// ===== Dashboard Page =====
-function DashboardPage(){
-  const kpis = [
-    {label:'오늘 결제 금액',value:1284000,suffix:'원',icon:'💳',change:'+12%',color:C.primary},
-    {label:'오늘 거래 건수',value:47,suffix:'건',icon:'📊',change:'+8건',color:C.accent},
-    {label:'활성 가맹점',value:5,suffix:'개',icon:'🏪',change:'',color:C.success},
-    {label:'총 사용자',value:6,suffix:'명',icon:'👥',change:'+2명',color:C.warning},
-  ];
-  return(
-    <div style={{animation:'fadeIn 300ms ease'}}>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:20,marginBottom:24}}>
-        {kpis.map((k,i)=>(
-          <div key={k.label} style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24,animation:`slideUp 400ms ease ${i*80}ms both`,transition:'all 200ms'}}
-            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.12)';}}
-            onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.08)';}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-              <span style={{fontSize:13,color:C.textLight}}>{k.label}</span>
-              <span style={{fontSize:24}}>{k.icon}</span>
-            </div>
-            <div style={{fontSize:28,fontWeight:800,color:k.color}}><CountUp end={k.value} suffix={k.suffix}/></div>
-            {k.change && <div style={{fontSize:12,color:C.success,marginTop:4}}>{k.change}</div>}
-          </div>
-        ))}
+function MerchantPage({setModal}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+      <div><h2 style={{fontSize:22,fontWeight:700}}>가맹점 관리</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>테스트용 가맹점 등록 및 QR 코드 정보 관리</p></div>
+      <button onClick={()=>setModal({type:'add-merchant'})} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 가맹점 등록</button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:20}}>
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>일별 가상 매출 추이</h3>
+        <ResponsiveContainer width="100%" height={200}><BarChart data={merchantSales}><CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/><XAxis dataKey="day" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}} tickFormatter={v=>`${v/10}만`}/><Tooltip formatter={v=>`₩${(v*1000).toLocaleString()}`}/><Bar dataKey="sales" fill={C.primary} radius={[6,6,0,0]} name="매출(천원)"/></BarChart></ResponsiveContainer>
       </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:20,marginBottom:24}}>
-        <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-          <h3 style={{fontSize:18,fontWeight:600,marginBottom:20}}>📈 일별 매출 추이</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={dailySales}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0"/>
-              <XAxis dataKey="day" tick={{fontSize:12,fill:C.textLight}}/>
-              <YAxis tick={{fontSize:12,fill:C.textLight}} tickFormatter={v=>`${v/10}만`}/>
-              <Tooltip formatter={v=>[`₩${(v*1000).toLocaleString()}`,'매출']}/>
-              <Bar dataKey="amount" fill={C.primary} radius={[4,4,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-          <h3 style={{fontSize:18,fontWeight:600,marginBottom:20}}>🏷️ 업종별 비율</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
-                {categoryData.map((entry,i)=><Cell key={i} fill={entry.color}/>)}
-              </Pie>
-              <Legend formatter={(v)=><span style={{fontSize:12,color:C.text}}>{v}</span>}/>
-              <Tooltip formatter={v=>[`${v}%`,'비율']}/>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.08)',padding:24}}>
-        <h3 style={{fontSize:18,fontWeight:600,marginBottom:16}}>⚡ 최근 거래</h3>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{borderBottom:`2px solid ${C.border}`}}>
-              {['거래번호','일시','가맹점','금액','유형','상태'].map(h=><th key={h} style={{padding:'12px 16px',textAlign:'left',fontSize:13,color:C.textLight,fontWeight:600}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {TRANSACTIONS.slice(0,5).map((tx,i)=>(
-              <tr key={tx.id} style={{borderBottom:`1px solid ${C.border}`,animation:`slideUp 400ms ease ${i*60}ms both`,transition:'background 150ms'}}
-                onMouseEnter={e=>e.currentTarget.style.background=`${C.primary}04`}
-                onMouseLeave={e=>e.currentTarget.style.background=''}>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:500}}>{tx.id}</td>
-                <td style={{padding:'14px 16px',fontSize:13,color:C.textLight}}>{tx.date}</td>
-                <td style={{padding:'14px 16px',fontSize:14}}>{tx.merchant}</td>
-                <td style={{padding:'14px 16px',fontSize:14,fontWeight:600}}>₩{tx.amount.toLocaleString()}</td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.type}/></td>
-                <td style={{padding:'14px 16px'}}><Badge text={tx.status}/></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{background:C.surface,borderRadius:12,padding:24,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>업종별 거래 비율</h3>
+        <ResponsiveContainer width="100%" height={200}><PieChart><Pie data={catDist} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>{catDist.map((_,i)=><Cell key={i} fill={pieColors[i]}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer>
       </div>
     </div>
-  );
+    <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+          {['가맹점명 (중국어)','한국어명','QR 코드','업종','오늘 매출','건수','상태'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:13,fontWeight:600,color:C.textSec}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{merchants.map(m=><tr key={m.id} onClick={()=>setModal({type:'merchant-detail',data:m})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:14,fontWeight:600}}>{m.name}</td>
+          <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{m.nameKo}</td>
+          <td style={{padding:'14px'}}><span style={{padding:'3px 8px',borderRadius:6,fontSize:11,background:`${C.primary}10`,color:C.primary,fontFamily:'monospace'}}>{m.qrCode}</span></td>
+          <td style={{padding:'14px',fontSize:13}}>{m.category}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>₩{m.todaySales.toLocaleString()}</td>
+          <td style={{padding:'14px',fontSize:13}}>{m.todayCount}건</td>
+          <td style={{padding:'14px'}}><Badge text={m.status}/></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
 }
 
-// ===== Detail Modals =====
-function TransactionDetailModal({item,onClose}){
-  return(
-    <Modal title={`거래 상세 — ${item.id}`} onClose={onClose}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-        <div><div style={{fontSize:12,color:C.textLight}}>거래번호</div><div style={{fontSize:15,fontWeight:600}}>{item.id}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>일시</div><div style={{fontSize:15}}>{item.date}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>가맹점</div><div style={{fontSize:15}}>{item.merchant}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>사용자</div><div style={{fontSize:15}}>{item.user}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>금액</div><div style={{fontSize:18,fontWeight:700,color:C.primary}}>₩{item.amount.toLocaleString()}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>결제 방식</div><div style={{fontSize:15}}>{item.method}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>유형</div><Badge text={item.type}/></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>상태</div><Badge text={item.status}/></div>
-      </div>
-      <div style={{marginTop:20}}>
-        <label style={{fontSize:13,fontWeight:600,color:C.text}}>관리자 메모</label>
-        <textarea style={{width:'100%',marginTop:6,padding:12,border:`1px solid ${C.border}`,borderRadius:8,minHeight:80,fontFamily:'inherit',fontSize:14,resize:'vertical'}} placeholder="메모를 입력하세요..."/>
-      </div>
-    </Modal>
-  );
+function UserMgmtPage({setModal}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+      <div><h2 style={{fontSize:22,fontWeight:700}}>사용자 관리</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>데모용 사용자 계정 생성, 조회 및 관리</p></div>
+      <button onClick={()=>setModal({type:'add-user'})} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 사용자 추가</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:12,boxShadow:'0 1px 3px rgba(0,0,0,0.06)',overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#F8FAFC',borderBottom:`2px solid ${C.border}`}}>
+          {['이름 (중국어)','연락처','잔액','거래 수','상태','가입일'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:13,fontWeight:600,color:C.textSec}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{demoUsers.map(u=><tr key={u.id} onClick={()=>setModal({type:'user-detail',data:u})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .15s'}} onMouseEnter={e=>e.currentTarget.style.background='#F8FAFC'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:14,fontWeight:600}}>{u.name}</td>
+          <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{u.phone}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>₩{u.balance.toLocaleString()}</td>
+          <td style={{padding:'14px',fontSize:13}}>{u.transactions}건</td>
+          <td style={{padding:'14px'}}><Badge text={u.status}/></td>
+          <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{u.created}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
 }
 
-function MerchantDetailModal({item,onClose}){
-  return(
-    <Modal title={`가맹점 상세 — ${item.name}`} onClose={onClose} width={600}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-        <div><div style={{fontSize:12,color:C.textLight}}>가맹점 ID</div><div style={{fontSize:15,fontWeight:600}}>{item.id}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>업종</div><div style={{fontSize:15}}>{item.category}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>대표자</div><div style={{fontSize:15}}>{item.owner}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>연락처</div><div style={{fontSize:15}}>{item.phone}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>가입일</div><div style={{fontSize:15}}>{item.joinDate}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>상태</div><Badge text={item.status}/></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>총 매출</div><div style={{fontSize:18,fontWeight:700,color:C.primary}}>₩{item.sales.toLocaleString()}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>거래 건수</div><div style={{fontSize:18,fontWeight:700}}>{item.txCount}건</div></div>
+// ── Modals ──
+function ModalContent({modal,onClose}){
+  if(!modal)return null;
+  const d=modal.data;
+  switch(modal.type){
+    case 'charge-success':return(<div style={{textAlign:'center'}}><div style={{fontSize:48,marginBottom:12}}>✅</div><h4 style={{fontSize:18,fontWeight:700,color:C.success}}>充值成功! (충전 완료)</h4><div style={{fontSize:24,fontWeight:800,margin:'12px 0'}}>+₩{d.amount.toLocaleString()}</div><button onClick={onClose} style={{padding:'12px 32px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>确认</button></div>);
+    case 'tx-detail':return(<div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[['거래 ID',d.id],['사용자',d.user],['가맹점',d.merchant],['금액',`₩${d.amount.toLocaleString()}`],['유형',d.type],['상태',d.status],['일시',d.date]].map(([k,v])=><div key={k} style={{background:'#F8FAFC',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
       </div>
-      <div style={{marginTop:20,padding:16,background:'#F8FAFC',borderRadius:8}}>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>📷 가맹점 QR 코드</div>
-        <div style={{width:120,height:120,background:'#fff',border:'1px solid #E2E8F0',borderRadius:8,display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:2,padding:8}}>
-          {[...Array(25)].map((_,i)=><div key={i} style={{background:Math.random()>0.4?C.secondary:'transparent',borderRadius:1}}/>)}
+      <button onClick={onClose} style={{width:'100%',padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>닫기</button>
+    </div>);
+    case 'merchant-detail':return(<div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:13,color:C.textSec}}>{d.nameKo}</div></div>
+        <Badge text={d.status}/>
+      </div>
+      <div style={{background:'#F8FAFC',borderRadius:12,padding:20,textAlign:'center',marginBottom:16}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>가맹점 QR 코드</div>
+        <div style={{width:120,height:120,background:'#fff',border:`2px solid ${C.border}`,borderRadius:12,margin:'0 auto',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+          <div style={{fontSize:36}}>📱</div>
+          <div style={{fontSize:10,color:C.textSec,marginTop:4,fontFamily:'monospace'}}>{d.qrCode}</div>
         </div>
       </div>
-      <div style={{marginTop:16}}>
-        <label style={{fontSize:13,fontWeight:600,color:C.text}}>관리자 메모</label>
-        <textarea style={{width:'100%',marginTop:6,padding:12,border:`1px solid ${C.border}`,borderRadius:8,minHeight:80,fontFamily:'inherit',fontSize:14,resize:'vertical'}} placeholder="가맹점 관련 메모..."/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[['업종',d.category],['오늘 매출',`₩${d.todaySales.toLocaleString()}`],['오늘 건수',`${d.todayCount}건`],['QR 코드',d.qrCode]].map(([k,v])=><div key={k} style={{background:'#F8FAFC',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
       </div>
-    </Modal>
-  );
+      <div style={{display:'flex',gap:8}}><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:14,cursor:'pointer'}}>닫기</button><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>QR 재생성</button></div>
+    </div>);
+    case 'user-detail':return(<div>
+      <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:16}}>
+        <div style={{width:48,height:48,borderRadius:'50%',background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:C.primary}}>{d.name[0]}</div>
+        <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:13,color:C.textSec}}>{d.phone}</div></div>
+        <Badge text={d.status}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+        {[['잔액',`₩${d.balance.toLocaleString()}`],['거래 수',`${d.transactions}건`],['가입일',d.created],['상태',d.status]].map(([k,v])=><div key={k} style={{background:'#F8FAFC',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+      </div>
+      <div style={{display:'flex',gap:8}}><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:14,cursor:'pointer'}}>닫기</button><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>잔액 초기화</button></div>
+    </div>);
+    case 'add-merchant':return(<div>
+      {[['가맹점명 (중국어)',''],['한국어명',''],['업종','카페'],['주소','']].map(([label])=><div key={label} style={{marginBottom:14}}><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>{label}</label><input placeholder={`${label} 입력`} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,outline:'none',fontFamily:'Pretendard'}}/></div>)}
+      <div style={{display:'flex',gap:8,marginTop:8}}><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:14,cursor:'pointer'}}>취소</button><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>등록 + QR 생성</button></div>
+    </div>);
+    case 'add-user':return(<div>
+      {[['이름 (중국어)',''],['연락처',''],['초기 잔액','100000']].map(([label,val])=><div key={label} style={{marginBottom:14}}><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>{label}</label><input defaultValue={val} placeholder={`${label} 입력`} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,outline:'none',fontFamily:'Pretendard'}}/></div>)}
+      <div style={{display:'flex',gap:8,marginTop:8}}><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:14,cursor:'pointer'}}>취소</button><button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>추가</button></div>
+    </div>);
+    default:return null;
+  }
 }
 
-function UserDetailModal({item,onClose}){
-  return(
-    <Modal title={`사용자 상세 — ${item.name}`} onClose={onClose}>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-        <div><div style={{fontSize:12,color:C.textLight}}>사용자 ID</div><div style={{fontSize:15,fontWeight:600}}>{item.id}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>이름</div><div style={{fontSize:15,fontWeight:600}}>{item.name}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>연락처</div><div style={{fontSize:15}}>{item.phone}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>상태</div><Badge text={item.status}/></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>잔액</div><div style={{fontSize:18,fontWeight:700,color:C.primary}}>₩{item.balance.toLocaleString()}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>총 결제액</div><div style={{fontSize:18,fontWeight:700}}>₩{item.totalSpent.toLocaleString()}</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>거래 건수</div><div style={{fontSize:15}}>{item.txCount}건</div></div>
-        <div><div style={{fontSize:12,color:C.textLight}}>가입일</div><div style={{fontSize:15}}>{item.joinDate}</div></div>
-      </div>
-      <div style={{marginTop:20}}>
-        <label style={{fontSize:13,fontWeight:600,color:C.text}}>관리자 메모</label>
-        <textarea style={{width:'100%',marginTop:6,padding:12,border:`1px solid ${C.border}`,borderRadius:8,minHeight:80,fontFamily:'inherit',fontSize:14,resize:'vertical'}} placeholder="사용자 관련 메모..."/>
-      </div>
-    </Modal>
-  );
-}
-
-// ===== Main App =====
+// ── App ──
 function App(){
   const [loading,setLoading]=useState(true);
-  const [page,setPage]=useState('dashboard');
-  const [toast,setToast]=useState(null);
+  const [page,setPage]=useState('qr-payment');
   const [modal,setModal]=useState(null);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
 
-  useEffect(()=>{setTimeout(()=>setLoading(false),1500);},[]);
-
-  if(loading) return(
-    <div style={{display:'flex',minHeight:'100vh'}}>
-      <div style={{width:260,background:C.sidebarBg,flexShrink:0}}/>
-      <div style={{flex:1,padding:24}}>
-        <div style={{display:'flex',flexDirection:'column',gap:16}}>
-          {[...Array(4)].map((_,i)=><div key={i} style={{height:120,borderRadius:12,background:'linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)',backgroundSize:'200% 100%',animation:'shimmer 1.5s infinite'}}/>)}
-        </div>
-      </div>
-    </div>
-  );
-
-  const PAGES = {dashboard:'대시보드 홈','qr-payment':'QR 결제','transaction-history':'거래 내역','merchant-management':'가맹점 관리','user-management':'사용자 관리'};
-  const NAV = [
-    {id:'dashboard',icon:'📊',label:'대시보드 홈'},
-    {id:'qr-payment',icon:'💳',label:'QR 결제'},
-    {id:'transaction-history',icon:'📋',label:'거래 내역'},
-    {id:'merchant-management',icon:'🏪',label:'가맹점 관리'},
-    {id:'user-management',icon:'👥',label:'사용자 관리'},
+  const menus=[
+    {key:'qr-payment',icon:'📱',label:'QR 결제'},
+    {key:'transactions',icon:'📋',label:'거래 내역'},
+    {key:'merchants',icon:'🏪',label:'가맹점 관리'},
+    {key:'users',icon:'👥',label:'사용자 관리'}
   ];
+  const modalTitles={'charge-success':'충전 완료','tx-detail':'거래 상세','merchant-detail':'가맹점 상세','user-detail':'사용자 상세','add-merchant':'가맹점 등록','add-user':'사용자 추가'};
 
-  function renderPage(){
-    switch(page){
-      case 'dashboard': return <DashboardPage/>;
-      case 'qr-payment': return <QRPaymentPage/>;
-      case 'transaction-history': return <TransactionPage onDetail={item=>setModal({type:'tx',item})}/>;
-      case 'merchant-management': return <MerchantPage onDetail={item=>setModal({type:'merchant',item})} setToast={setToast}/>;
-      case 'user-management': return <UserPage onDetail={item=>setModal({type:'user',item})} setToast={setToast}/>;
-      default: return <DashboardPage/>;
-    }
-  }
-
-  return(
-    <div style={{display:'flex',minHeight:'100vh'}}>
-      {/* Sidebar */}
-      <aside style={{width:260,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'sticky',top:0,height:'100vh'}}>
-        <div style={{padding:'20px 24px',display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:36,height:36,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.accent})`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:20,color:'#fff'}}>💳</span>
-          </div>
-          <div>
-            <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>QR 결제 데모</div>
-            <div style={{fontSize:11,color:C.sidebarText}}>맞춤 구현 데모</div>
-          </div>
-        </div>
-        <div style={{flex:1,padding:'8px 12px',display:'flex',flexDirection:'column',gap:2}}>
-          {NAV.map(n=>(
-            <button key={n.id} onClick={()=>setPage(n.id)} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 16px',borderRadius:8,border:'none',cursor:'pointer',background:page===n.id?`${C.sidebarActive}18`:'transparent',color:page===n.id?C.sidebarActive:C.sidebarText,fontSize:14,fontWeight:page===n.id?600:400,transition:'all 150ms',fontFamily:'inherit',textAlign:'left'}}>
-              <span style={{fontSize:18}}>{n.icon}</span>
-              {n.label}
-            </button>
-          ))}
-        </div>
-        <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{width:36,height:36,borderRadius:'50%',background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,fontWeight:700}}>관</div>
-            <div>
-              <div style={{fontSize:13,fontWeight:600,color:'#fff'}}>관리자</div>
-              <div style={{fontSize:11,color:C.sidebarText}}>admin@qrpay.com</div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-        <header style={{height:60,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',flexShrink:0}}>
-          <h1 style={{fontSize:20,fontWeight:700,color:C.text}}>{PAGES[page]}</h1>
-          <div style={{display:'flex',alignItems:'center',gap:16}}>
-            <div style={{position:'relative'}}>
-              <input placeholder="검색..." style={{padding:'8px 16px 8px 36px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:220,fontFamily:'inherit',outline:'none'}}/>
-              <span style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',fontSize:14}}>🔍</span>
-            </div>
-            <div style={{width:36,height:36,borderRadius:'50%',background:`${C.primary}10`,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative'}}>
-              <span style={{fontSize:18}}>🔔</span>
-              <div style={{position:'absolute',top:2,right:2,width:8,height:8,borderRadius:'50%',background:C.danger}}/>
-            </div>
-          </div>
-        </header>
-
-        <main style={{flex:1,overflow:'auto',padding:28}}>
-          {renderPage()}
-        </main>
+  return(<div style={{display:'flex',minHeight:'100vh'}}>
+    <aside style={{width:260,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
+      <div style={{padding:'24px 20px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{fontSize:20,fontWeight:800,color:'#fff'}}>📱 QR 결제 데모</div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginTop:4}}>맞춤 구현 데모</div>
       </div>
-
-      {/* Modals */}
-      {modal?.type==='tx' && <TransactionDetailModal item={modal.item} onClose={()=>setModal(null)}/>}
-      {modal?.type==='merchant' && <MerchantDetailModal item={modal.item} onClose={()=>setModal(null)}/>}
-      {modal?.type==='user' && <UserDetailModal item={modal.item} onClose={()=>setModal(null)}/>}
-
-      {/* Toast */}
-      {toast && <Toast message={toast} onClose={()=>setToast(null)}/>}
-    </div>
-  );
+      <div style={{padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+        <div style={{padding:'10px 12px',background:'rgba(255,255,255,0.05)',borderRadius:8,fontSize:11,color:'rgba(255,255,255,0.6)',lineHeight:1.5}}>
+          중국 관광객 대상 QR 결제 시연용<br/>데모 앱 + 관리자 페이지
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'12px 10px'}}>
+        {menus.map(m=><button key={m.key} onClick={()=>setPage(m.key)} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:10,border:'none',background:page===m.key?C.sidebarActive:'transparent',color:page===m.key?'#fff':'rgba(255,255,255,0.6)',fontSize:14,fontWeight:page===m.key?600:400,cursor:'pointer',marginBottom:2,transition:'all .15s',textAlign:'left'}} onMouseEnter={e=>{if(page!==m.key)e.currentTarget.style.background=C.sidebarHover}} onMouseLeave={e=>{if(page!==m.key)e.currentTarget.style.background='transparent'}}>
+          <span style={{fontSize:18}}>{m.icon}</span>{m.label}
+        </button>)}
+      </nav>
+      <div style={{padding:'16px 20px',borderTop:'1px solid rgba(255,255,255,0.08)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:'50%',background:'rgba(255,255,255,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:'#fff',fontWeight:600}}>관</div>
+          <div><div style={{fontSize:13,color:'#fff',fontWeight:500}}>관리자</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>admin@demo.kr</div></div>
+        </div>
+      </div>
+    </aside>
+    <main style={{flex:1,marginLeft:260}}>
+      <header style={{height:60,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 32px',position:'sticky',top:0,zIndex:50}}>
+        <div style={{fontSize:16,fontWeight:700}}>{menus.find(m=>m.key===page)?.label}</div>
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <span style={{padding:'4px 10px',borderRadius:8,fontSize:12,fontWeight:600,background:`${C.warning}14`,color:C.warning}}>시연 모드</span>
+          <button style={{background:'none',border:'none',fontSize:18,cursor:'pointer'}}>🔔</button>
+        </div>
+      </header>
+      <div style={{padding:32}}>
+        {page==='qr-payment'&&<QRPaymentPage setModal={setModal}/>}
+        {page==='transactions'&&<TransactionPage setModal={setModal}/>}
+        {page==='merchants'&&<MerchantPage setModal={setModal}/>}
+        {page==='users'&&<UserMgmtPage setModal={setModal}/>}
+      </div>
+    </main>
+    <Modal open={!!modal} onClose={()=>setModal(null)} title={modal?modalTitles[modal.type]||'상세':''}><ModalContent modal={modal} onClose={()=>setModal(null)}/></Modal>
+  </div>);
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
