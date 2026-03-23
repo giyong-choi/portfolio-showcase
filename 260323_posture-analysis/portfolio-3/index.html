@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>포스처허브 - 자세 평가 통합 관리 플랫폼</title>
+<title>헬스트래커 - 건강검진 결과 관리</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -29,50 +29,54 @@ const {BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,RadarChart,Radar,Pol
 const C={primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',bg:'#FAF5FF',surface:'#FFFFFF',text:'#1E1B4B',textSec:'#6D28D9',border:'#E5E7EB',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#F5F3FF',sidebarHover:'#EDE9FE',sidebarActive:'#7C3AED'};
 
 // ── Data ──
-const therapists=[
-  {id:1,name:'김재훈',role:'원장',clients:28,evaluations:142,avgScore:215},
-  {id:2,name:'이수진',role:'치료사',clients:22,evaluations:98,avgScore:245},
-  {id:3,name:'박민서',role:'치료사',clients:18,evaluations:76,avgScore:230}
+const examCategories=[
+  {name:'혈액검사',items:[{name:'혈당(공복)',value:105,unit:'mg/dL',ref:'70~100',status:'주의'},{name:'총콜레스테롤',value:195,unit:'mg/dL',ref:'~200',status:'정상'},{name:'HDL',value:52,unit:'mg/dL',ref:'40~',status:'정상'},{name:'LDL',value:128,unit:'mg/dL',ref:'~130',status:'정상'},{name:'중성지방',value:165,unit:'mg/dL',ref:'~150',status:'주의'},{name:'헤모글로빈',value:14.2,unit:'g/dL',ref:'13~17',status:'정상'}]},
+  {name:'간기능',items:[{name:'AST(GOT)',value:28,unit:'U/L',ref:'~40',status:'정상'},{name:'ALT(GPT)',value:35,unit:'U/L',ref:'~40',status:'정상'},{name:'감마GTP',value:55,unit:'U/L',ref:'~50',status:'주의'},{name:'ALP',value:72,unit:'U/L',ref:'30~120',status:'정상'}]},
+  {name:'신장기능',items:[{name:'크레아티닌',value:1.0,unit:'mg/dL',ref:'0.7~1.2',status:'정상'},{name:'BUN',value:18,unit:'mg/dL',ref:'8~23',status:'정상'},{name:'eGFR',value:92,unit:'mL/min',ref:'60~',status:'정상'}]},
+  {name:'체성분',items:[{name:'체중',value:72.5,unit:'kg',ref:'-',status:'정상'},{name:'BMI',value:24.8,unit:'',ref:'18.5~25',status:'정상'},{name:'체지방률',value:26.5,unit:'%',ref:'10~20',status:'주의'},{name:'근육량',value:32.1,unit:'kg',ref:'-',status:'정상'}]}
 ];
 
-const clients=[
-  {id:1,name:'정하영',age:34,therapist:'김재훈',sessions:8,nai:285,grade:'주의',trend:'개선'},
-  {id:2,name:'최동현',age:55,therapist:'이수진',sessions:5,nai:340,grade:'관리필요',trend:'악화'},
-  {id:3,name:'김서연',age:28,therapist:'김재훈',sessions:12,nai:120,grade:'정상',trend:'유지'},
-  {id:4,name:'이준혁',age:42,therapist:'박민서',sessions:3,nai:210,grade:'주의',trend:'개선'},
-  {id:5,name:'한소희',age:31,therapist:'이수진',sessions:7,nai:195,grade:'주의',trend:'개선'},
-  {id:6,name:'오세진',age:47,therapist:'박민서',sessions:10,nai:310,grade:'관리필요',trend:'유지'}
+const gradeRanges=[{min:0,max:2,grade:'정상',color:C.success},{min:3,max:5,grade:'주의',color:C.warning},{min:6,max:99,grade:'관리필요',color:C.danger}];
+
+const patients=[
+  {id:1,name:'김민수',age:52,exams:6,lastExam:'2025-01-15',abnormal:3,grade:'주의'},
+  {id:2,name:'이서연',age:38,exams:4,lastExam:'2025-01-10',abnormal:1,grade:'정상'},
+  {id:3,name:'박지훈',age:61,exams:8,lastExam:'2025-01-18',abnormal:6,grade:'관리필요'},
+  {id:4,name:'최예린',age:45,exams:5,lastExam:'2025-01-12',abnormal:2,grade:'정상'},
+  {id:5,name:'정우성',age:55,exams:7,lastExam:'2025-01-20',abnormal:4,grade:'주의'}
 ];
 
-const monthlyStats=[
-  {month:'10월',evaluations:42,clients:18,avgNai:248},{month:'11월',evaluations:48,clients:22,avgNai:235},
-  {month:'12월',evaluations:55,clients:25,avgNai:228},{month:'1월',evaluations:50,clients:24,avgNai:220},
-  {month:'2월',evaluations:46,clients:20,avgNai:215}
+const trendData=[
+  {date:'2024-01',glucose:98,cholesterol:180,bmi:23.5},{date:'2024-07',glucose:102,cholesterol:188,bmi:24.1},
+  {date:'2025-01',glucose:105,cholesterol:195,bmi:24.8}
 ];
-const gradeDistribution=[{name:'정상',value:35},{name:'주의',value:40},{name:'관리필요',value:25}];
+
+const radarData=[{area:'혈액',score:78},{area:'간기능',score:82},{area:'신장',score:95},{area:'체성분',score:70},{area:'혈압',score:88},{area:'비타민',score:65}];
+const gradeDist=[{name:'정상',value:42},{name:'주의',value:35},{name:'관리필요',value:23}];
 const pieColors=['#059669','#D97706','#DC2626'];
 
-const comparisonSessions=[
-  {date:'2025-12-15',rom:{cervical:10,thoracic:8,lumbar:10,shoulder:11,hip:12,knee:6},structure:{head:12,scapula:13,thorax:9,pelvis:8,lower:14},total:285},
-  {date:'2025-11-10',rom:{cervical:11,thoracic:9,lumbar:11,shoulder:13,hip:13,knee:7},structure:{head:14,scapula:15,thorax:10,pelvis:9,lower:16},total:310},
-  {date:'2025-10-05',rom:{cervical:9,thoracic:7,lumbar:9,shoulder:10,hip:11,knee:5},structure:{head:11,scapula:12,thorax:8,pelvis:7,lower:13},total:265}
-];
-
-const radarAreas=['경추','흉추','요추','어깨','골반','하지'];
-
-const romItems=[
-  {name:'경추',items:['굴곡','신전','우측만','좌측만','우회전','좌회전'],ref:[45,50,40,42,38,40],scores:[2,1,2,2,1,2]},
-  {name:'어깨',items:['굴곡R','굴곡L','외전R','외전L','외회전R','외회전L','내회전R','내회전L'],ref:[165,162,170,168,85,82,70,72],scores:[1,2,1,1,2,1,2,1]},
-  {name:'고관절',items:['굴곡R','굴곡L','신전R','신전L','외전R','외전L'],ref:[115,112,28,25,42,40],scores:[2,1,2,2,1,2]}
+const masterItems=[
+  {id:1,category:'혈액검사',name:'혈당(공복)',unit:'mg/dL',refLow:70,refHigh:100,status:'활성'},
+  {id:2,category:'혈액검사',name:'총콜레스테롤',unit:'mg/dL',refLow:0,refHigh:200,status:'활성'},
+  {id:3,category:'간기능',name:'AST(GOT)',unit:'U/L',refLow:0,refHigh:40,status:'활성'},
+  {id:4,category:'간기능',name:'ALT(GPT)',unit:'U/L',refLow:0,refHigh:40,status:'활성'},
+  {id:5,category:'신장기능',name:'크레아티닌',unit:'mg/dL',refLow:0.7,refHigh:1.2,status:'활성'},
+  {id:6,category:'체성분',name:'BMI',unit:'',refLow:18.5,refHigh:25,status:'활성'}
 ];
 
 // ── Components ──
 function Skeleton(){return(<div style={{display:'flex',minHeight:'100vh'}}><div style={{width:240,background:C.sidebarBg}}/><div style={{flex:1,padding:28}}><div className="skeleton" style={{width:'50%',height:24,marginBottom:16}}/><div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>{[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:90}}/>)}</div></div></div>);}
 
 function Badge({text}){
-  const colors={정상:{bg:'#D1FAE5',t:'#065F46'},주의:{bg:'#FEF3C7',t:'#92400E'},관리필요:{bg:'#FEE2E2',t:'#991B1B'},원장:{bg:'#EDE9FE',t:'#5B21B6'},치료사:{bg:'#DBEAFE',t:'#1D4ED8'},개선:{bg:'#D1FAE5',t:'#065F46'},악화:{bg:'#FEE2E2',t:'#991B1B'},유지:{bg:'#F3F4F6',t:'#374151'}};
+  const colors={정상:{bg:'#D1FAE5',t:'#065F46'},주의:{bg:'#FEF3C7',t:'#92400E'},관리필요:{bg:'#FEE2E2',t:'#991B1B'},활성:{bg:'#D1FAE5',t:'#065F46'}};
   const c=colors[text]||{bg:'#F3F4F6',t:'#374151'};
   return <span style={{padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.t}}>{text}</span>;
+}
+
+function GaugeChart({abnormal,total=20,size=80}){
+  const pct=abnormal/total;const color=pct<0.15?C.success:pct<0.3?C.warning:C.danger;
+  const r=size/2-6;const circ=2*Math.PI*r;const offset=circ*(1-pct);
+  return(<svg width={size} height={size}><circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#E5E7EB" strokeWidth="6"/><circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="6" strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}/><text x={size/2} y={size/2+5} textAnchor="middle" fontSize="16" fontWeight="800" fill={color}>{abnormal}</text></svg>);
 }
 
 function KPICard({icon,label,value,sub}){
@@ -82,181 +86,148 @@ function KPICard({icon,label,value,sub}){
   </div>);
 }
 
-function GaugeSmall({score,max=462,size=60}){
-  const pct=Math.min(score/max,1);
-  const color=pct<0.33?C.success:pct<0.66?C.warning:C.danger;
-  return(<svg width={size} height={size/2+10} viewBox={`0 0 ${size} ${size/2+10}`}><path d={`M 4,${size/2} A ${size/2-4},${size/2-4} 0 0 1 ${size-4},${size/2}`} fill="none" stroke="#E5E7EB" strokeWidth="5" strokeLinecap="round"/><path d={`M 4,${size/2} A ${size/2-4},${size/2-4} 0 ${pct*180>180?1:0} 1 ${size/2-(size/2-4)*Math.cos(pct*Math.PI)},${size/2-(size/2-4)*Math.sin(pct*Math.PI)}`} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"/><text x={size/2} y={size/2} textAnchor="middle" fontSize="14" fontWeight="800" fill={color}>{score}</text></svg>);
-}
-
 // ── Pages ──
-function DashboardPage({setSelected}){
-  return(<div style={{animation:'fadeIn .4s'}}>
-    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>관리 대시보드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>기관 전체의 평가 현황, 치료사 실적, 고객 등급 분포</p></div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
-      <KPICard icon="👥" label="전체 고객" value={`${clients.length}명`} sub="관리필요 2명"/>
-      <KPICard icon="📋" label="이번 달 평가" value="46건" sub="전월 대비 -4건"/>
-      <KPICard icon="👨‍⚕️" label="치료사" value={`${therapists.length}명`} sub="활성"/>
-      <KPICard icon="📄" label="생성 리포트" value="38건" sub="이번 달"/>
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:24}}>
-      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 평가 건수 · 평균 NAI</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={monthlyStats}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="month" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}}/><Tooltip/><Legend/><Bar dataKey="evaluations" fill={C.primary} radius={[6,6,0,0]} name="평가 건수"/></BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>고객 등급 분포</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <PieChart><Pie data={gradeDistribution} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>{gradeDistribution.map((_,i)=><Cell key={i} fill={pieColors[i]}/>)}</Pie><Tooltip/></PieChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-    <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-      <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>치료사별 현황</h3>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
-        {therapists.map(t=><div key={t.id} onClick={()=>setSelected({type:'therapist',data:t})} style={{background:'#FAFAFE',borderRadius:12,padding:18,cursor:'pointer',border:`1px solid ${C.border}`,transition:'all .15s'}} onMouseEnter={e=>e.currentTarget.style.borderColor=C.primary} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:36,height:36,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:C.primary}}>{t.name[0]}</div>
-              <div><div style={{fontSize:14,fontWeight:700}}>{t.name}</div></div>
-            </div>
-            <Badge text={t.role}/>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,fontSize:12}}>
-            <div style={{textAlign:'center'}}><div style={{color:C.textSec}}>고객</div><div style={{fontWeight:700,marginTop:2}}>{t.clients}</div></div>
-            <div style={{textAlign:'center'}}><div style={{color:C.textSec}}>평가</div><div style={{fontWeight:700,marginTop:2}}>{t.evaluations}</div></div>
-            <div style={{textAlign:'center'}}><div style={{color:C.textSec}}>평균NAI</div><div style={{fontWeight:700,marginTop:2}}>{t.avgScore}</div></div>
-          </div>
-        </div>)}
-      </div>
-    </div>
-  </div>);
-}
-
-function EvaluationPage({setSelected}){
-  const [tab,setTab]=useState('ROM');
-  const categories=romItems;
+function ExamInputPage({setSelected}){
+  const [activeTab,setActiveTab]=useState(0);
   const [scores,setScores]=useState({});
-  const setScore=(cat,item,val)=>setScores(p=>({...p,[`${cat}-${item}`]:val}));
-  const totalScore=Object.values(scores).reduce((s,v)=>s+v,0)+categories.reduce((s,c)=>s+c.scores.reduce((a,b)=>a+b,0),0);
-  const grade=totalScore<154?'정상':totalScore<308?'주의':'관리 필요';
+  const cat=examCategories[activeTab];
+  const abnormalCount=Object.entries(scores).filter(([k,v])=>v==='주의'||v==='관리필요').length + examCategories.flatMap(c=>c.items).filter(i=>i.status!=='정상').length;
+  const grade=abnormalCount<=2?'정상':abnormalCount<=5?'주의':'관리필요';
+  const gradeColor=grade==='정상'?C.success:grade==='주의'?C.warning:C.danger;
   return(<div style={{animation:'fadeIn .4s'}}>
-    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>평가 진행</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>MediaPipe 분석 참고 수치 + NAI ROM/Structure 채점</p></div>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:24}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>검진 결과 입력</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>항목별 수치를 입력하면 정상 범위 이탈을 자동 판정합니다</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:24}}>
       <div>
         <div style={{display:'flex',gap:8,marginBottom:16}}>
-          {['ROM','Structure'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'10px 24px',borderRadius:10,border:tab===t?'none':`1px solid ${C.border}`,background:tab===t?C.primary:'transparent',color:tab===t?'#fff':C.text,fontSize:14,fontWeight:600,cursor:'pointer'}}>{t}</button>)}
+          {examCategories.map((c,i)=><button key={i} onClick={()=>setActiveTab(i)} style={{padding:'10px 20px',borderRadius:10,border:activeTab===i?'none':`1px solid ${C.border}`,background:activeTab===i?C.primary:'transparent',color:activeTab===i?'#fff':C.text,fontSize:13,fontWeight:600,cursor:'pointer'}}>{c.name} ({c.items.length})</button>)}
         </div>
         <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
-          {categories.map((cat,ci)=><div key={ci}>
-            <div style={{padding:'12px 16px',background:'#FAFAFE',fontWeight:700,fontSize:14,borderBottom:`1px solid ${C.border}`}}>{cat.name}</div>
-            {cat.items.map((item,ii)=>{
-              const key=`${cat.name}-${item}`;
-              const val=scores[key]??cat.scores[ii];
-              return(<div key={ii} style={{display:'flex',alignItems:'center',padding:'8px 16px',borderBottom:`1px solid ${C.border}`,gap:10}}>
-                <span style={{flex:1,fontSize:13}}>{item}</span>
-                {cat.ref&&<span style={{fontSize:11,color:C.accent,fontWeight:600,minWidth:50}}>{cat.ref[ii]}°</span>}
-                <div style={{display:'flex',gap:4}}>
-                  {[0,1,2,3].map(s=><button key={s} onClick={()=>setScore(cat.name,item,s)} style={{width:30,height:30,borderRadius:8,border:val===s?`2px solid ${C.primary}`:`1px solid ${C.border}`,background:val===s?`${C.primary}14`:C.surface,color:val===s?C.primary:C.text,fontSize:12,fontWeight:val===s?700:400,cursor:'pointer'}}>{s}</button>)}
-                </div>
-              </div>);
-            })}
-          </div>)}
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <thead><tr style={{background:'#FAFAFE',borderBottom:`2px solid ${C.border}`}}>
+              {['항목','수치','단위','참고치','판정'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{cat.items.map((item,i)=><tr key={i} onClick={()=>setSelected({type:'item-detail',data:item})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <td style={{padding:'14px',fontSize:14,fontWeight:600}}>{item.name}</td>
+              <td style={{padding:'14px',fontSize:14,fontWeight:700,color:item.status!=='정상'?C.danger:C.text}}>{item.value}</td>
+              <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{item.unit}</td>
+              <td style={{padding:'14px',fontSize:13,color:C.textSec}}>{item.ref}</td>
+              <td style={{padding:'14px'}}><Badge text={item.status}/></td>
+            </tr>)}</tbody>
+          </table>
         </div>
       </div>
       <div style={{position:'sticky',top:80,alignSelf:'start'}}>
         <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`,marginBottom:16}}>
-          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12,textAlign:'center'}}>실시간 합산</h3>
-          <div style={{textAlign:'center',marginBottom:12}}><GaugeSmall score={totalScore}/></div>
-          <div style={{textAlign:'center',marginBottom:12}}><Badge text={grade}/></div>
-          {categories.map((cat,i)=>{
-            const catTotal=cat.items.reduce((s,item,ii)=>{const key=`${cat.name}-${item}`;return s+(scores[key]??cat.scores[ii]);},0);
-            return(<div key={i} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12}}><span style={{color:C.textSec}}>{cat.name}</span><span style={{fontWeight:600}}>{catTotal}/{cat.items.length*3}</span></div>);
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:12,textAlign:'center'}}>종합 판정</h3>
+          <div style={{textAlign:'center',marginBottom:12}}><GaugeChart abnormal={abnormalCount}/><div style={{fontSize:12,color:C.textSec,marginTop:4}}>이상 항목 {abnormalCount}개</div></div>
+          <div style={{textAlign:'center',marginBottom:16}}><span style={{padding:'6px 16px',borderRadius:20,fontSize:14,fontWeight:700,background:`${gradeColor}14`,color:gradeColor}}>{grade}</span></div>
+          {examCategories.map((c,i)=>{
+            const catAbnormal=c.items.filter(it=>it.status!=='정상').length;
+            return(<div key={i} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12}}><span style={{color:C.textSec}}>{c.name}</span><span style={{fontWeight:600,color:catAbnormal>0?C.warning:C.success}}>{catAbnormal>0?`이상 ${catAbnormal}건`:'정상'}</span></div>);
           })}
-          <button onClick={()=>setSelected({type:'save-eval'})} style={{width:'100%',marginTop:16,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>평가 저장</button>
-        </div>
-        <div style={{background:C.surface,borderRadius:14,padding:20,border:`1px solid ${C.border}`}}>
-          <h4 style={{fontSize:13,fontWeight:700,marginBottom:8}}>MediaPipe 참고 데이터</h4>
-          {[['어깨 높이 차','12mm','주의'],['골반 기울기','8mm','경미'],['머리 기울기','5°','정상']].map(([k,v,s])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',fontSize:12,borderBottom:`1px solid ${C.border}`}}>
-            <span style={{color:C.textSec}}>{k}</span><span style={{fontWeight:600}}>{v} <span style={{color:s==='정상'?C.success:s==='경미'?C.accent:C.warning}}>({s})</span></span>
-          </div>)}
+          <button onClick={()=>setSelected({type:'save-exam'})} style={{width:'100%',marginTop:16,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>결과 저장</button>
         </div>
       </div>
     </div>
   </div>);
 }
 
-function ComparisonPage({setSelected}){
-  const radarData=radarAreas.map((area,i)=>({area,s1:comparisonSessions[0].rom[Object.keys(comparisonSessions[0].rom)[i]]||0,s2:comparisonSessions[1].rom[Object.keys(comparisonSessions[1].rom)[i]]||0,s3:comparisonSessions[2].rom[Object.keys(comparisonSessions[2].rom)[i]]||0}));
+function DashboardPage({setSelected}){
   return(<div style={{animation:'fadeIn .4s'}}>
-    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>비교 분석</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>고객의 평가 세션을 나란히 비교합니다</p></div>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:24}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>결과 대시보드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>검진 결과 종합 현황과 등급 분포</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
+      <KPICard icon="👥" label="전체 수검자" value={`${patients.length}명`}/>
+      <KPICard icon="📋" label="이번 달 검진" value="32건"/>
+      <KPICard icon="⚠️" label="이상 소견" value="8명" sub="주의 5 · 관리필요 3"/>
+      <KPICard icon="📄" label="리포트 발급" value="28건"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:24}}>
       <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>ROM 항목별 비교 (레이더)</h3>
-        <ResponsiveContainer width="100%" height={260}>
-          <RadarChart data={radarData}><PolarGrid stroke="#E5E7EB"/><PolarAngleAxis dataKey="area" tick={{fontSize:11}}/><PolarRadiusAxis tick={{fontSize:10}}/><Radar name="12/15" dataKey="s1" stroke={C.primary} fill={C.primary} fillOpacity={0.15}/><Radar name="11/10" dataKey="s2" stroke={C.danger} fill={C.danger} fillOpacity={0.1}/><Radar name="10/05" dataKey="s3" stroke={C.accent} fill={C.accent} fillOpacity={0.1}/><Legend/></RadarChart>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>영역별 이상 소견 분포</h3>
+        <ResponsiveContainer width="100%" height={220}>
+          <RadarChart data={radarData}><PolarGrid stroke="#E5E7EB"/><PolarAngleAxis dataKey="area" tick={{fontSize:11}}/><PolarRadiusAxis tick={{fontSize:10}} domain={[0,100]}/><Radar name="정상 비율" dataKey="score" stroke={C.primary} fill={C.primary} fillOpacity={0.2}/></RadarChart>
         </ResponsiveContainer>
       </div>
       <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>NAI 점수 추이</h3>
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={comparisonSessions.slice().reverse()}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} domain={[0,462]}/><Tooltip/><Line type="monotone" dataKey="total" stroke={C.primary} strokeWidth={3} dot={{r:6,fill:C.primary}} name="NAI 총점"/></LineChart>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>등급 분포</h3>
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart><Pie data={gradeDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>{gradeDist.map((_,i)=><Cell key={i} fill={pieColors[i]}/>)}</Pie><Tooltip/></PieChart>
         </ResponsiveContainer>
       </div>
     </div>
-    <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+    <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>수검자 목록</h3>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead><tr style={{background:'#FAFAFE',borderBottom:`2px solid ${C.border}`}}>
-          {['평가일','NAI 총점','ROM','Structure','등급','변화'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}
-        </tr></thead>
-        <tbody>{comparisonSessions.map((s,i)=><tr key={i} onClick={()=>setSelected({type:'session-detail',data:s})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{s.date}</td>
-          <td style={{padding:'14px',fontSize:16,fontWeight:700,color:s.total>=300?C.danger:s.total>=200?C.warning:C.success}}>{s.total}</td>
-          <td style={{padding:'14px',fontSize:13}}>{Object.values(s.rom).reduce((a,b)=>a+b,0)}</td>
-          <td style={{padding:'14px',fontSize:13}}>{Object.values(s.structure).reduce((a,b)=>a+b,0)}</td>
-          <td style={{padding:'14px'}}><Badge text={s.total>=300?'관리필요':s.total>=200?'주의':'정상'}/></td>
-          <td style={{padding:'14px',fontSize:13,fontWeight:600,color:i>0?(comparisonSessions[i-1].total>s.total?C.success:C.danger):C.textSec}}>{i>0?`${comparisonSessions[i-1].total>s.total?'▲':'▼'} ${Math.abs(comparisonSessions[i-1].total-s.total)}점`:'-'}</td>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>{['이름','나이','검진수','최근검진','이상항목','등급'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}</tr></thead>
+        <tbody>{patients.map(p=><tr key={p.id} onClick={()=>setSelected({type:'patient-detail',data:p})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'12px',fontSize:14,fontWeight:600}}>{p.name}</td>
+          <td style={{padding:'12px',fontSize:13}}>{p.age}세</td>
+          <td style={{padding:'12px',fontSize:13}}>{p.exams}회</td>
+          <td style={{padding:'12px',fontSize:13,color:C.textSec}}>{p.lastExam}</td>
+          <td style={{padding:'12px',fontSize:14,fontWeight:700,color:p.abnormal>=6?C.danger:p.abnormal>=3?C.warning:C.success}}>{p.abnormal}개</td>
+          <td style={{padding:'12px'}}><Badge text={p.grade}/></td>
         </tr>)}</tbody>
       </table>
     </div>
   </div>);
 }
 
-function StatsPage({setSelected}){
+function TrendPage({setSelected}){
   return(<div style={{animation:'fadeIn .4s'}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
-      <div><h2 style={{fontSize:22,fontWeight:700}}>기관 통계</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>기관 전체 평가 통계 및 PDF 리포트</p></div>
-      <button onClick={()=>setSelected({type:'generate-report'})} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>📄 통계 리포트 PDF</button>
-    </div>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>건강 트렌드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>주요 수치의 시계열 변화를 추적합니다</p></div>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:24}}>
       <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 평균 NAI 추이</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={monthlyStats}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="month" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}} domain={[150,300]}/><Tooltip/><Line type="monotone" dataKey="avgNai" stroke={C.primary} strokeWidth={3} dot={{r:5,fill:C.primary}} name="평균 NAI"/></LineChart>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>혈당 · 콜레스테롤 추이</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={trendData}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}}/><Tooltip/><Legend/>
+            <Line type="monotone" dataKey="glucose" stroke={C.primary} strokeWidth={2} name="혈당" dot={{r:5}}/>
+            <Line type="monotone" dataKey="cholesterol" stroke={C.accent} strokeWidth={2} name="콜레스테롤" dot={{r:5}}/>
+          </LineChart>
         </ResponsiveContainer>
       </div>
       <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 평가 · 고객 수</h3>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={monthlyStats}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="month" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}}/><Tooltip/><Legend/><Bar dataKey="evaluations" fill={C.primary} radius={[6,6,0,0]} name="평가"/><Bar dataKey="clients" fill={C.accent} radius={[6,6,0,0]} name="고객"/></BarChart>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>BMI 추이</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={trendData}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} domain={[20,30]}/><Tooltip/><Bar dataKey="bmi" fill={C.primary} radius={[8,8,0,0]} name="BMI"/></BarChart>
         </ResponsiveContainer>
       </div>
     </div>
     <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
-      <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>고객 목록</h3>
+      <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>검진별 이상 항목 변화</h3>
       <table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>
-          {['이름','나이','담당','평가수','NAI','등급','추세'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>{['검진일','혈당','콜레스테롤','BMI','이상 항목','등급'].map(h=><th key={h} style={{padding:'10px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}</tr></thead>
+        <tbody>{trendData.map((t,i)=><tr key={i} onClick={()=>setSelected({type:'trend-detail',data:t})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{t.date}</td>
+          <td style={{padding:'14px',fontSize:13,color:t.glucose>100?C.warning:C.success,fontWeight:600}}>{t.glucose}</td>
+          <td style={{padding:'14px',fontSize:13,color:t.cholesterol>200?C.warning:C.success,fontWeight:600}}>{t.cholesterol}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{t.bmi}</td>
+          <td style={{padding:'14px',fontSize:13}}>{t.glucose>100?1:0}개</td>
+          <td style={{padding:'14px'}}><Badge text={t.glucose>100?'주의':'정상'}/></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function ItemMasterPage({setSelected}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+      <div><h2 style={{fontSize:22,fontWeight:700}}>항목 관리</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>검진 항목과 정상 범위를 관리합니다</p></div>
+      <button onClick={()=>setSelected({type:'add-item'})} style={{padding:'10px 20px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>+ 항목 추가</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#FAFAFE',borderBottom:`2px solid ${C.border}`}}>
+          {['카테고리','항목명','단위','하한','상한','상태',''].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}
         </tr></thead>
-        <tbody>{clients.map(c=><tr key={c.id} onClick={()=>setSelected({type:'client-detail',data:c})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-          <td style={{padding:'12px',fontSize:13,fontWeight:600}}>{c.name}</td>
-          <td style={{padding:'12px',fontSize:13}}>{c.age}세</td>
-          <td style={{padding:'12px',fontSize:13}}>{c.therapist}</td>
-          <td style={{padding:'12px',fontSize:13}}>{c.sessions}회</td>
-          <td style={{padding:'12px',fontSize:14,fontWeight:700,color:c.nai>=300?C.danger:c.nai>=200?C.warning:C.success}}>{c.nai}</td>
-          <td style={{padding:'12px'}}><Badge text={c.grade}/></td>
-          <td style={{padding:'12px'}}><Badge text={c.trend}/></td>
+        <tbody>{masterItems.map(m=><tr key={m.id} onClick={()=>setSelected({type:'edit-item',data:m})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:13}}>{m.category}</td>
+          <td style={{padding:'14px',fontSize:14,fontWeight:600}}>{m.name}</td>
+          <td style={{padding:'14px',fontSize:13}}>{m.unit}</td>
+          <td style={{padding:'14px',fontSize:13}}>{m.refLow}</td>
+          <td style={{padding:'14px',fontSize:13}}>{m.refHigh}</td>
+          <td style={{padding:'14px'}}><Badge text={m.status}/></td>
+          <td style={{padding:'14px'}}><button onClick={e=>{e.stopPropagation();setSelected({type:'edit-item',data:m})}} style={{background:'none',border:'none',color:C.primary,fontSize:12,cursor:'pointer',fontWeight:600}}>편집</button></td>
         </tr>)}</tbody>
       </table>
     </div>
@@ -267,50 +238,53 @@ function StatsPage({setSelected}){
 function DetailPanel({selected,onClose}){
   if(!selected)return null;
   const d=selected.data;
+  const titles={'item-detail':'항목 상세','patient-detail':'수검자 상세','trend-detail':'검진 상세','save-exam':'결과 저장','edit-item':'항목 편집','add-item':'항목 추가'};
   return(<div style={{width:400,borderLeft:`1px solid ${C.border}`,background:C.surface,overflow:'auto',animation:'fadeIn .2s',flexShrink:0}}>
     <div style={{padding:'18px 22px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:C.surface,zIndex:1}}>
-      <h3 style={{fontSize:16,fontWeight:700}}>{selected.type==='therapist'?'치료사 상세':selected.type==='client-detail'?'고객 상세':selected.type==='session-detail'?'세션 상세':selected.type==='save-eval'?'평가 저장':'통계 리포트'}</h3>
+      <h3 style={{fontSize:16,fontWeight:700}}>{titles[selected.type]||'상세'}</h3>
       <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textSec}}>✕</button>
     </div>
     <div style={{padding:22}}>
-      {selected.type==='therapist'&&<div>
-        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:16}}>
-          <div style={{width:48,height:48,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:C.primary}}>{d.name[0]}</div>
-          <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><Badge text={d.role}/></div>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
-          {[['담당 고객',`${d.clients}명`],['총 평가',`${d.evaluations}건`],['평균 NAI',`${d.avgScore}`]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10,textAlign:'center'}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:15,fontWeight:700,marginTop:2}}>{v}</div></div>)}
-        </div>
-        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리자 메모</label>
-        <textarea rows={3} placeholder="메모..." style={{width:'100%',padding:10,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'Pretendard',resize:'vertical',marginBottom:12}}/>
-        <button onClick={onClose} style={{width:'100%',padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>닫기</button>
-      </div>}
-      {selected.type==='client-detail'&&<div>
-        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:16}}>
-          <div style={{width:48,height:48,borderRadius:'50%',background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:C.primary}}>{d.name[0]}</div>
-          <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:12,color:C.textSec}}>{d.age}세 · 담당: {d.therapist}</div></div>
+      {selected.type==='item-detail'&&<div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <span style={{fontSize:18,fontWeight:700}}>{d.name}</span><Badge text={d.status}/>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
-          {[['평가 횟수',`${d.sessions}회`],['NAI 점수',String(d.nai)],['등급',d.grade],['추세',d.trend]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+          {[['수치',`${d.value} ${d.unit}`],['참고치',d.ref],['판정',d.status]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
         </div>
-        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>치료사 메모</label>
-        <textarea rows={3} placeholder="고객 메모..." style={{width:'100%',padding:10,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'Pretendard',resize:'vertical',marginBottom:12}}/>
-        <button onClick={onClose} style={{width:'100%',padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>닫기</button>
-      </div>}
-      {selected.type==='session-detail'&&<div>
-        <div style={{fontSize:16,fontWeight:700,marginBottom:12}}>{d.date} 평가</div>
-        <div style={{textAlign:'center',marginBottom:12}}><GaugeSmall score={d.total}/><div style={{fontSize:12,marginTop:4}}><Badge text={d.total>=300?'관리필요':d.total>=200?'주의':'정상'}/></div></div>
-        <h4 style={{fontSize:13,fontWeight:700,marginBottom:8}}>ROM 항목별</h4>
-        {Object.entries(d.rom).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,borderBottom:`1px solid ${C.border}`}}><span style={{color:C.textSec}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>)}
-        <h4 style={{fontSize:13,fontWeight:700,marginBottom:8,marginTop:12}}>Structure 항목별</h4>
-        {Object.entries(d.structure).map(([k,v])=><div key={k} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,borderBottom:`1px solid ${C.border}`}}><span style={{color:C.textSec}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>)}
+        <div style={{background:d.status!=='정상'?`${C.warning}10`:`${C.success}10`,borderRadius:10,padding:14,fontSize:13}}>
+          {d.status!=='정상'?`⚠️ ${d.name} 수치가 정상 범위(${d.ref})를 벗어났습니다. 추적 관찰이 필요합니다.`:`✅ ${d.name} 수치가 정상 범위 내입니다.`}
+        </div>
         <button onClick={onClose} style={{width:'100%',marginTop:16,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>닫기</button>
       </div>}
-      {(selected.type==='save-eval'||selected.type==='generate-report')&&<div style={{textAlign:'center',padding:20}}>
-        <div style={{fontSize:48,marginBottom:12}}>{selected.type==='save-eval'?'✅':'📄'}</div>
-        <h4 style={{fontSize:18,fontWeight:700,marginBottom:8}}>{selected.type==='save-eval'?'평가가 저장되었습니다':'통계 리포트 생성 완료'}</h4>
-        <p style={{fontSize:14,color:C.textSec,marginBottom:20}}>{selected.type==='save-eval'?'NAI 점수와 등급이 기록됩니다.':'기관 통계 PDF를 다운로드하세요.'}</p>
-        <button onClick={onClose} style={{padding:'12px 32px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>{selected.type==='save-eval'?'확인':'다운로드'}</button>
+      {selected.type==='patient-detail'&&<div>
+        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:16}}>
+          <div style={{width:48,height:48,borderRadius:'50%',background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:C.primary}}>{d.name[0]}</div>
+          <div><div style={{fontSize:18,fontWeight:700}}>{d.name}</div><div style={{fontSize:12,color:C.textSec}}>{d.age}세</div></div>
+          <Badge text={d.grade}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[['검진 횟수',`${d.exams}회`],['이상 항목',`${d.abnormal}개`],['최근 검진',d.lastExam],['등급',d.grade]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리 코멘트</label>
+        <textarea rows={3} placeholder="코멘트 입력..." style={{width:'100%',padding:10,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'Pretendard',resize:'vertical',marginBottom:12}}/>
+        <button onClick={onClose} style={{width:'100%',padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>닫기</button>
+      </div>}
+      {(selected.type==='edit-item'||selected.type==='add-item')&&<div>
+        {[['카테고리',d?.category||''],['항목명',d?.name||''],['단위',d?.unit||''],['하한값',d?.refLow!=null?String(d.refLow):''],['상한값',d?.refHigh!=null?String(d.refHigh):'']].map(([label,val])=><div key={label} style={{marginBottom:14}}><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>{label}</label><input defaultValue={val} placeholder={`${label} 입력`} style={{width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,outline:'none',fontFamily:'Pretendard'}}/></div>)}
+        <div style={{display:'flex',gap:8,marginTop:8}}><button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer'}}>취소</button><button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>저장</button></div>
+      </div>}
+      {selected.type==='trend-detail'&&<div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[['검진일',d.date],['혈당',`${d.glucose} mg/dL`],['콜레스테롤',`${d.cholesterol} mg/dL`],['BMI',String(d.bmi)]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <button onClick={onClose} style={{width:'100%',padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>닫기</button>
+      </div>}
+      {selected.type==='save-exam'&&<div style={{textAlign:'center',padding:20}}>
+        <div style={{fontSize:48,marginBottom:12}}>✅</div>
+        <h4 style={{fontSize:18,fontWeight:700,marginBottom:8}}>검진 결과 저장 완료</h4>
+        <p style={{fontSize:14,color:C.textSec,marginBottom:20}}>이상 항목 및 등급이 기록되었습니다.</p>
+        <button onClick={onClose} style={{padding:'12px 32px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>확인</button>
       </div>}
     </div>
   </div>);
@@ -319,24 +293,24 @@ function DetailPanel({selected,onClose}){
 // ── App ──
 function App(){
   const [loading,setLoading]=useState(true);
-  const [page,setPage]=useState('dashboard');
+  const [page,setPage]=useState('exam');
   const [selected,setSelected]=useState(null);
   useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
   if(loading)return <Skeleton/>;
 
   const menus=[
-    {key:'dashboard',icon:'📊',label:'관리 대시보드'},
-    {key:'evaluation',icon:'📋',label:'평가 진행'},
-    {key:'comparison',icon:'🔄',label:'비교 분석'},
-    {key:'stats',icon:'📈',label:'기관 통계'}
+    {key:'exam',icon:'📝',label:'검진 결과 입력'},
+    {key:'dashboard',icon:'📊',label:'결과 대시보드'},
+    {key:'trend',icon:'📈',label:'건강 트렌드'},
+    {key:'master',icon:'⚙️',label:'항목 관리'}
   ];
 
   return(<div style={{display:'flex',minHeight:'100vh'}}>
     <aside style={{width:240,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100,borderRight:`1px solid ${C.border}`}}>
       <div style={{padding:'22px 18px',borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:34,height:34,borderRadius:10,background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>🦴</div>
-          <div><div style={{fontSize:17,fontWeight:800}}>포스처허브</div><div style={{fontSize:11,color:C.textSec}}>자세 평가 통합 관리</div></div>
+          <div style={{width:34,height:34,borderRadius:10,background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>🩺</div>
+          <div><div style={{fontSize:17,fontWeight:800}}>헬스트래커</div><div style={{fontSize:11,color:C.textSec}}>건강검진 결과 관리</div></div>
         </div>
       </div>
       <nav style={{flex:1,padding:'10px 8px'}}>
@@ -346,8 +320,8 @@ function App(){
       </nav>
       <div style={{padding:'14px 18px',borderTop:`1px solid ${C.border}`}}>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{width:32,height:32,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:C.primary,fontWeight:600}}>김</div>
-          <div><div style={{fontSize:12,fontWeight:500}}>김재훈 원장</div><div style={{fontSize:10,color:C.textSec}}>admin@posturehub.kr</div></div>
+          <div style={{width:32,height:32,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:C.primary,fontWeight:600}}>관</div>
+          <div><div style={{fontSize:12,fontWeight:500}}>관리자</div><div style={{fontSize:10,color:C.textSec}}>admin@healthtracker.kr</div></div>
         </div>
       </div>
     </aside>
@@ -356,15 +330,15 @@ function App(){
         <header style={{height:54,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 26px',position:'sticky',top:0,zIndex:50}}>
           <div style={{fontSize:15,fontWeight:700}}>{menus.find(m=>m.key===page)?.label}</div>
           <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <input placeholder="고객·치료사 검색..." style={{padding:'7px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:220,outline:'none',fontFamily:'Pretendard'}}/>
+            <input placeholder="수검자 검색..." style={{padding:'7px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:200,outline:'none',fontFamily:'Pretendard'}}/>
             <button style={{background:'none',border:'none',fontSize:16,cursor:'pointer'}}>🔔</button>
           </div>
         </header>
         <div style={{padding:26}}>
+          {page==='exam'&&<ExamInputPage setSelected={setSelected}/>}
           {page==='dashboard'&&<DashboardPage setSelected={setSelected}/>}
-          {page==='evaluation'&&<EvaluationPage setSelected={setSelected}/>}
-          {page==='comparison'&&<ComparisonPage setSelected={setSelected}/>}
-          {page==='stats'&&<StatsPage setSelected={setSelected}/>}
+          {page==='trend'&&<TrendPage setSelected={setSelected}/>}
+          {page==='master'&&<ItemMasterPage setSelected={setSelected}/>}
         </div>
       </main>
       {selected&&<DetailPanel selected={selected} onClose={()=>setSelected(null)}/>}
