@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오더플로우 - 맞춤 제작 주문 통합 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#FAF5FF;color:#1E1B4B;overflow-x:hidden;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#EDE9FE;}::-webkit-scrollbar-thumb{background:#A78BFA;border-radius:3px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{background:linear-gradient(90deg,#EDE9FE 25%,#F5F3FF 50%,#EDE9FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo}=React;
+const {BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,CartesianGrid,ComposedChart,Line,Legend}=Recharts;
+
+const C={primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',bg:'#FAF5FF',surface:'#FFFFFF',text:'#1E1B4B',textSec:'#6B7280',border:'#E5E7EB',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#F5F3FF',sidebarHover:'#EDE9FE',sidebarActive:'#7C3AED'};
+
+// ── Data ──
+const quotes=[
+  {id:'QT-2026-001',company:'한솔디자인',contact:'김태현',product:'맞춤 명함 세트',qty:2000,amount:3200000,status:'승인대기',date:'2026-01-20',version:2},
+  {id:'QT-2026-002',company:'미래건설',contact:'이진아',product:'현장 안전 배너',qty:50,amount:1500000,status:'검토중',date:'2026-01-19',version:1},
+  {id:'QT-2026-003',company:'그린푸드',contact:'박성민',product:'식품 라벨 스티커',qty:10000,amount:4800000,status:'승인완료',date:'2026-01-18',version:3},
+  {id:'QT-2026-004',company:'블루오션',contact:'최윤서',product:'회사 소개 리플렛',qty:5000,amount:2100000,status:'수정요청',date:'2026-01-17',version:2},
+  {id:'QT-2026-005',company:'스타트업허브',contact:'정다은',product:'행사 포스터',qty:300,amount:480000,status:'주문전환',date:'2026-01-16',version:1},
+  {id:'QT-2026-006',company:'글로벌테크',contact:'한승우',product:'제품 카탈로그',qty:1000,amount:5600000,status:'승인대기',date:'2026-01-15',version:1},
+  {id:'QT-2026-007',company:'에코라이프',contact:'오서연',product:'포장 박스',qty:3000,amount:7200000,status:'승인완료',date:'2026-01-14',version:2}
+];
+
+const statusFlow={승인대기:'검토중',검토중:'승인완료',수정요청:'검토중',승인완료:'주문전환'};
+const statusColors={승인대기:{bg:'#FEF3C7',t:'#92400E'},검토중:{bg:'#DBEAFE',t:'#1D4ED8'},승인완료:{bg:'#D1FAE5',t:'#065F46'},수정요청:{bg:'#FEE2E2',t:'#991B1B'},주문전환:{bg:'#EDE9FE',t:'#5B21B6'}};
+
+const quoteHistory=[
+  {date:'2026-01-20',action:'견적 수정 (v2)→ 수량 2000→2500',by:'김태현'},
+  {date:'2026-01-19',action:'견적 생성 (v1)',by:'시스템'},
+  {date:'2026-01-18',action:'담당자 배정',by:'관리자'}
+];
+
+const customers=[
+  {id:1,company:'한솔디자인',contact:'김태현',email:'taehyun@hansol.kr',orders:8,total:'12,400,000원',grade:'프리미엄'},
+  {id:2,company:'미래건설',contact:'이진아',email:'jina@mirae.kr',orders:15,total:'28,500,000원',grade:'프리미엄'},
+  {id:3,company:'그린푸드',contact:'박성민',email:'sungmin@green.kr',orders:5,total:'8,200,000원',grade:'일반'},
+  {id:4,company:'블루오션',contact:'최윤서',email:'yunsu@blue.kr',orders:3,total:'4,800,000원',grade:'일반'}
+];
+
+const templates=[
+  {id:1,name:'월간 명함 재주문',company:'한솔디자인',product:'프리미엄 명함',qty:500,lastUsed:'2026-01-10'},
+  {id:2,name:'분기 라벨 발주',company:'그린푸드',product:'식품 라벨',qty:5000,lastUsed:'2026-01-05'},
+  {id:3,name:'현장 배너 세트',company:'미래건설',product:'안전 배너 3종',qty:30,lastUsed:'2025-12-28'}
+];
+
+const monthlyStats=[
+  {month:'8월',orders:32,amount:18},{month:'9월',orders:41,amount:24},{month:'10월',orders:55,amount:32},
+  {month:'11월',orders:48,amount:29},{month:'12월',orders:62,amount:38},{month:'1월',orders:45,amount:28}
+];
+const productMix=[{name:'명함',value:25},{name:'배너',value:20},{name:'스티커',value:30},{name:'리플렛',value:15},{name:'기타',value:10}];
+const pieColors=['#7C3AED','#A78BFA','#C4B5FD','#DDD6FE','#EDE9FE'];
+
+// Quote calculator data
+const calcProducts=['맞춤 명함','현장 배너','식품 라벨','회사 리플렛','행사 포스터','제품 카탈로그','포장 박스'];
+const sizeOptions=['소형','중형','대형','특대형'];
+const materialOptions=['일반 용지','고급 용지','합성지','코팅지'];
+const breakPrices=[{min:1,max:99,rate:1.0},{min:100,max:499,rate:0.9},{min:500,max:1999,rate:0.78},{min:2000,max:4999,rate:0.65},{min:5000,max:99999,rate:0.52}];
+const urgencyOptions=[{label:'일반 (7일)',rate:1.0},{label:'빠른 (5일)',rate:1.15},{label:'긴급 (3일)',rate:1.35}];
+
+// ── Components ──
+function Skeleton(){return(<div style={{display:'flex',minHeight:'100vh'}}><div style={{width:240,background:C.sidebarBg}}/><div style={{flex:1,padding:32}}><div className="skeleton" style={{width:'60%',height:24,marginBottom:16}}/><div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>{[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:100}}/>)}</div></div></div>);}
+
+function Badge({text}){const c=statusColors[text]||{bg:'#F3F4F6',t:'#374151'};return <span style={{padding:'4px 12px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.t}}>{text}</span>;}
+
+function InputField({label,type='text',value,onChange,options,placeholder,suffix}){
+  const st={width:'100%',padding:'10px 14px',border:`1px solid ${C.border}`,borderRadius:10,fontSize:14,outline:'none',fontFamily:'Pretendard'};
+  return(<div style={{marginBottom:16}}>
+    <label style={{display:'block',fontSize:13,fontWeight:600,color:C.text,marginBottom:6}}>{label}</label>
+    {options?<select value={value} onChange={e=>onChange(e.target.value)} style={{...st,background:C.surface}}>{options.map(o=><option key={typeof o==='string'?o:o.label} value={typeof o==='string'?o:o.label}>{typeof o==='string'?o:o.label}</option>)}</select>
+    :<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={st}/>}
+  </div>);
+}
+
+function KPICard({icon,label,value,sub,color}){
+  return(<div style={{background:C.surface,borderRadius:14,padding:'20px 22px',border:`1px solid ${C.border}`,display:'flex',gap:14,alignItems:'center',animation:'fadeIn .4s'}}>
+    <div style={{width:44,height:44,borderRadius:12,background:`${color||C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>{icon}</div>
+    <div><div style={{fontSize:12,color:C.textSec,marginBottom:2}}>{label}</div><div style={{fontSize:20,fontWeight:700}}>{value}</div>{sub&&<div style={{fontSize:11,color:C.textSec,marginTop:1}}>{sub}</div>}</div>
+  </div>);
+}
+
+// ── Pages ──
+function DashboardPage({setPage,setSelected}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>통합 대시보드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>견적 요청, 승인 현황, 주문 통계를 한눈에 확인하세요</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
+      <KPICard icon="📋" label="신규 견적" value="12건" sub="오늘 +3건" color="#7C3AED"/>
+      <KPICard icon="⏳" label="승인 대기" value="5건" sub="평균 1.2일" color="#D97706"/>
+      <KPICard icon="✅" label="이번 달 수주" value="28,000,000원" sub="전월 대비 +12%" color="#059669"/>
+      <KPICard icon="🏢" label="활성 고객사" value="24사" sub="프리미엄 8사" color="#3B82F6"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>월별 주문 · 매출 추이</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <ComposedChart data={monthlyStats}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="month" tick={{fontSize:12}}/><YAxis yAxisId="left" tick={{fontSize:12}}/><YAxis yAxisId="right" orientation="right" tick={{fontSize:12}}/><Tooltip/><Legend/>
+            <Bar yAxisId="left" dataKey="orders" fill={C.primary} radius={[6,6,0,0]} name="주문 건수"/>
+            <Line yAxisId="right" type="monotone" dataKey="amount" stroke={C.accent} strokeWidth={2} name="매출(백만)" dot={{fill:C.accent}}/>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>품목별 비중</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <PieChart><Pie data={productMix} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>{productMix.map((_,i)=><Cell key={i} fill={pieColors[i]}/>)}</Pie><Tooltip/></PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+    <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <h3 style={{fontSize:15,fontWeight:700}}>최근 견적 요청</h3>
+        <button onClick={()=>setPage('quote-workflow')} style={{background:'none',border:'none',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer'}}>전체보기 →</button>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>{['견적번호','고객사','품목','수량','금액','상태','일자'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}</tr></thead>
+        <tbody>{quotes.slice(0,4).map(q=><tr key={q.id} onClick={()=>setSelected({type:'quote',data:q})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .15s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'12px',fontSize:13,fontWeight:600,color:C.primary}}>{q.id}</td>
+          <td style={{padding:'12px',fontSize:13}}>{q.company}</td>
+          <td style={{padding:'12px',fontSize:13}}>{q.product}</td>
+          <td style={{padding:'12px',fontSize:13}}>{q.qty.toLocaleString()}</td>
+          <td style={{padding:'12px',fontSize:13,fontWeight:600}}>{q.amount.toLocaleString()}원</td>
+          <td style={{padding:'12px'}}><Badge text={q.status}/></td>
+          <td style={{padding:'12px',fontSize:12,color:C.textSec}}>{q.date}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function QuoteWorkflowPage({setSelected}){
+  const [filter,setFilter]=useState('전체');
+  const statuses=['전체','승인대기','검토중','승인완료','수정요청','주문전환'];
+  const filtered=quotes.filter(q=>filter==='전체'||q.status===filter);
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>견적 관리</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>견적 승인 워크플로우를 관리합니다</p></div>
+    <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+      {statuses.map(s=><button key={s} onClick={()=>setFilter(s)} style={{padding:'8px 16px',borderRadius:20,border:filter===s?'none':`1px solid ${C.border}`,background:filter===s?C.primary:'transparent',color:filter===s?'#fff':C.text,fontSize:13,fontWeight:500,cursor:'pointer'}}>{s} {s!=='전체'&&<span style={{marginLeft:4,opacity:0.7}}>({quotes.filter(q=>q.status===s).length})</span>}</button>)}
+    </div>
+    <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#FAFAFE',borderBottom:`2px solid ${C.border}`}}>{['견적번호','고객사','담당자','품목','수량','견적액','버전','상태','일자'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}</tr></thead>
+        <tbody>{filtered.map(q=><tr key={q.id} onClick={()=>setSelected({type:'quote',data:q})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .15s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600,color:C.primary}}>{q.id}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{q.company}</td>
+          <td style={{padding:'14px',fontSize:13}}>{q.contact}</td>
+          <td style={{padding:'14px',fontSize:13}}>{q.product}</td>
+          <td style={{padding:'14px',fontSize:13}}>{q.qty.toLocaleString()}</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{q.amount.toLocaleString()}원</td>
+          <td style={{padding:'14px',fontSize:13}}><span style={{padding:'2px 8px',borderRadius:8,fontSize:11,background:'#F3F4F6'}}>v{q.version}</span></td>
+          <td style={{padding:'14px'}}><Badge text={q.status}/></td>
+          <td style={{padding:'14px',fontSize:12,color:C.textSec}}>{q.date}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function AdvancedQuotePage({setSelected}){
+  const [product,setProduct]=useState(calcProducts[0]);
+  const [size,setSize]=useState(sizeOptions[1]);
+  const [material,setMaterial]=useState(materialOptions[0]);
+  const [qty,setQty]=useState('500');
+  const [urgency,setUrgency]=useState(urgencyOptions[0].label);
+  const [items,setItems]=useState([]);
+  const qtyNum=parseInt(qty)||0;
+  const breakRate=(breakPrices.find(b=>qtyNum>=b.min&&qtyNum<=b.max)||breakPrices[0]).rate;
+  const urgencyRate=(urgencyOptions.find(u=>u.label===urgency)||urgencyOptions[0]).rate;
+  const sizeMultiplier=sizeOptions.indexOf(size)*0.2+1;
+  const materialMultiplier=materialOptions.indexOf(material)*0.15+1;
+  const baseUnit=150;
+  const unitPrice=Math.round(baseUnit*sizeMultiplier*materialMultiplier);
+  const discountedUnit=Math.round(unitPrice*breakRate);
+  const subtotal=Math.round(discountedUnit*qtyNum*urgencyRate);
+  const addItem=()=>{setItems(prev=>[...prev,{product,size,material,qty:qtyNum,unitPrice:discountedUnit,subtotal,urgency,id:Date.now()}]);};
+  const grandTotal=items.reduce((s,i)=>s+i.subtotal,0);
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>견적 계산기</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>구간 할인 + 납기 추가금을 반영한 확장형 견적</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}>
+      <div>
+        <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`,marginBottom:16}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:20}}>품목 옵션</h3>
+          <InputField label="품목" options={calcProducts} value={product} onChange={setProduct}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <InputField label="규격" options={sizeOptions} value={size} onChange={setSize}/>
+            <InputField label="소재" options={materialOptions} value={material} onChange={setMaterial}/>
+          </div>
+          <InputField label="수량" type="number" value={qty} onChange={setQty}/>
+          <InputField label="납기" options={urgencyOptions} value={urgency} onChange={setUrgency}/>
+          <div style={{background:`${C.primary}06`,borderRadius:10,padding:12,fontSize:13,marginBottom:12}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{color:C.textSec}}>구간 할인</span><span style={{fontWeight:600,color:C.danger}}>-{Math.round((1-breakRate)*100)}%</span></div>
+            {urgencyRate>1&&<div style={{display:'flex',justifyContent:'space-between'}}><span style={{color:C.textSec}}>긴급 추가금</span><span style={{fontWeight:600,color:C.warning}}>+{Math.round((urgencyRate-1)*100)}%</span></div>}
+          </div>
+          <button onClick={addItem} style={{width:'100%',padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>품목 추가 ({subtotal.toLocaleString()}원)</button>
+        </div>
+      </div>
+      <div>
+        <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+          <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>견적 품목 ({items.length}건)</h3>
+          {items.length===0?<div style={{textAlign:'center',padding:32,color:C.textSec,fontSize:14}}>품목을 추가해주세요</div>
+          :items.map((item,i)=><div key={item.id} style={{background:'#FAFAFE',borderRadius:10,padding:14,marginBottom:10}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+              <span style={{fontWeight:700,fontSize:14}}>{item.product}</span>
+              <span style={{fontWeight:700,color:C.primary}}>{item.subtotal.toLocaleString()}원</span>
+            </div>
+            <div style={{fontSize:12,color:C.textSec}}>{item.size} · {item.material} · {item.qty.toLocaleString()}개 · {item.urgency}</div>
+          </div>)}
+          {items.length>0&&<>
+            <div style={{borderTop:`2px solid ${C.text}`,paddingTop:14,marginTop:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:16,fontWeight:700}}>합계</span>
+              <span style={{fontSize:26,fontWeight:800,color:C.primary}}>{grandTotal.toLocaleString()}원</span>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:16}}>
+              <button onClick={()=>setSelected({type:'quote-preview',data:{items,total:grandTotal}})} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:14,fontWeight:600,cursor:'pointer'}}>견적서 미리보기</button>
+              <button onClick={()=>setSelected({type:'quote-preview',data:{items,total:grandTotal}})} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>승인 요청</button>
+            </div>
+          </>}
+        </div>
+      </div>
+    </div>
+  </div>);
+}
+
+function CustomerPortalPage({setSelected}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>고객사 포털</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>고객사별 주문 이력, 담당자, 반복 주문 템플릿을 관리합니다</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
+      {customers.map(c=><div key={c.id} onClick={()=>setSelected({type:'customer',data:c})} style={{background:C.surface,borderRadius:14,padding:20,border:`1px solid ${C.border}`,cursor:'pointer',transition:'all .2s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.primary;e.currentTarget.style.boxShadow=`0 4px 15px ${C.primary}15`}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.boxShadow='none'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{width:40,height:40,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:C.primary}}>{c.company[0]}</div>
+          <span style={{padding:'3px 8px',borderRadius:8,fontSize:11,fontWeight:600,background:c.grade==='프리미엄'?'#EDE9FE':'#F3F4F6',color:c.grade==='프리미엄'?C.primary:C.textSec}}>{c.grade}</span>
+        </div>
+        <div style={{fontSize:15,fontWeight:700,marginBottom:2}}>{c.company}</div>
+        <div style={{fontSize:12,color:C.textSec,marginBottom:10}}>{c.contact} · {c.email}</div>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
+          <span style={{color:C.textSec}}>주문 {c.orders}건</span>
+          <span style={{fontWeight:600,color:C.primary}}>{c.total}</span>
+        </div>
+      </div>)}
+    </div>
+    <h3 style={{fontSize:18,fontWeight:700,marginBottom:14}}>반복 주문 템플릿</h3>
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {templates.map(t=><div key={t.id} onClick={()=>setSelected({type:'template',data:t})} style={{background:C.surface,borderRadius:12,padding:18,border:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',transition:'all .15s'}} onMouseEnter={e=>e.currentTarget.style.borderColor=C.primary} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+        <div>
+          <div style={{fontSize:15,fontWeight:700}}>{t.name}</div>
+          <div style={{fontSize:12,color:C.textSec,marginTop:4}}>{t.company} · {t.product} · {t.qty.toLocaleString()}개</div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:12,color:C.textSec}}>마지막 사용</div>
+          <div style={{fontSize:13,fontWeight:600}}>{t.lastUsed}</div>
+        </div>
+      </div>)}
+    </div>
+  </div>);
+}
+
+// ── Detail Panel ──
+function DetailPanel({selected,onClose}){
+  if(!selected)return null;
+  const d=selected.data;
+  return(<div style={{width:420,borderLeft:`1px solid ${C.border}`,background:C.surface,overflow:'auto',animation:'fadeIn .2s',flexShrink:0}}>
+    <div style={{padding:'20px 24px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:C.surface,zIndex:1}}>
+      <h3 style={{fontSize:16,fontWeight:700}}>{selected.type==='quote'?'견적 상세':selected.type==='customer'?'고객사 상세':selected.type==='template'?'템플릿 상세':'견적서 미리보기'}</h3>
+      <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textSec}}>✕</button>
+    </div>
+    <div style={{padding:24}}>
+      {selected.type==='quote'&&<div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <span style={{fontSize:18,fontWeight:800}}>{d.id}</span><Badge text={d.status}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+          {[['고객사',d.company],['담당자',d.contact],['품목',d.product],['수량',`${d.qty.toLocaleString()}개`],['버전',`v${d.version}`],['일자',d.date]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <div style={{background:`${C.primary}06`,borderRadius:12,padding:16,marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontWeight:600}}>견적 금액</span><span style={{fontSize:22,fontWeight:800,color:C.primary}}>{d.amount.toLocaleString()}원</span>
+        </div>
+        <h4 style={{fontSize:14,fontWeight:700,marginBottom:10}}>상태 이력</h4>
+        {quoteHistory.map((h,i)=><div key={i} style={{display:'flex',gap:12,marginBottom:12,position:'relative'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:i===0?C.primary:C.border,marginTop:6,flexShrink:0}}/>
+          <div><div style={{fontSize:13}}>{h.action}</div><div style={{fontSize:11,color:C.textSec}}>{h.date} · {h.by}</div></div>
+        </div>)}
+        <div style={{marginTop:16}}><label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>검토 코멘트</label>
+          <textarea rows={3} placeholder="승인/반려 사유를 입력하세요..." style={{width:'100%',padding:12,border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'Pretendard',resize:'vertical'}}/>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:16}}>
+          <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.danger}`,background:'transparent',color:C.danger,fontSize:14,fontWeight:600,cursor:'pointer'}}>반려</button>
+          <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>{statusFlow[d.status]?`→ ${statusFlow[d.status]}`:'승인'}</button>
+        </div>
+      </div>}
+      {selected.type==='customer'&&<div>
+        <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:20}}>
+          <div style={{width:52,height:52,borderRadius:12,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:700,color:C.primary}}>{d.company[0]}</div>
+          <div><div style={{fontSize:18,fontWeight:700}}>{d.company}</div><div style={{fontSize:13,color:C.textSec}}>{d.contact} · {d.email}</div></div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+          {[['주문수',`${d.orders}건`],['누적금액',d.total],['등급',d.grade],['담당자',d.contact]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리자 메모</label>
+        <textarea rows={3} placeholder="고객사 관련 메모..." style={{width:'100%',padding:12,border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,fontFamily:'Pretendard',resize:'vertical'}}/>
+        <button onClick={onClose} style={{width:'100%',marginTop:16,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>닫기</button>
+      </div>}
+      {selected.type==='template'&&<div>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>{d.name}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+          {[['고객사',d.company],['품목',d.product],['수량',`${d.qty.toLocaleString()}개`],['마지막 사용',d.lastUsed]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:14,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:`1px solid ${C.border}`,background:C.surface,fontSize:14,cursor:'pointer'}}>닫기</button>
+          <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>재주문</button>
+        </div>
+      </div>}
+      {selected.type==='quote-preview'&&<div>
+        <h4 style={{fontSize:16,fontWeight:700,marginBottom:16}}>견적서</h4>
+        {d.items.map((item,i)=><div key={item.id} style={{background:'#FAFAFE',borderRadius:10,padding:14,marginBottom:8}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}><span style={{fontWeight:600}}>{item.product}</span><span style={{fontWeight:700,color:C.primary}}>{item.subtotal.toLocaleString()}원</span></div>
+          <div style={{fontSize:12,color:C.textSec}}>{item.size} · {item.material} · {item.qty.toLocaleString()}개</div>
+        </div>)}
+        <div style={{borderTop:`2px solid ${C.text}`,paddingTop:14,marginTop:8,display:'flex',justifyContent:'space-between'}}>
+          <span style={{fontWeight:700}}>합계</span><span style={{fontSize:22,fontWeight:800,color:C.primary}}>{d.total.toLocaleString()}원</span>
+        </div>
+        <button onClick={onClose} style={{width:'100%',marginTop:16,padding:'12px',borderRadius:10,border:'none',background:C.primary,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>승인 요청 제출</button>
+      </div>}
+    </div>
+  </div>);
+}
+
+// ── App ──
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState('dashboard');
+  const [selected,setSelected]=useState(null);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+
+  const menus=[
+    {key:'dashboard',icon:'📊',label:'대시보드'},
+    {key:'quote-workflow',icon:'📋',label:'견적 관리'},
+    {key:'advanced-quote',icon:'🧮',label:'견적 계산기'},
+    {key:'customer-portal',icon:'🏢',label:'고객사 포털'}
+  ];
+
+  const renderPage=()=>{
+    switch(page){
+      case 'dashboard':return <DashboardPage setPage={setPage} setSelected={setSelected}/>;
+      case 'quote-workflow':return <QuoteWorkflowPage setSelected={setSelected}/>;
+      case 'advanced-quote':return <AdvancedQuotePage setSelected={setSelected}/>;
+      case 'customer-portal':return <CustomerPortalPage setSelected={setSelected}/>;
+      default:return <DashboardPage setPage={setPage} setSelected={setSelected}/>;
+    }
+  };
+
+  return(<div style={{display:'flex',minHeight:'100vh'}}>
+    {/* Bright Sidebar */}
+    <aside style={{width:240,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100,borderRight:`1px solid ${C.border}`}}>
+      <div style={{padding:'24px 20px',borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:36,height:36,borderRadius:10,background:`${C.primary}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'#fff'}}>📦</div>
+          <div><div style={{fontSize:17,fontWeight:800,color:C.text}}>오더플로우</div><div style={{fontSize:11,color:C.textSec}}>주문 통합 관리</div></div>
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'12px 10px'}}>
+        {menus.map(m=><button key={m.key} onClick={()=>{setPage(m.key);setSelected(null);}} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'11px 14px',borderRadius:10,border:'none',background:page===m.key?`${C.primary}14`:'transparent',color:page===m.key?C.primary:C.textSec,fontSize:14,fontWeight:page===m.key?700:400,cursor:'pointer',marginBottom:2,transition:'all .15s',textAlign:'left'}} onMouseEnter={e=>{if(page!==m.key)e.currentTarget.style.background=C.sidebarHover}} onMouseLeave={e=>{if(page!==m.key)e.currentTarget.style.background='transparent'}}>
+          <span style={{fontSize:17}}>{m.icon}</span>{m.label}
+          {m.key==='quote-workflow'&&<span style={{marginLeft:'auto',padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:700,background:C.primary,color:'#fff'}}>5</span>}
+        </button>)}
+      </nav>
+      <div style={{padding:'16px 20px',borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:34,height:34,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,color:C.primary,fontWeight:600}}>관</div>
+          <div><div style={{fontSize:13,fontWeight:500}}>관리자</div><div style={{fontSize:11,color:C.textSec}}>admin@orderflow.kr</div></div>
+        </div>
+      </div>
+    </aside>
+    {/* Main + Detail */}
+    <div style={{display:'flex',flex:1,marginLeft:240}}>
+      <main style={{flex:1,minWidth:0}}>
+        <header style={{height:56,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 28px',position:'sticky',top:0,zIndex:50}}>
+          <div style={{fontSize:15,fontWeight:700}}>{menus.find(m=>m.key===page)?.label}</div>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <input placeholder="검색..." style={{padding:'7px 12px 7px 34px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:200,outline:'none',fontFamily:'Pretendard'}}/>
+            <button style={{background:'none',border:'none',fontSize:16,cursor:'pointer',position:'relative'}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:7,height:7,background:C.danger,borderRadius:'50%'}}/></button>
+          </div>
+        </header>
+        <div style={{padding:28}}>{renderPage()}</div>
+      </main>
+      {selected&&<DetailPanel selected={selected} onClose={()=>setSelected(null)}/>}
+    </div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
