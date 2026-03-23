@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>픽스랩 - AI 이미지 보정 SaaS 플랫폼</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.15.0/umd/Recharts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#FAF5FF;color:#1E1B4B;overflow-x:hidden;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:#EDE9FE;}::-webkit-scrollbar-thumb{background:#A78BFA;border-radius:3px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.skeleton{background:linear-gradient(90deg,#EDE9FE 25%,#F5F3FF 50%,#EDE9FE 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect}=React;
+const {BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,PieChart,Pie,Cell,CartesianGrid,LineChart,Line,Legend,ComposedChart}=Recharts;
+
+const C={primary:'#7C3AED',secondary:'#1E1B4B',accent:'#A78BFA',bg:'#FAF5FF',surface:'#FFFFFF',text:'#1E1B4B',textSec:'#6D28D9',border:'#E5E7EB',success:'#059669',warning:'#D97706',danger:'#DC2626',sidebarBg:'#F5F3FF',sidebarHover:'#EDE9FE',sidebarActive:'#7C3AED'};
+
+// ── Data ──
+const batchJobs=[
+  {id:'BATCH-001',name:'상품 촬영 보정',total:24,done:24,failed:0,status:'완료',date:'2025-06-15',user:'김포토'},
+  {id:'BATCH-002',name:'부동산 사진 보정',total:36,done:36,failed:2,status:'완료',date:'2025-06-14',user:'이사진'},
+  {id:'BATCH-003',name:'음식 사진 배치',total:18,done:12,failed:0,status:'처리중',date:'2025-06-14',user:'박푸드'},
+  {id:'BATCH-004',name:'패션 룩북 보정',total:48,done:0,failed:0,status:'대기',date:'2025-06-14',user:'최패션'},
+  {id:'BATCH-005',name:'인테리어 사진',total:15,done:15,failed:1,status:'완료',date:'2025-06-13',user:'정인테리어'},
+  {id:'BATCH-006',name:'제품 카탈로그',total:30,done:28,failed:0,status:'처리중',date:'2025-06-13',user:'김포토'}
+];
+
+const pipelineSteps=[
+  {name:'Vision 분석',status:'완료',duration:'2.4초',detail:'구도 78 / 조명 62 / 선명도 81 / 색감 66'},
+  {name:'SD img2img',status:'완료',duration:'8.2초',detail:'ControlNet Canny, strength 0.65, 4장 생성'},
+  {name:'Claid 후처리',status:'처리중',duration:'진행중',detail:'업스케일 2x, 노이즈 제거, 아티팩트 보정'}
+];
+
+const imageHistory=[
+  {id:1,name:'product_01.jpg',original:68,enhanced:92,engine:'SD+ControlNet',date:'2025-06-15',batch:'BATCH-001',status:'완료'},
+  {id:2,name:'product_02.jpg',original:55,enhanced:84,engine:'Claid',date:'2025-06-15',batch:'BATCH-001',status:'완료'},
+  {id:3,name:'real_estate_01.jpg',original:72,enhanced:91,engine:'SD+ControlNet',date:'2025-06-14',batch:'BATCH-002',status:'완료'},
+  {id:4,name:'food_photo_01.jpg',original:61,enhanced:87,engine:'Claid+SD',date:'2025-06-14',batch:'BATCH-003',status:'완료'},
+  {id:5,name:'food_photo_02.jpg',original:58,enhanced:null,engine:null,date:'2025-06-14',batch:'BATCH-003',status:'처리중'},
+  {id:6,name:'fashion_01.jpg',original:75,enhanced:93,engine:'SD+ControlNet',date:'2025-06-13',batch:'BATCH-005',status:'완료'},
+  {id:7,name:'interior_01.jpg',original:63,enhanced:86,engine:'Claid',date:'2025-06-13',batch:'BATCH-005',status:'완료'},
+  {id:8,name:'catalog_01.jpg',original:70,enhanced:89,engine:'SD img2img',date:'2025-06-13',batch:'BATCH-006',status:'완료'}
+];
+
+const dailyStats=[
+  {day:'6/9',uploads:45,processed:42,cost:12},{day:'6/10',uploads:62,processed:58,cost:17},
+  {day:'6/11',uploads:78,processed:71,cost:21},{day:'6/12',uploads:55,processed:50,cost:15},
+  {day:'6/13',uploads:90,processed:84,cost:25},{day:'6/14',uploads:72,processed:66,cost:20},
+  {day:'6/15',uploads:85,processed:78,cost:23}
+];
+const engineDist=[{name:'SD+ControlNet',value:42},{name:'Claid',value:28},{name:'SD img2img',value:18},{name:'Claid+SD',value:12}];
+const pieColors=['#7C3AED','#A78BFA','#C4B5FD','#DDD6FE'];
+const errorRates=[{day:'6/9',vision:1.2,sd:3.1,claid:0.8},{day:'6/10',vision:0.9,sd:2.5,claid:1.1},{day:'6/11',vision:1.5,sd:2.8,claid:0.6},{day:'6/12',vision:0.7,sd:1.9,claid:0.5},{day:'6/13',vision:1.1,sd:3.5,claid:0.9},{day:'6/14',vision:0.8,sd:2.2,claid:0.7},{day:'6/15',vision:1.0,sd:2.0,claid:0.4}];
+
+const users=[
+  {id:1,name:'김포토',email:'photo@email.com',credits:850,used:2150,plan:'프로',batches:12},
+  {id:2,name:'이사진',email:'sajin@email.com',credits:320,used:680,plan:'베이직',batches:5},
+  {id:3,name:'박푸드',email:'food@email.com',credits:1200,used:800,plan:'프로',batches:8},
+  {id:4,name:'최패션',email:'fashion@email.com',credits:50,used:950,plan:'베이직',batches:3},
+  {id:5,name:'정인테리어',email:'interior@email.com',credits:2400,used:3600,plan:'엔터프라이즈',batches:24}
+];
+
+// ── Components ──
+function Skeleton(){return(<div style={{display:'flex',minHeight:'100vh'}}><div style={{width:240,background:C.sidebarBg}}/><div style={{flex:1,padding:28}}><div className="skeleton" style={{width:'50%',height:24,marginBottom:16}}/><div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>{[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:90}}/>)}</div></div></div>);}
+
+function Badge({text}){
+  const colors={완료:{bg:'#D1FAE5',t:'#065F46'},처리중:{bg:'#DBEAFE',t:'#1D4ED8'},대기:{bg:'#F3F4F6',t:'#374151'},실패:{bg:'#FEE2E2',t:'#991B1B'},프로:{bg:'#EDE9FE',t:'#5B21B6'},베이직:{bg:'#DBEAFE',t:'#1D4ED8'},엔터프라이즈:{bg:'#FEF3C7',t:'#92400E'}};
+  const c=colors[text]||{bg:'#F3F4F6',t:'#374151'};
+  return <span style={{padding:'4px 10px',borderRadius:20,fontSize:12,fontWeight:600,background:c.bg,color:c.t}}>{text}</span>;
+}
+
+function KPICard({icon,label,value,sub}){
+  return(<div style={{background:C.surface,borderRadius:12,padding:'18px 20px',border:`1px solid ${C.border}`,display:'flex',gap:12,alignItems:'center',animation:'fadeIn .4s'}}>
+    <div style={{width:42,height:42,borderRadius:10,background:`${C.primary}12`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{icon}</div>
+    <div><div style={{fontSize:12,color:C.textSec}}>{label}</div><div style={{fontSize:20,fontWeight:700}}>{value}</div>{sub&&<div style={{fontSize:11,color:C.textSec}}>{sub}</div>}</div>
+  </div>);
+}
+
+function ProgressBar({done,total,failed}){
+  const pct=total>0?(done/total)*100:0;
+  return(<div>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+      <span style={{color:C.textSec}}>{done}/{total}장</span>
+      <span style={{fontWeight:600}}>{Math.round(pct)}%</span>
+    </div>
+    <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',display:'flex'}}>
+      <div style={{height:'100%',width:`${pct}%`,background:C.success,borderRadius:3,transition:'width .3s'}}/>
+      {failed>0&&<div style={{height:'100%',width:`${(failed/total)*100}%`,background:C.danger}}/>}
+    </div>
+  </div>);
+}
+
+// ── Pages ──
+function BatchUploadPage({setSelected}){
+  const [dragging,setDragging]=useState(false);
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>배치 업로드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>최대 50장까지 한 번에 업로드하여 자동 보정합니다</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:24}}>
+      <div>
+        <div onClick={()=>{}} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} style={{background:C.surface,border:`2px dashed ${dragging?C.primary:C.border}`,borderRadius:16,padding:'48px 24px',textAlign:'center',cursor:'pointer',marginBottom:16,transition:'all .2s'}}>
+          <div style={{fontSize:48,marginBottom:12}}>📸</div>
+          <div style={{fontSize:16,fontWeight:700,marginBottom:6}}>이미지 드래그 또는 클릭</div>
+          <div style={{fontSize:13,color:C.textSec}}>JPG, PNG, WEBP · 최대 50장 · 20MB/장</div>
+        </div>
+        <div style={{background:C.surface,borderRadius:12,padding:16,border:`1px solid ${C.border}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{fontSize:13,fontWeight:600}}>잔여 크레딧</span>
+            <span style={{fontSize:15,fontWeight:700,color:C.primary}}>850 크레딧</span>
+          </div>
+          <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',width:'28%',background:C.primary,borderRadius:3}}/></div>
+          <div style={{fontSize:11,color:C.textSec,marginTop:6}}>이미지 1장당 1 크레딧 차감</div>
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:16,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>작업 큐 현황</h3>
+        {batchJobs.slice(0,4).map(j=><div key={j.id} onClick={()=>setSelected({type:'batch',data:j})} style={{padding:'12px 0',borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+            <span style={{fontSize:13,fontWeight:600}}>{j.name}</span>
+            <Badge text={j.status}/>
+          </div>
+          <ProgressBar done={j.done} total={j.total} failed={j.failed}/>
+        </div>)}
+      </div>
+    </div>
+  </div>);
+}
+
+function PipelinePage({setSelected}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>파이프라인 현황</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>Vision → SD → Claid 3단계 파이프라인 모니터링</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>현재 처리 중인 이미지</h3>
+        <div style={{display:'flex',gap:8,marginBottom:20}}>
+          {pipelineSteps.map((s,i)=><div key={i} style={{flex:1,textAlign:'center'}}>
+            <div style={{width:48,height:48,borderRadius:'50%',background:s.status==='완료'?`${C.success}14`:s.status==='처리중'?`${C.primary}14`:'#F3F4F6',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,margin:'0 auto 8px'}}>{s.status==='완료'?'✅':s.status==='처리중'?<span style={{animation:'pulse 1.5s infinite'}}>⚙️</span>:'⏳'}</div>
+            <div style={{fontSize:13,fontWeight:600}}>{s.name}</div>
+            <div style={{fontSize:11,color:C.textSec,marginTop:2}}>{s.duration}</div>
+          </div>)}
+        </div>
+        <div style={{background:'#FAFAFE',borderRadius:10,padding:14}}>
+          {pipelineSteps.map((s,i)=><div key={i} style={{padding:'8px 0',borderBottom:i<2?`1px solid ${C.border}`:'none'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+              <span style={{fontSize:12,fontWeight:600}}>{s.name}</span><Badge text={s.status}/>
+            </div>
+            <div style={{fontSize:11,color:C.textSec}}>{s.detail}</div>
+          </div>)}
+        </div>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>배치 작업 목록</h3>
+        {batchJobs.map(j=><div key={j.id} onClick={()=>setSelected({type:'batch',data:j})} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:`1px solid ${C.border}`,cursor:'pointer'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <div>
+            <div style={{fontSize:13,fontWeight:600}}>{j.name}</div>
+            <div style={{fontSize:11,color:C.textSec}}>{j.user} · {j.date}</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <Badge text={j.status}/>
+            <div style={{fontSize:11,color:C.textSec,marginTop:4}}>{j.done}/{j.total}</div>
+          </div>
+        </div>)}
+      </div>
+    </div>
+  </div>);
+}
+
+function HistoryPage({setSelected}){
+  const [filter,setFilter]=useState('전체');
+  const statuses=['전체','완료','처리중'];
+  const filtered=imageHistory.filter(i=>filter==='전체'||i.status===filter);
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>이미지 이력</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>보정된 이미지를 검색·필터링하고 다운로드합니다</p></div>
+    <div style={{display:'flex',gap:8,marginBottom:20}}>
+      {statuses.map(s=><button key={s} onClick={()=>setFilter(s)} style={{padding:'8px 16px',borderRadius:20,border:filter===s?'none':`1px solid ${C.border}`,background:filter===s?C.primary:'transparent',color:filter===s?'#fff':C.text,fontSize:13,fontWeight:500,cursor:'pointer'}}>{s}</button>)}
+      <div style={{flex:1}}/>
+      <button style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${C.primary}`,background:'transparent',color:C.primary,fontSize:13,fontWeight:600,cursor:'pointer'}}>📥 일괄 다운로드</button>
+    </div>
+    <div style={{background:C.surface,borderRadius:14,border:`1px solid ${C.border}`,overflow:'hidden'}}>
+      <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <thead><tr style={{background:'#FAFAFE',borderBottom:`2px solid ${C.border}`}}>
+          {['파일명','원본','보정','향상','엔진','배치','상태','일자'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{filtered.map(img=><tr key={img.id} onClick={()=>setSelected({type:'image',data:img})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600}}>{img.name}</td>
+          <td style={{padding:'14px',fontSize:13}}>{img.original}점</td>
+          <td style={{padding:'14px',fontSize:13,fontWeight:600,color:C.primary}}>{img.enhanced?`${img.enhanced}점`:'-'}</td>
+          <td style={{padding:'14px',fontSize:13,color:C.success,fontWeight:600}}>{img.enhanced?`+${img.enhanced-img.original}`:'-'}</td>
+          <td style={{padding:'14px',fontSize:13}}>{img.engine||'-'}</td>
+          <td style={{padding:'14px',fontSize:12,color:C.textSec}}>{img.batch}</td>
+          <td style={{padding:'14px'}}><Badge text={img.status}/></td>
+          <td style={{padding:'14px',fontSize:12,color:C.textSec}}>{img.date}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </div>);
+}
+
+function AdminDashboardPage({setSelected}){
+  return(<div style={{animation:'fadeIn .4s'}}>
+    <div style={{marginBottom:24}}><h2 style={{fontSize:22,fontWeight:700}}>관리자 대시보드</h2><p style={{color:C.textSec,fontSize:14,marginTop:4}}>처리량, API 비용, 오류율, 사용자를 모니터링합니다</p></div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14,marginBottom:24}}>
+      <KPICard icon="📸" label="오늘 업로드" value="85장" sub="전일 대비 +18%"/>
+      <KPICard icon="✅" label="처리 완료" value="78장" sub="성공률 97.5%"/>
+      <KPICard icon="💰" label="API 비용" value="$23.4" sub="Vision $8 / SD $12 / Claid $3.4"/>
+      <KPICard icon="👥" label="활성 사용자" value="12명" sub="프로 5 / 베이직 4 / 기타 3"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:16,marginBottom:24}}>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>일별 처리량 · API 비용</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <ComposedChart data={dailyStats}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="day" tick={{fontSize:12}}/><YAxis yAxisId="left" tick={{fontSize:12}}/><YAxis yAxisId="right" orientation="right" tick={{fontSize:12}}/><Tooltip/><Legend/>
+            <Bar yAxisId="left" dataKey="processed" fill={C.primary} radius={[6,6,0,0]} name="처리 완료"/>
+            <Line yAxisId="right" type="monotone" dataKey="cost" stroke={C.accent} strokeWidth={2} name="API 비용($)" dot={{fill:C.accent}}/>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>엔진별 사용 비율</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <PieChart><Pie data={engineDist} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`}>{engineDist.map((_,i)=><Cell key={i} fill={pieColors[i]}/>)}</Pie><Tooltip/></PieChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <h3 style={{fontSize:15,fontWeight:700,marginBottom:16}}>단계별 오류율 (%)</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={errorRates}><CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB"/><XAxis dataKey="day" tick={{fontSize:12}}/><YAxis tick={{fontSize:12}}/><Tooltip/><Legend/>
+            <Line type="monotone" dataKey="vision" stroke="#06B6D4" strokeWidth={2} name="Vision"/>
+            <Line type="monotone" dataKey="sd" stroke="#F43F5E" strokeWidth={2} name="SD"/>
+            <Line type="monotone" dataKey="claid" stroke="#059669" strokeWidth={2} name="Claid"/>
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{background:C.surface,borderRadius:14,padding:24,border:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',justifyContent:'space-between',marginBottom:16}}>
+          <h3 style={{fontSize:15,fontWeight:700}}>사용자별 크레딧</h3>
+        </div>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead><tr style={{borderBottom:`2px solid ${C.border}`}}>{['이름','플랜','잔여','사용'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:12,fontWeight:600,color:C.textSec}}>{h}</th>)}</tr></thead>
+          <tbody>{users.map(u=><tr key={u.id} onClick={()=>setSelected({type:'user',data:u})} style={{borderBottom:`1px solid ${C.border}`,cursor:'pointer',transition:'background .1s'}} onMouseEnter={e=>e.currentTarget.style.background='#FAFAFE'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <td style={{padding:'10px',fontSize:13,fontWeight:600}}>{u.name}</td>
+            <td style={{padding:'10px'}}><Badge text={u.plan}/></td>
+            <td style={{padding:'10px',fontSize:13,fontWeight:600,color:C.primary}}>{u.credits}</td>
+            <td style={{padding:'10px',fontSize:13,color:C.textSec}}>{u.used}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>);
+}
+
+// ── Detail Panel ──
+function DetailPanel({selected,onClose}){
+  if(!selected)return null;
+  const d=selected.data;
+  return(<div style={{width:400,borderLeft:`1px solid ${C.border}`,background:C.surface,overflow:'auto',animation:'fadeIn .2s',flexShrink:0}}>
+    <div style={{padding:'18px 22px',borderBottom:`1px solid ${C.border}`,display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:C.surface,zIndex:1}}>
+      <h3 style={{fontSize:16,fontWeight:700}}>{selected.type==='batch'?'배치 상세':selected.type==='image'?'이미지 상세':'사용자 상세'}</h3>
+      <button onClick={onClose} style={{background:'none',border:'none',fontSize:18,cursor:'pointer',color:C.textSec}}>✕</button>
+    </div>
+    <div style={{padding:22}}>
+      {selected.type==='batch'&&<div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+          <span style={{fontSize:17,fontWeight:700}}>{d.name}</span><Badge text={d.status}/>
+        </div>
+        <div style={{marginBottom:16}}><ProgressBar done={d.done} total={d.total} failed={d.failed}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[['배치 ID',d.id],['사용자',d.user],['총 이미지',`${d.total}장`],['완료',`${d.done}장`],['실패',`${d.failed}장`],['일자',d.date]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:13,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리자 메모</label>
+        <textarea rows={3} placeholder="배치 관련 메모..." style={{width:'100%',padding:10,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'Pretendard',resize:'vertical',marginBottom:12}}/>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer'}}>닫기</button>
+          {d.failed>0&&<button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.warning,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>실패 건 재시도</button>}
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>전체 다운로드</button>
+        </div>
+      </div>}
+      {selected.type==='image'&&<div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          <div style={{height:120,background:'#F1F5F9',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+            <span style={{fontSize:32}}>🖼️</span><span style={{fontSize:11,color:C.textSec,marginTop:4}}>원본 ({d.original}점)</span>
+          </div>
+          <div style={{height:120,background:`linear-gradient(135deg,#F5F3FF,#EDE9FE)`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
+            <span style={{fontSize:32}}>✨</span><span style={{fontSize:11,color:C.primary,marginTop:4,fontWeight:600}}>보정 ({d.enhanced||'-'}점)</span>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[['파일명',d.name],['엔진',d.engine||'-'],['향상',d.enhanced?`+${d.enhanced-d.original}점`:'-'],['배치',d.batch],['상태',d.status],['일자',d.date]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:13,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer'}}>닫기</button>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>다운로드</button>
+        </div>
+      </div>}
+      {selected.type==='user'&&<div>
+        <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:16}}>
+          <div style={{width:48,height:48,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:C.primary}}>{d.name[0]}</div>
+          <div><div style={{fontSize:16,fontWeight:700}}>{d.name}</div><div style={{fontSize:12,color:C.textSec}}>{d.email}</div></div>
+          <Badge text={d.plan}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          {[['잔여 크레딧',`${d.credits}`],['사용 크레딧',`${d.used}`],['배치 수',`${d.batches}건`],['플랜',d.plan]].map(([k,v])=><div key={k} style={{background:'#FAFAFE',borderRadius:8,padding:10}}><div style={{fontSize:11,color:C.textSec}}>{k}</div><div style={{fontSize:13,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+        </div>
+        <div style={{background:`${C.primary}06`,borderRadius:10,padding:14,marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>크레딧 사용률</div>
+          <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',width:`${(d.used/(d.credits+d.used))*100}%`,background:C.primary,borderRadius:3}}/></div>
+          <div style={{fontSize:11,color:C.textSec,marginTop:4}}>{d.used} / {d.credits+d.used} 사용</div>
+        </div>
+        <label style={{fontSize:13,fontWeight:600,display:'block',marginBottom:6}}>관리자 메모</label>
+        <textarea rows={2} placeholder="사용자 메모..." style={{width:'100%',padding:10,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,fontFamily:'Pretendard',resize:'vertical',marginBottom:12}}/>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,fontSize:13,cursor:'pointer'}}>닫기</button>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:8,border:'none',background:C.primary,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>크레딧 추가</button>
+        </div>
+      </div>}
+    </div>
+  </div>);
+}
+
+// ── App ──
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [page,setPage]=useState('batch-upload');
+  const [selected,setSelected]=useState(null);
+  useEffect(()=>{setTimeout(()=>setLoading(false),1500)},[]);
+  if(loading)return <Skeleton/>;
+
+  const menus=[
+    {key:'batch-upload',icon:'📤',label:'배치 업로드'},
+    {key:'pipeline',icon:'⚙️',label:'파이프라인 현황'},
+    {key:'history',icon:'📂',label:'이미지 이력'},
+    {key:'admin-dashboard',icon:'📊',label:'관리자 대시보드'}
+  ];
+
+  return(<div style={{display:'flex',minHeight:'100vh'}}>
+    <aside style={{width:240,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100,borderRight:`1px solid ${C.border}`}}>
+      <div style={{padding:'22px 18px',borderBottom:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:34,height:34,borderRadius:10,background:C.primary,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,color:'#fff'}}>✨</div>
+          <div><div style={{fontSize:17,fontWeight:800}}>픽스랩</div><div style={{fontSize:11,color:C.textSec}}>AI 이미지 보정 SaaS</div></div>
+        </div>
+      </div>
+      <nav style={{flex:1,padding:'10px 8px'}}>
+        {menus.map(m=><button key={m.key} onClick={()=>{setPage(m.key);setSelected(null)}} style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'11px 12px',borderRadius:10,border:'none',background:page===m.key?`${C.primary}14`:'transparent',color:page===m.key?C.primary:C.textSec,fontSize:14,fontWeight:page===m.key?700:400,cursor:'pointer',marginBottom:2,transition:'all .15s',textAlign:'left'}} onMouseEnter={e=>{if(page!==m.key)e.currentTarget.style.background=C.sidebarHover}} onMouseLeave={e=>{if(page!==m.key)e.currentTarget.style.background='transparent'}}>
+          <span style={{fontSize:16}}>{m.icon}</span>{m.label}
+          {m.key==='pipeline'&&<span style={{marginLeft:'auto',padding:'2px 7px',borderRadius:10,fontSize:11,fontWeight:700,background:C.warning,color:'#fff'}}>2</span>}
+        </button>)}
+      </nav>
+      <div style={{padding:'14px 18px',borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:10,background:`${C.primary}14`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,color:C.primary,fontWeight:600}}>관</div>
+          <div><div style={{fontSize:12,fontWeight:500}}>관리자</div><div style={{fontSize:10,color:C.textSec}}>admin@fixlab.kr</div></div>
+        </div>
+      </div>
+    </aside>
+    <div style={{display:'flex',flex:1,marginLeft:240}}>
+      <main style={{flex:1,minWidth:0}}>
+        <header style={{height:54,background:C.surface,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 26px',position:'sticky',top:0,zIndex:50}}>
+          <div style={{fontSize:15,fontWeight:700}}>{menus.find(m=>m.key===page)?.label}</div>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <input placeholder="검색..." style={{padding:'7px 12px',border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,width:200,outline:'none',fontFamily:'Pretendard'}}/>
+            <button style={{background:'none',border:'none',fontSize:16,cursor:'pointer',position:'relative'}}>🔔<span style={{position:'absolute',top:-2,right:-4,width:7,height:7,background:C.danger,borderRadius:'50%'}}/></button>
+          </div>
+        </header>
+        <div style={{padding:26}}>
+          {page==='batch-upload'&&<BatchUploadPage setSelected={setSelected}/>}
+          {page==='pipeline'&&<PipelinePage setSelected={setSelected}/>}
+          {page==='history'&&<HistoryPage setSelected={setSelected}/>}
+          {page==='admin-dashboard'&&<AdminDashboardPage setSelected={setSelected}/>}
+        </div>
+      </main>
+      {selected&&<DetailPanel selected={selected} onClose={()=>setSelected(null)}/>}
+    </div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
