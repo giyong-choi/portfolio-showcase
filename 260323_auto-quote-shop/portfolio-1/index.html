@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>프린트오더 - 인쇄물 자동견적 쇼핑몰</title>
+<title>자동견적 기반 쇼핑몰 — 맞춤 구현 데모</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -516,8 +516,8 @@ function App(){
     {/* Sidebar */}
     <aside style={{width:260,background:C.sidebarBg,flexShrink:0,display:'flex',flexDirection:'column',position:'fixed',top:0,left:0,bottom:0,zIndex:100}}>
       <div style={{padding:'24px 20px',borderBottom:'1px solid rgba(255,255,255,0.08)'}}>
-        <div style={{fontSize:20,fontWeight:800,color:'#fff',letterSpacing:-0.5}}>🖨️ 프린트오더</div>
-        <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginTop:4}}>인쇄물 자동견적 쇼핑몰</div>
+        <div style={{fontSize:20,fontWeight:800,color:'#fff',letterSpacing:-0.5}}>🛒 자동견적 쇼핑몰</div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginTop:4}}>맞춤 구현 데모</div>
       </div>
       <nav style={{flex:1,padding:'12px 10px'}}>
         {menus.map(m=><button key={m.key} onClick={()=>setPage(m.key)} style={{display:'flex',alignItems:'center',gap:12,width:'100%',padding:'12px 14px',borderRadius:10,border:'none',background:page===m.key?C.sidebarActive:'transparent',color:page===m.key?'#fff':'rgba(255,255,255,0.6)',fontSize:14,fontWeight:page===m.key?600:400,cursor:'pointer',marginBottom:2,transition:'all .15s',textAlign:'left'}} onMouseEnter={e=>{if(page!==m.key)e.currentTarget.style.background=C.sidebarHover}} onMouseLeave={e=>{if(page!==m.key)e.currentTarget.style.background='transparent'}}>
