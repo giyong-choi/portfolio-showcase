@@ -649,6 +649,7 @@ tr:last-child td { border-bottom: none; }
             <button class="topbar-btn primary" style="padding:6px 12px; font-size:12px;" onclick="revealOnBoard()">📺 칠판 공개</button>
           </div>
           <div class="card-body" style="padding:0;">
+            <div id="responseTableQText" style="padding:8px 14px 6px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--border);background:var(--bg);"></div>
             <table><thead><tr><th>학생</th><th>응답 요약</th><th>상태</th><th>칠판</th></tr></thead>
             <tbody id="responseTable"></tbody></table>
           </div>
@@ -1612,9 +1613,11 @@ function renderResponseTable() {
   const qKey = `q${activeQ}`;
   const doneStudents = students.filter(s => s.status==='done' && s[qKey]).slice().reverse().slice(0, 8);
 
-  // 카드 타이틀 Q 레이블 업데이트
+  // 카드 타이틀 Q 레이블 + 질문 텍스트 업데이트
   const qLabel = document.getElementById('responseTableQLabel');
   if (qLabel) qLabel.textContent = `Q${activeQ}`;
+  const qTextEl = document.getElementById('responseTableQText');
+  if (qTextEl) qTextEl.textContent = `Q${activeQ}. ${questions[activeQ-1]?.short || ''}`;
 
   tbody.innerHTML = doneStudents.map(s => {
     const isRevealed = revealedStudentIds.has(s.id);
