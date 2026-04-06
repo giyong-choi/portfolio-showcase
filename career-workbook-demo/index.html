@@ -1023,6 +1023,7 @@ function setupRealtime() {
             if (chip) chip.classList.add('new-submit');
           }, 50);
           if (ROLE === 'teacher' || ROLE === 'all') showToast(`${s.name} 학생이 제출했습니다`);
+          renderResponseTable(); // status가 done으로 바뀌는 시점에 테이블 즉시 갱신 (response 이벤트보다 늦게 올 경우 대비)
         }
       } else {
         // 신규 학생 입장 (데모 체험자)
@@ -1154,30 +1155,56 @@ function selectRole(role) {
   window.location.href = url.toString();
 }
 
+// 시드 학생 ID — 이 ID들은 데이터 초기화 시 절대 삭제하지 않음
+const SEED_STUDENT_IDS = [
+  'bbbbbbbb-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-000000000002',
+  'bbbbbbbb-0000-0000-0000-000000000003','bbbbbbbb-0000-0000-0000-000000000004',
+  'bbbbbbbb-0000-0000-0000-000000000005','bbbbbbbb-0000-0000-0000-000000000006',
+  'bbbbbbbb-0000-0000-0000-000000000007','bbbbbbbb-0000-0000-0000-000000000008',
+  'bbbbbbbb-0000-0000-0000-000000000009','bbbbbbbb-0000-0000-0000-000000000010',
+  'bbbbbbbb-0000-0000-0000-000000000011','bbbbbbbb-0000-0000-0000-000000000012',
+  'bbbbbbbb-0000-0000-0000-000000000013','bbbbbbbb-0000-0000-0000-000000000014',
+  'bbbbbbbb-0000-0000-0000-000000000015','bbbbbbbb-0000-0000-0000-000000000016',
+  'bbbbbbbb-0000-0000-0000-000000000017','bbbbbbbb-0000-0000-0000-000000000018',
+  'bbbbbbbb-0000-0000-0000-000000000019','bbbbbbbb-0000-0000-0000-000000000020',
+  'bbbbbbbb-0000-0000-0000-000000000021','bbbbbbbb-0000-0000-0000-000000000022',
+  'bbbbbbbb-0000-0000-0000-000000000023','bbbbbbbb-0000-0000-0000-000000000024',
+  'bbbbbbbb-0000-0000-0000-000000000025','bbbbbbbb-0000-0000-0000-000000000026',
+  'bbbbbbbb-0000-0000-0000-000000000027','bbbbbbbb-0000-0000-0000-000000000028',
+];
+
 async function resetDemoData() {
-  if (!confirm('데모 데이터를 초기화하시겠습니까?\n학생 입장 기록·응답·localStorage가 모두 삭제됩니다.')) return;
+  if (!confirm('테스트 중 입장한 학생 데이터만 삭제합니다.\n시드 더미 데이터(28명)는 유지됩니다.\n계속하시겠습니까?')) return;
 
   // localStorage 세션 키 삭제
   Object.keys(localStorage).filter(k => k.includes(SESSION_ID)).forEach(k => localStorage.removeItem(k));
 
-  // DB 초기화 (온라인 시)
+  // DB: 시드 ID가 아닌 테스트 학생만 삭제
   if (db && isOnline) {
     try {
-      await db.from('board_reveals').delete().eq('session_id', SESSION_ID);
-      await db.from('student_responses').delete().eq('session_id', SESSION_ID);
-      await db.from('students').delete().eq('session_id', SESSION_ID);
-      await db.from('class_sessions').update({ active_question: 1, focus_mode: false, focused_student_id: null }).eq('id', SESSION_ID);
+      // 현재 DB의 학생 목록에서 테스트 학생 ID 추출
+      const { data: allStudents } = await db.from('students').select('id').eq('session_id', SESSION_ID);
+      const testIds = (allStudents || []).map(s => s.id).filter(id => !SEED_STUDENT_IDS.includes(id));
+
+      if (testIds.length > 0) {
+        await db.from('board_reveals').delete().in('student_id', testIds);
+        await db.from('student_responses').delete().in('student_id', testIds);
+        await db.from('students').delete().in('id', testIds);
+      }
+
+      // 세션 상태 리셋 (active_question, focus_mode)
+      await db.from('class_sessions').update({ active_question: 2, focus_mode: false, focused_student_id: null }).eq('id', SESSION_ID);
     } catch(e) {
       console.warn('DB 초기화 실패:', e);
     }
   }
 
-  students = [];
+  // 로컬 state: 테스트 학생 제거, 시드 학생 유지
+  students = students.filter(s => SEED_STUDENT_IDS.includes(s.id));
   myAnswers = {};
-  revealedStudentIds = new Set();
-  activeQ = 1;
+  activeQ = 2;
   renderAll();
-  showToast('데모 데이터가 초기화되었습니다');
+  showToast('테스트 데이터 삭제 완료 — 시드 데이터 유지');
 }
 
 function renderAll() {
@@ -1581,7 +1608,7 @@ function renderSBResponses() {
 function renderResponseTable() {
   const tbody = document.getElementById('responseTable');
   if (!tbody) return;
-  const doneStudents = students.filter(s => s.status==='done' && s.q2).slice(0, 8);
+  const doneStudents = students.filter(s => s.status==='done' && s.q2).slice().reverse().slice(0, 8);
   tbody.innerHTML = doneStudents.map(s => {
     const isRevealed = revealedStudentIds.has(s.id);
     return `<tr>
