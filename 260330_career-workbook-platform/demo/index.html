@@ -978,6 +978,8 @@ function setupRealtime() {
         renderWorkbook();
         renderQControl();
         renderSBBars();
+        renderSBResponses();
+        renderResponseTable();
         updateActiveQDisplay();
         // 학생 역할일 때만 알림
         if (ROLE === 'student' || ROLE === 'all') {
@@ -1591,7 +1593,8 @@ function renderSBBars() {
 function renderSBResponses() {
   const el = document.getElementById('sbResponses');
   if (!el) return;
-  const revealed = students.filter(s => revealedStudentIds.has(s.id) && s.status==='done' && s.q2);
+  const qKey = `q${activeQ}`;
+  const revealed = students.filter(s => revealedStudentIds.has(s.id) && s.status==='done' && s[qKey]);
   const hasFocus = focusedStudentId !== null;
   el.innerHTML = revealed.map(s => {
     const isFocused = s.id === focusedStudentId;
@@ -1602,7 +1605,7 @@ function renderSBResponses() {
     const clickAttr = isFocused ? `onclick="setSpotlight('${s.id}')" title="클릭하여 포커스 해제" style="cursor:pointer;"` : '';
     return `<div class="sb-response-item" ${clickAttr} style="transition:all .3s;${dimStyle}${glowStyle}">
       <span class="sb-response-name">${s.name} (${s.no}번)${isFocused ? ' <span style="font-size:10px;color:#a78bfa;">● 포커스</span>' : ''}</span>
-      <span class="sb-response-text">${(s.q2||'').slice(0,30)}</span>
+      <span class="sb-response-text">${(s[qKey]||'').slice(0,30)}</span>
     </div>`;
   }).join('') || '<div style="color:rgba(255,255,255,0.3);font-size:13px;text-align:center;padding:20px;">교사가 답변을 공개하면 여기에 표시됩니다</div>';
 }
